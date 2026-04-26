@@ -1,0 +1,19 @@
+{
+  "id": "1-0-example",
+  "title": "EXAMPLE — remove or replace",
+  "domain": "1",
+  "order": 1,
+  "hasFullContent": true,
+  "videoFocus": ["Replace with your Messer video bullets"],
+  "simpleExplanation": "When importing, merge fields into src/data/lessons.ts and add quiz rows to quizzes.ts.",
+  "highlightRules": [
+    { "term": "term", "meaning": "short gloss", "importance": "must" }
+  ],
+  "writeDown": "Your atomic notes, max 5 per section in app.",
+  "examTraps": [{ "a": "A", "b": "B" }],
+  "instantRecognition": [{ "keyword": "k", "answer": "a" }],
+  "threeSecondRecall": ["line 1", "line 2"],
+  "quickAction": "Local safe action",
+  "miniQuizIntro": "Optional",
+  "teachBackPrompt": "What would you say in 30s?"
+}
