@@ -32,7 +32,7 @@ Artifacts appear in **`dist/`**.
 6. Root directory: repo root (where `package.json` lives).
 7. Deploy.
 
-**SPA routing:** `vercel.json` in this repo rewrites unknown paths to `index.html` so `/roadmap`, `/quiz/messer-exam-a`, etc. work on refresh.
+**SPA routing:** `vercel.json` uses `routes`: serve real files first (`filesystem`), then fall back to `index.html` so `/roadmap`, `/quiz/messer-exam-a`, `/assets/*`, etc. work on refresh.
 
 **Share:** Copy the production URL (e.g. `https://your-app.vercel.app`) and send it to your friend.
 
