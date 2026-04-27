@@ -1,19 +1,35 @@
 import { Link } from "react-router-dom";
+import { useMemo, useEffect } from "react";
 import { SECTION_ORDER } from "../data/sectionOrder";
 import { lessons } from "../data/lessons";
 import { useProgress } from "../context/ProgressContext";
 import { isLessonUnlocked } from "../utils/adaptive";
 import { nextLessonId } from "../utils/lessonOrder";
+import AppShell from "../components/AppShell";
+import PageHeader from "../components/PageHeader";
+import AITutorPanel from "../components/AITutorPanel";
 
 export default function Roadmap() {
-  const { state } = useProgress();
+  const { state, bumpStudyResume } = useProgress();
+  useEffect(() => {
+    bumpStudyResume({ roadmap: true });
+  }, [bumpStudyResume]);
   const currentId = nextLessonId(state);
+  const weakAreasRoadmap = useMemo(
+    () =>
+      (["1", "2", "3", "4", "5"] as const)
+        .filter((d) => (state.domainScore[d] ?? 50) < 47)
+        .map((d) => `Domain ${d}`),
+    [state.domainScore],
+  );
   return (
-    <div>
-      <h1 className="h1">Course roadmap (Messer order)</h1>
-      <p className="text-slate-400 text-sm sm:text-base mt-1 mb-6 max-w-2xl leading-relaxed">
-        Follow top to bottom. Each row unlocks when the <strong className="text-slate-200">previous</strong> item in this Messer-ordered list is marked complete. Your &quot;Next action&quot; on the dashboard is always the first incomplete lesson.
-      </p>
+    <AppShell>
+      <div className="lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
+        <div className="min-w-0">
+          <PageHeader
+            title="Course roadmap (Messer order)"
+            purpose='Follow top to bottom. Each row unlocks when the previous item in this list is marked complete. Your "Next action" on the dashboard is always the first incomplete lesson.'
+          />
       <ol className="space-y-3">
         {SECTION_ORDER.map((s, i) => {
           const L = lessons[s.id];
@@ -58,6 +74,17 @@ export default function Roadmap() {
           );
         })}
       </ol>
-    </div>
+        </div>
+        <AITutorPanel
+          className="lg:sticky lg:top-4 order-first lg:order-none"
+          context={{
+            surface: "dashboard",
+            weakAreas: weakAreasRoadmap,
+            userProgress: { currentLessonId: currentId, completed: state.completedLessons.length },
+            coachLines: currentId && lessons[currentId] ? [`Next in path: ${lessons[currentId]!.title}`] : undefined,
+          }}
+        />
+      </div>
+    </AppShell>
   );
 }

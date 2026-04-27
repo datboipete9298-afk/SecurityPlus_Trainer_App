@@ -1,11 +1,13 @@
-import { Navigate } from "react-router-dom";
-import { useProgress } from "../context/ProgressContext";
-import Dashboard from "../pages/Dashboard";
+import { lazy, Suspense } from "react";
+import PageFallback from "./PageFallback";
 
+const Dashboard = lazy(() => import("../pages/Dashboard"));
+
+/** Always land on the dashboard — onboarding is a banner, not a wall (see Dashboard). */
 export default function HomeGate() {
-  const { state } = useProgress();
-  if (!state.onboarding.hasSeenStartHere) {
-    return <Navigate to="/start-here" replace />;
-  }
-  return <Dashboard />;
+  return (
+    <Suspense fallback={<PageFallback />}>
+      <Dashboard />
+    </Suspense>
+  );
 }

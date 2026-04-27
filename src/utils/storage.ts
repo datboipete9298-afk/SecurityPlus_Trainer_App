@@ -1,7 +1,39 @@
 import type { DomainId } from "../types";
 
 const KEY = "spt_v1_state";
-const SCHEMA_VERSION = 3 as const;
+const SCHEMA_VERSION = 9 as const;
+
+export type UserConfidenceLevel = "not_sure" | "somewhat_sure" | "very_sure" | "skipped";
+
+/** Tutor feedback loop: confidence, confusion flags, retries (analytics for coach). */
+export type FeedbackLoopState = {
+  confidenceByQuestionId: Record<string, { level: UserConfidenceLevel; at: number }>;
+  confusingQuestionIds: string[];
+  quizRetryCountByQuestionId: Record<string, number>;
+  /** Short “explain in your own words” per question id */
+  teachBackMicroByQuestionId: Record<string, { text: string; at: number }>;
+  /** Count of “very sure” + wrong for adaptive tutoring */
+  falseConfidenceHitsByQuestionId: Record<string, number>;
+  /** Same-lesson miss streak signal for concept confusion (adaptive addendum). */
+  confusionSignalByConcept: Record<string, number>;
+};
+
+export function emptyFeedbackLoop(): FeedbackLoopState {
+  return {
+    confidenceByQuestionId: {},
+    confusingQuestionIds: [],
+    quizRetryCountByQuestionId: {},
+    teachBackMicroByQuestionId: {},
+    falseConfidenceHitsByQuestionId: {},
+    confusionSignalByConcept: {},
+  };
+}
+
+export type TrainingRunsState = {
+  labs: Record<string, { at: number; pass: boolean; retries: number }>;
+  sims: Record<string, { at: number; score: number; pass: boolean; retries: number }>;
+  decisions: Record<string, { at: number; correct: boolean; attempts: number }>;
+};
 
 export type PracticeExamAttempt = {
   at: number;
@@ -48,6 +80,66 @@ export interface PersistedState {
   lessonProgress: Record<string, import("../types/beginner").LessonProgress>;
   /** Practice exam (A/B/C) attempts — readiness and hub history */
   practiceExamAttempts?: PracticeExamAttempt[];
+  /** Hands-on training platform — labs, simulations, decisions */
+  trainingRuns?: TrainingRunsState;
+  /** Lessons where all hands-on blocks passed at least once */
+  trainingMasteryLessonIds?: string[];
+  /** Confidence + confusion tracking for tutor-style feedback */
+  feedbackLoop?: FeedbackLoopState;
+  /** PBQ ordering labs passed at least once (id from `pbqCatalog`) */
+  pbqPassedIds?: string[];
+  /** Simple lesson view: video, hooks, one note, action, quiz only — full power via “Show full lesson” */
+  simpleLessonMode?: boolean;
+  /** Highest streak milestone the user dismissed “Nice — keep going” for — resets when streak breaks */
+  lastAcknowledgedStreakMilestone?: number;
+  /** Per-day study signals for “today” dashboard (resets when `date` ≠ today on next bump) */
+  todayActivity?: TodayActivity;
+  /** Domain scores at first activity of `date` — for same-day mastery / regression copy */
+  domainScoreDayBaseline?: { date: string; scores: Record<string, number> };
+  /** Last outside-quiz extension identity moment (per-bucket cooldown) */
+  outsideQuizIdentityEcho?: { bucket: string; at: number };
+  /** Last touched lesson / quiz / flashcards / PBQ for global resume */
+  studyResume?: import("./studyResume").StudyResumeState;
+}
+
+export type TodayActivity = {
+  date: string;
+  /** Distinct lessons touched (progress / notes / quiz / complete) */
+  lessonIds: string[];
+  quizQuestionsAnswered: number;
+  flashcardsReviewed: number;
+  pbqAttempts: number;
+};
+
+export function mergeTodayActivity(
+  s: PersistedState,
+  today: string,
+  delta: {
+    touchLessonId?: string;
+    quizAnswered?: number;
+    flashcardReviewed?: number;
+    pbqAttempt?: number;
+  },
+): PersistedState {
+  let ta = s.todayActivity;
+  if (!ta || ta.date !== today) {
+    ta = { date: today, lessonIds: [], quizQuestionsAnswered: 0, flashcardsReviewed: 0, pbqAttempts: 0 };
+  } else {
+    ta = {
+      date: ta.date,
+      lessonIds: [...ta.lessonIds],
+      quizQuestionsAnswered: ta.quizQuestionsAnswered,
+      flashcardsReviewed: ta.flashcardsReviewed,
+      pbqAttempts: ta.pbqAttempts,
+    };
+  }
+  if (delta.touchLessonId && !ta.lessonIds.includes(delta.touchLessonId)) {
+    ta.lessonIds.push(delta.touchLessonId);
+  }
+  if (delta.quizAnswered) ta.quizQuestionsAnswered += delta.quizAnswered;
+  if (delta.flashcardReviewed) ta.flashcardsReviewed += delta.flashcardReviewed;
+  if (delta.pbqAttempt) ta.pbqAttempts += delta.pbqAttempt;
+  return { ...s, todayActivity: ta };
 }
 
 const defaultState = (): PersistedState => ({
@@ -73,9 +165,15 @@ const defaultState = (): PersistedState => ({
   skippedLabIds: [],
   cardWrongStreak: {},
   beginnerMode: true,
+  simpleLessonMode: true,
   onboarding: { hasSeenStartHere: false },
   lessonProgress: {},
   practiceExamAttempts: [],
+  trainingRuns: { labs: {}, sims: {}, decisions: {} },
+  trainingMasteryLessonIds: [],
+  feedbackLoop: emptyFeedbackLoop(),
+  pbqPassedIds: [],
+  lastAcknowledgedStreakMilestone: 0,
 });
 
 function migrateAndNormalize(base: PersistedState, raw: unknown): PersistedState {
@@ -88,6 +186,7 @@ function migrateAndNormalize(base: PersistedState, raw: unknown): PersistedState
     o.onboarding = { hasSeenStartHere: true };
   }
   if (!o.onboarding) o.onboarding = { hasSeenStartHere: false };
+  if (o.simpleLessonMode === undefined) o.simpleLessonMode = o.beginnerMode !== false;
   if (!o.lessonProgress) o.lessonProgress = {};
   if (o.beginnerMode === undefined) o.beginnerMode = true;
   if (!o.lessonCompletedOn) o.lessonCompletedOn = {};
@@ -100,11 +199,112 @@ function migrateAndNormalize(base: PersistedState, raw: unknown): PersistedState
     o.schemaVersion = SCHEMA_VERSION;
   }
   if (!Array.isArray(o.practiceExamAttempts)) o.practiceExamAttempts = [];
+  if (!o.trainingRuns || typeof o.trainingRuns !== "object") {
+    o.trainingRuns = { labs: {}, sims: {}, decisions: {} };
+  } else {
+    o.trainingRuns = {
+      labs: typeof o.trainingRuns.labs === "object" && o.trainingRuns.labs ? o.trainingRuns.labs : {},
+      sims: typeof o.trainingRuns.sims === "object" && o.trainingRuns.sims ? o.trainingRuns.sims : {},
+      decisions:
+        typeof o.trainingRuns.decisions === "object" && o.trainingRuns.decisions ? o.trainingRuns.decisions : {},
+    };
+  }
+  if (!Array.isArray(o.trainingMasteryLessonIds)) o.trainingMasteryLessonIds = [];
+  if (!o.feedbackLoop || typeof o.feedbackLoop !== "object") {
+    o.feedbackLoop = emptyFeedbackLoop();
+  } else {
+    o.feedbackLoop = {
+      confidenceByQuestionId:
+        typeof o.feedbackLoop.confidenceByQuestionId === "object" && o.feedbackLoop.confidenceByQuestionId
+          ? o.feedbackLoop.confidenceByQuestionId
+          : {},
+      confusingQuestionIds: Array.isArray(o.feedbackLoop.confusingQuestionIds)
+        ? o.feedbackLoop.confusingQuestionIds
+        : [],
+      quizRetryCountByQuestionId:
+        typeof o.feedbackLoop.quizRetryCountByQuestionId === "object" && o.feedbackLoop.quizRetryCountByQuestionId
+          ? o.feedbackLoop.quizRetryCountByQuestionId
+          : {},
+      teachBackMicroByQuestionId:
+        typeof o.feedbackLoop.teachBackMicroByQuestionId === "object" && o.feedbackLoop.teachBackMicroByQuestionId
+          ? o.feedbackLoop.teachBackMicroByQuestionId
+          : {},
+      falseConfidenceHitsByQuestionId:
+        typeof o.feedbackLoop.falseConfidenceHitsByQuestionId === "object" &&
+        o.feedbackLoop.falseConfidenceHitsByQuestionId
+          ? o.feedbackLoop.falseConfidenceHitsByQuestionId
+          : {},
+      confusionSignalByConcept:
+        typeof o.feedbackLoop.confusionSignalByConcept === "object" && o.feedbackLoop.confusionSignalByConcept
+          ? o.feedbackLoop.confusionSignalByConcept
+          : {},
+    };
+  }
   o.userFlashcards = Array.isArray(o.userFlashcards) ? o.userFlashcards : [];
   o.missedJournal = Array.isArray(o.missedJournal) ? o.missedJournal : [];
   o.spaced = Array.isArray(o.spaced) ? o.spaced : [];
   o.notes = Array.isArray(o.notes) ? o.notes : [];
   o.completedLessons = Array.isArray(o.completedLessons) ? o.completedLessons : [];
+  o.pbqPassedIds = Array.isArray(o.pbqPassedIds) ? o.pbqPassedIds : [];
+  if (o.lastAcknowledgedStreakMilestone == null || typeof o.lastAcknowledgedStreakMilestone !== "number") {
+    o.lastAcknowledgedStreakMilestone = 0;
+  }
+  if (o.todayActivity && typeof o.todayActivity === "object") {
+    const ta = o.todayActivity as TodayActivity;
+    o.todayActivity = {
+      date: typeof ta.date === "string" ? ta.date : "",
+      lessonIds: Array.isArray(ta.lessonIds) ? ta.lessonIds.filter((x) => typeof x === "string") : [],
+      quizQuestionsAnswered: typeof ta.quizQuestionsAnswered === "number" ? ta.quizQuestionsAnswered : 0,
+      flashcardsReviewed: typeof ta.flashcardsReviewed === "number" ? ta.flashcardsReviewed : 0,
+      pbqAttempts: typeof ta.pbqAttempts === "number" ? ta.pbqAttempts : 0,
+    };
+  }
+  if (o.domainScoreDayBaseline && typeof o.domainScoreDayBaseline === "object") {
+    const db = o.domainScoreDayBaseline as { date?: unknown; scores?: unknown };
+    if (typeof db.date !== "string" || typeof db.scores !== "object" || !db.scores) {
+      delete o.domainScoreDayBaseline;
+    } else {
+      o.domainScoreDayBaseline = {
+        date: db.date,
+        scores: { ...base.domainScore, ...(db.scores as Record<string, number>) },
+      };
+    }
+  }
+  if (o.outsideQuizIdentityEcho && typeof o.outsideQuizIdentityEcho === "object") {
+    const e = o.outsideQuizIdentityEcho as { bucket?: unknown; at?: unknown };
+    if (typeof e.bucket !== "string" || typeof e.at !== "number") {
+      delete o.outsideQuizIdentityEcho;
+    }
+  }
+  if (o.studyResume && typeof o.studyResume === "object") {
+    const r = o.studyResume as Record<string, unknown>;
+    const nums = [
+      "lessonAt",
+      "watchAt",
+      "quizAt",
+      "flashcardsAt",
+      "pbqAt",
+      "pbqHubAt",
+      "practiceExamAt",
+      "practiceExamsHubAt",
+      "bossHubAt",
+      "bossAt",
+      "session30At",
+      "simAt",
+      "roadmapAt",
+      "progressPageAt",
+      "searchAt",
+      "importPageAt",
+    ] as const;
+    for (const k of nums) {
+      if (r[k] != null && typeof r[k] !== "number") delete r[k];
+    }
+    const strs = ["watchLessonId", "practiceExamId", "bossId"] as const;
+    for (const k of strs) {
+      if (r[k] != null && typeof r[k] !== "string") delete r[k];
+    }
+    if (r.simLessonId !== undefined && r.simLessonId !== null && typeof r.simLessonId !== "string") delete r.simLessonId;
+  }
   return o;
 }
 

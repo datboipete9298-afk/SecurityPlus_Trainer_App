@@ -3,5 +3,25 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  server: { port: 5173, open: true },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("react-router")) return "vendor-router";
+          if (id.includes("react-dom") || id.includes("node_modules/react/")) return "vendor-react";
+        },
+      },
+    },
+  },
+  server: {
+    port: 5173,
+    open: true,
+    proxy: {
+      "/api": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
+    },
+  },
 });

@@ -1,52 +1,66 @@
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { questionsByLesson } from "../data/quizzes";
+import { lessons } from "../data/lessons";
 import { useProgress } from "../context/ProgressContext";
 import { gradeQuestion, isMultiSelect, correctAnswerLabel } from "../utils/quizHelpers";
 import ContinueButton from "../components/ContinueButton";
+import FeedbackPanel from "../components/FeedbackPanel";
+import ConfidenceSelector from "../components/ConfidenceSelector";
+import MicroTeachBack from "../components/MicroTeachBack";
+import SessionSummary, { type SessionEntry } from "../components/SessionSummary";
+import ExamReport from "../components/ExamReport";
+import { buildQuizTutorFeedback } from "../core/feedbackEngine";
+import { isKeyQuizQuestion, microTeachBackQuality, conceptKey } from "../core/adaptiveEngine";
+import type { UserConfidenceLevel } from "../utils/storage";
+import { emptyFeedbackLoop } from "../utils/storage";
+import { smartQuizPraise } from "../utils/stickinessCopy";
+import { pickQuizIdentityLine } from "../utils/identityReinforcement";
+import AITutorPanel from "../components/AITutorPanel";
+import SessionMomentumCard from "../components/SessionMomentumCard";
+import FailureRecoveryPanel from "../components/FailureRecoveryPanel";
+import {
+  clearPracticeExamDraft,
+  practiceExamDisplayLabel,
+  readPracticeExamDraft,
+  writePracticeExamDraft,
+} from "../utils/practiceExamDraft";
 
 const MESSER_PREFIX = "messer-exam-";
-
-function draftKey(examId: string) {
-  return `spt_exam_draft_v1_${examId}`;
-}
-
-type Draft = {
-  i: number;
-  answers: Record<string, { single?: number; multi?: number[] }>;
-};
-
-function readDraft(examId: string): Draft | null {
-  try {
-    const raw = sessionStorage.getItem(draftKey(examId));
-    if (!raw) return null;
-    const o = JSON.parse(raw) as Draft;
-    if (typeof o?.i !== "number" || !o.answers || typeof o.answers !== "object") return null;
-    return o;
-  } catch {
-    return null;
-  }
-}
-
-function writeDraft(examId: string, d: Draft) {
-  sessionStorage.setItem(draftKey(examId), JSON.stringify(d));
-}
-
-function clearDraft(examId: string) {
-  sessionStorage.removeItem(draftKey(examId));
-}
 
 export default function QuizPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const { recordQuiz, patchLessonProgress, nextStep, state, appendPracticeExamAttempt } = useProgress();
+  const {
+    recordQuiz,
+    patchLessonProgress,
+    nextStep,
+    state,
+    appendPracticeExamAttempt,
+    recordQuizConfidence,
+    markQuestionConfusing,
+    bumpQuizRetryCount,
+    addFlashcardFromQuizQuestion,
+    saveMicroTeachBack,
+    readiness,
+    bumpStudyResume,
+  } = useProgress();
 
   const isMesser = Boolean(id?.startsWith(MESSER_PREFIX));
   const modeParam = searchParams.get("mode");
   const mode: "exam" | "study" = modeParam === "study" ? "study" : isMesser ? "exam" : "study";
   const wrongOnly = searchParams.get("wrongOnly") === "1";
+  const quickParam = searchParams.get("quick");
+  const quickCap = useMemo(() => {
+    const n = parseInt(quickParam ?? "", 10);
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 200) : null;
+  }, [quickParam]);
 
-  const baseQs = useMemo(() => (id ? questionsByLesson(id) : []), [id]);
+  const fullQs = useMemo(() => (id ? questionsByLesson(id) : []), [id]);
+  const baseQs = useMemo(() => {
+    if (!quickCap || !fullQs.length) return fullQs;
+    return fullQs.slice(0, quickCap);
+  }, [fullQs, quickCap]);
 
   const lastWrongSet = useMemo(() => {
     if (!id || !wrongOnly || !isMesser) return null;
@@ -59,6 +73,14 @@ export default function QuizPage() {
     if (!lastWrongSet) return baseQs;
     return baseQs.filter((q) => lastWrongSet.has(q.id));
   }, [baseQs, lastWrongSet]);
+
+  const weakAreasQuiz = useMemo(
+    () =>
+      (["1", "2", "3", "4", "5"] as const)
+        .filter((d) => (state.domainScore[d] ?? 50) < 47)
+        .map((d) => `Domain ${d} (${state.domainScore[d]})`),
+    [state.domainScore],
+  );
 
   const [i, setI] = useState(0);
   const [sel, setSel] = useState<number | null>(null);
@@ -75,6 +97,15 @@ export default function QuizPage() {
   );
 
   const [draftLoaded, setDraftLoaded] = useState(false);
+  /** Tutor mode: confidence before Continue / Finish */
+  const [confidenceGate, setConfidenceGate] = useState<UserConfidenceLevel | null>(null);
+  const [quizWrapUp, setQuizWrapUp] = useState(false);
+  const [feedbackDetailOpen, setFeedbackDetailOpen] = useState(true);
+  const [sessionLog, setSessionLog] = useState<SessionEntry[]>([]);
+  const [teachDraft, setTeachDraft] = useState("");
+  /** After a wrong answer, show whether a new miss flashcard was added (lesson / study flows only). */
+  const [missFlashcardCue, setMissFlashcardCue] = useState<null | "new" | "existing">(null);
+  const [quizIdentityLine, setQuizIdentityLine] = useState<string | null>(null);
 
   useEffect(() => {
     setI(0);
@@ -85,11 +116,29 @@ export default function QuizPage() {
     setExamAnswers({});
     setReviewAnswers(null);
     setDraftLoaded(false);
+    setConfidenceGate(null);
+    setQuizWrapUp(false);
+    setFeedbackDetailOpen(true);
+    setSessionLog([]);
+    setTeachDraft("");
+    setMissFlashcardCue(null);
+    setQuizIdentityLine(null);
   }, [id, mode, wrongOnly]);
 
   useEffect(() => {
+    if (!id) return;
+    if (isMesser) bumpStudyResume({ practiceExamId: id });
+    else bumpStudyResume({ quizLessonId: id });
+  }, [id, isMesser, bumpStudyResume]);
+
+  useEffect(() => {
+    setQuizWrapUp(false);
+    setQuizIdentityLine(null);
+  }, [i]);
+
+  useEffect(() => {
     if (!id || !isMesser || draftLoaded || mode !== "exam" || wrongOnly) return;
-    const d = readDraft(id);
+    const d = readPracticeExamDraft(id);
     if (d && qs.length) {
       setI(Math.min(d.i, qs.length - 1));
       const idx = Math.min(d.i, qs.length - 1);
@@ -113,10 +162,37 @@ export default function QuizPage() {
     setSel(null);
     setPicked([]);
     setShow(false);
+    setConfidenceGate(null);
+    setFeedbackDetailOpen(true);
+    setMissFlashcardCue(null);
+    setQuizIdentityLine(null);
   };
 
   const q = qs[i] ?? null;
   const multi = q ? isMultiSelect(q) : false;
+
+  const tutorFeedback = useMemo(() => {
+    if (!q || !show || (isMesser && mode === "exam")) return null;
+    const correct = gradeQuestion(q, sel, picked);
+    const w = state.questionStats[q.id]?.w ?? 0;
+    const missBefore = correct ? w : Math.max(0, w - 1);
+    const fl = state.feedbackLoop ?? emptyFeedbackLoop();
+    const fc = fl.falseConfidenceHitsByQuestionId[q.id] ?? 0;
+    const ck = conceptKey(q.lessonId, q.examKeyword);
+    const confusionHits = fl.confusionSignalByConcept[ck] ?? 0;
+    return buildQuizTutorFeedback(q, sel, picked, {
+      missStreakBefore: missBefore,
+      falseConfidenceHitsAfterAttempt: fc,
+      confusionHits,
+      feedbackLoop: fl,
+    });
+  }, [show, isMesser, mode, q, sel, picked, state.questionStats, state.feedbackLoop]);
+
+  useEffect(() => {
+    if (!show || !q) return;
+    const saved = state.feedbackLoop?.teachBackMicroByQuestionId[q.id]?.text ?? "";
+    setTeachDraft(saved);
+  }, [show, q?.id, state.feedbackLoop]);
 
   const togglePick = (idx: number) => {
     if (show) return;
@@ -127,11 +203,41 @@ export default function QuizPage() {
   const submitMultiStudy = () => {
     if (!q || show || !multi) return;
     const ok = gradeQuestion(q, null, picked);
+    const cardId = `u-mis-${q.id}`;
+    const alreadyHad = state.userFlashcards.some((c) => c.id === cardId);
+    const prevS = state.questionStats[q.id] ?? { c: 0, w: 0 };
+    setQuizIdentityLine(
+      pickQuizIdentityLine({
+        questionId: q.id,
+        domain: q.domain,
+        lessonTitle: lessons[q.lessonId]?.title,
+        readinessLabel: readiness.label,
+        prevCorrect: prevS.c,
+        prevWrong: prevS.w,
+        correctNow: ok,
+      }),
+    );
     setShow(true);
-    recordQuiz(q.id, q.lessonId, q.domain, ok);
+    recordQuiz(q.id, q.lessonId, q.domain, ok, q.examKeyword);
+    if (!ok && !(isMesser && mode === "exam")) setMissFlashcardCue(alreadyHad ? "existing" : "new");
+    else setMissFlashcardCue(null);
+    const snip = q.text.replace(/\s+/g, " ").trim();
+    setSessionLog((prev) => {
+      const rest = prev.filter((e) => e.qid !== q.id);
+      return [
+        ...rest,
+        {
+          qid: q.id,
+          correct: ok,
+          keyword: q.examKeyword.split(",")[0]?.trim() ?? "concept",
+          textSnippet: snip.length <= 72 ? snip : `${snip.slice(0, 72)}…`,
+        },
+      ];
+    });
     if (!isMesser && i === qs.length - 1) patchLessonProgress(id!, { quizCompleted: true });
   };
 
+  /** Exam-taking only: selection only. Lesson + study mode: select first, then “Check my answer”. */
   const onPickSingle = (idx: number) => {
     if (!q) return;
     if (isMesser && mode === "exam" && examPhase === "taking") {
@@ -140,8 +246,42 @@ export default function QuizPage() {
     }
     if (show || multi) return;
     setSel(idx);
+  };
+
+  const confirmSingleAnswer = () => {
+    if (!q || show || multi || sel == null) return;
+    const ok = sel === q.correctIndex;
+    const cardId = `u-mis-${q.id}`;
+    const alreadyHad = state.userFlashcards.some((c) => c.id === cardId);
+    const prevS = state.questionStats[q.id] ?? { c: 0, w: 0 };
+    setQuizIdentityLine(
+      pickQuizIdentityLine({
+        questionId: q.id,
+        domain: q.domain,
+        lessonTitle: lessons[q.lessonId]?.title,
+        readinessLabel: readiness.label,
+        prevCorrect: prevS.c,
+        prevWrong: prevS.w,
+        correctNow: ok,
+      }),
+    );
     setShow(true);
-    recordQuiz(q.id, q.lessonId, q.domain, idx === q.correctIndex);
+    recordQuiz(q.id, q.lessonId, q.domain, ok, q.examKeyword);
+    if (!ok && !(isMesser && mode === "exam")) setMissFlashcardCue(alreadyHad ? "existing" : "new");
+    else setMissFlashcardCue(null);
+    const snip = q.text.replace(/\s+/g, " ").trim();
+    setSessionLog((prev) => {
+      const rest = prev.filter((e) => e.qid !== q.id);
+      return [
+        ...rest,
+        {
+          qid: q.id,
+          correct: ok,
+          keyword: q.examKeyword.split(",")[0]?.trim() ?? "concept",
+          textSnippet: snip.length <= 72 ? snip : `${snip.slice(0, 72)}…`,
+        },
+      ];
+    });
     if (!isMesser && i === qs.length - 1) patchLessonProgress(id!, { quizCompleted: true });
   };
 
@@ -163,7 +303,7 @@ export default function QuizPage() {
           const ok = gradeQuestion(qq, a.single, a.multi);
           if (ok) correct++;
           else wrongIds.push(qq.id);
-          recordQuiz(qq.id, qq.lessonId, qq.domain, ok);
+          recordQuiz(qq.id, qq.lessonId, qq.domain, ok, qq.examKeyword);
           const d = qq.domain;
           if (!domainHits[d]) domainHits[d] = { c: 0, w: 0 };
           if (ok) domainHits[d]!.c++;
@@ -178,7 +318,7 @@ export default function QuizPage() {
           wrongIds,
           domainHits,
         });
-        clearDraft(id);
+        clearPracticeExamDraft(id);
         setReviewAnswers(nextAnswers);
         setExamPhase("review");
         return;
@@ -190,18 +330,16 @@ export default function QuizPage() {
       const saved = nextAnswers[nq.id];
       if (isMultiSelect(nq)) setPicked(saved?.multi ?? []);
       else setSel(saved?.single ?? null);
-      writeDraft(
-        id,
-        {
-          i: ni,
-          answers: Object.fromEntries(
-            Object.entries(nextAnswers).map(([k, v]) => [
-              k,
-              v.multi.length ? { multi: v.multi } : v.single != null ? { single: v.single } : {},
-            ]),
-          ),
-        },
-      );
+      writePracticeExamDraft(id, {
+        i: ni,
+        answers: Object.fromEntries(
+          Object.entries(nextAnswers).map(([k, v]) => [
+            k,
+            v.multi.length ? { multi: v.multi } : v.single != null ? { single: v.single } : {},
+          ]),
+        ),
+      });
+      bumpStudyResume({ practiceExamId: id });
       return;
     }
     resetQuestionUi();
@@ -212,6 +350,7 @@ export default function QuizPage() {
     if (!q) return "";
     if (!show && !(isMesser && mode === "exam" && examPhase === "taking")) {
       if (multi && picked.includes(j)) return "border-emerald-500 bg-emerald-900/20";
+      if (!multi && sel === j) return "border-sky-500 bg-sky-900/25";
       return "border-slate-600 hover:border-emerald-600 bg-slate-800/50";
     }
     if (isMesser && mode === "study" && show) {
@@ -268,7 +407,8 @@ export default function QuizPage() {
     const last = attempts.filter((a) => a.examId === id).slice(-1)[0];
     const pct = last && last.total ? Math.round((last.correct / last.total) * 100) : 0;
     return (
-      <div className="max-w-2xl space-y-6">
+      <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
+        <div className="max-w-2xl space-y-6 min-w-0">
         <h1 className="h1">Exam review</h1>
         <p className="text-slate-400 text-sm">
           {last ? (
@@ -295,6 +435,48 @@ export default function QuizPage() {
               })}
             </ul>
           </div>
+        )}
+        {id && (
+          <ExamReport
+            examLabel={id.replace(/^messer-exam-/, "Exam ").replace(/-/g, " ").toUpperCase()}
+            results={qs.map((qq) => ({
+              qid: qq.id,
+              domain: qq.domain,
+              correct: gradeQuestion(qq, answerMap[qq.id]?.single ?? null, answerMap[qq.id]?.multi ?? []),
+            }))}
+            persisted={state}
+          />
+        )}
+        {last && pct < 65 && id && (
+          <FailureRecoveryPanel
+            tone="amber"
+            title="Tough run — turn this into progress"
+            whatHappened={`You scored ${pct}% on ${practiceExamDisplayLabel(id)}.`}
+            whyItMatters="A low timed score is data, not a verdict. Security+ rewards fixing patterns you miss under pressure — short targeted repairs beat another full exam right away."
+            nextStep="Choose one repair below, then come back with study mode or a quick pass."
+            ariaLabel="Recovery after a low exam score"
+            actions={
+              <>
+                {last.wrongIds.length > 0 && (
+                  <Link className="btn text-sm min-h-[44px] justify-center touch-manipulation" to={`/quiz/${id}?mode=study&wrongOnly=1`}>
+                    Study only misses ({last.wrongIds.length})
+                  </Link>
+                )}
+                <Link className="btn text-sm min-h-[44px] justify-center touch-manipulation" to={`/quiz/${id}?mode=study&quick=5`}>
+                  Quick practice (5)
+                </Link>
+                <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/weak">
+                  Weak area repair
+                </Link>
+                <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/flashcards">
+                  Flashcards
+                </Link>
+                <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/practice-exams">
+                  Exam hub
+                </Link>
+              </>
+            }
+          />
         )}
         <div className="space-y-4">
           {qs.map((qq) => {
@@ -332,16 +514,55 @@ export default function QuizPage() {
             Hub
           </Link>
         </div>
+        <SessionMomentumCard hasTodayActivity compact />
+        </div>
+        <AITutorPanel
+          className="lg:sticky lg:top-4 order-first lg:order-none"
+          context={{
+            surface: "quiz",
+            weakAreas: weakAreasQuiz,
+            quiz: {
+              stem: "Exam review — ask about any question above, domain gaps, or how to retake misses.",
+              options: [],
+              explanation: last
+                ? `Score ${last.correct} / ${last.total} (${pct}%). Missed ${last.wrongIds.length}.`
+                : undefined,
+            },
+            coachLines: last ? [`Score ${pct}%`, `${last.wrongIds.length} missed`] : undefined,
+          }}
+        />
       </div>
     );
   }
 
   const qq = q!;
+  const correctNow = gradeQuestion(qq, sel, picked);
+  const wMiss = state.questionStats[qq.id]?.w ?? 0;
+  const progressionBlocked = !correctNow && wMiss >= 3;
+  const keyQ = isKeyQuizQuestion(qq, i);
+  const teachOk = !keyQ || microTeachBackQuality(teachDraft).ok;
+
+  const flushConfidenceAnd = (fn: () => void) => {
+    if (confidenceGate == null) return;
+    recordQuizConfidence(qq.id, confidenceGate, correctNow);
+    if (keyQ && teachDraft.trim()) saveMicroTeachBack(qq.id, teachDraft);
+    setConfidenceGate(null);
+    fn();
+  };
+
+  const examAiLocked = isMesser && mode === "exam" && examPhase === "taking";
 
   return (
-    <div className="max-w-2xl space-y-4">
+    <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
+      <div className="max-w-2xl space-y-4 min-w-0">
       <div>
         <h1 className="h1">{isMesser ? "Practice exam" : "Quiz"}</h1>
+        {quickCap && baseQs.length > 0 && (
+          <p className="text-sm text-sky-100/95 mt-2 rounded-xl border border-sky-700/45 bg-sky-950/35 px-3 py-2.5 leading-snug">
+            <strong className="text-white">Quick practice</strong> — {quickCap} question{quickCap === 1 ? "" : "s"}. This bank has{" "}
+            <strong className="text-slate-200">{fullQs.length}</strong> total — remove <code className="text-slate-400">?quick=</code> from the URL for the full set.
+          </p>
+        )}
         <p className="text-slate-500 text-sm">
           {i + 1} / {qs.length} · {qq.type} · diff {qq.difficulty} · {qq.examKeyword}
           {multi && <span className="text-amber-400"> · Select all that apply ({qq.correctIndices!.length})</span>}
@@ -377,7 +598,17 @@ export default function QuizPage() {
         </ul>
         {multi && !show && !(isMesser && mode === "exam") && (
           <button type="button" className="btn mt-4" onClick={submitMultiStudy} disabled={picked.length === 0}>
-            Submit answer
+            Check my answer
+          </button>
+        )}
+        {!multi && !show && !(isMesser && mode === "exam" && examPhase === "taking") && (
+          <p className="text-xs text-slate-500 mt-3">
+            Tap an option to choose, then <strong className="text-slate-300">Check my answer</strong>. Take your time — the next question only appears when you continue.
+          </p>
+        )}
+        {!multi && !show && !(isMesser && mode === "exam" && examPhase === "taking") && sel != null && (
+          <button type="button" className="btn mt-3" onClick={confirmSingleAnswer}>
+            Check my answer
           </button>
         )}
         {isMesser && mode === "exam" && examPhase === "taking" && multi && (
@@ -390,28 +621,145 @@ export default function QuizPage() {
             {i >= qs.length - 1 ? "Finish exam" : "Next"}
           </button>
         )}
-        {show && !(isMesser && mode === "exam") && (
-          <div className="mt-4 text-sm space-y-2 text-slate-300 border-t border-slate-800 pt-4">
-            <p>
-              <strong className="text-white">Why correct:</strong> {qq.explanation}
+        {show && !(isMesser && mode === "exam") && tutorFeedback && (
+          <>
+            <FeedbackPanel
+              feedback={tutorFeedback}
+              quizQuestion={qq}
+              singleSel={sel}
+              multiSel={picked}
+              keywordLine={qq.examKeyword}
+              detailOpen={feedbackDetailOpen}
+              onDetailOpenChange={setFeedbackDetailOpen}
+            />
+            {missFlashcardCue === "new" && (
+              <div
+                className="rounded-xl border border-emerald-700/45 bg-emerald-950/30 px-3 py-3 text-sm text-emerald-100 mt-3"
+                role="status"
+              >
+                <strong className="text-white">We created a flashcard for this mistake.</strong> Open{" "}
+                <Link className="text-emerald-300 underline font-medium" to={`/flashcards?lesson=${qq.lessonId}`}>
+                  Flashcards for this lesson
+                </Link>{" "}
+                or the full{" "}
+                <Link className="text-emerald-300 underline font-medium" to="/flashcards">
+                  Flashcards
+                </Link>{" "}
+                deck to review it.
+              </div>
+            )}
+            {missFlashcardCue === "existing" && (
+              <p className="text-xs text-slate-400 mt-3">
+                This miss was already in your flashcard deck — keep reviewing it under Flashcards.
+              </p>
+            )}
+            {correctNow && (
+              <p className="text-sm text-emerald-300/95 mt-3 leading-relaxed">{smartQuizPraise(qq)}</p>
+            )}
+            {correctNow && quizIdentityLine && (
+              <p className="text-xs text-slate-400/95 mt-2 leading-relaxed border-l border-slate-600/80 pl-3">
+                {quizIdentityLine}
+              </p>
+            )}
+            {keyQ && (
+              <MicroTeachBack
+                value={teachDraft}
+                onChange={setTeachDraft}
+                keywordHint={qq.examKeyword.split(",")[0]?.trim() ?? qq.examKeyword}
+              />
+            )}
+            {progressionBlocked && (
+              <FailureRecoveryPanel
+                title="Paused so you don’t burn in the wrong pattern"
+                whatHappened="You missed this same item three times. Continuing would mostly reinforce confusion."
+                whyItMatters="CompTIA questions repeat objective families. A short repair break now saves you from repeating the same trap on exam day."
+                nextStep="Use one action, then tap Retry this question below."
+                ariaLabel="Repair before continuing quiz"
+                actions={
+                  <>
+                    <Link className="btn text-sm min-h-[44px] justify-center touch-manipulation" to={isMesser ? "/flashcards" : `/flashcards?lesson=${qq.lessonId}`}>
+                      Flashcards
+                    </Link>
+                    <Link className="btn text-sm min-h-[44px] justify-center touch-manipulation" to="/weak">
+                      Weak area repair
+                    </Link>
+                    <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to={isMesser ? "/practice-exams" : `/lesson/${qq.lessonId}`}>
+                      {isMesser ? "Exam hub" : "Reopen lesson"}
+                    </Link>
+                    <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/sim">
+                      Labs / sims
+                    </Link>
+                  </>
+                }
+              />
+            )}
+            <ConfidenceSelector value={confidenceGate} onChange={setConfidenceGate} />
+            <p className="text-xs text-slate-500 mt-2">
+              You choose what happens next — no auto-advance. Pick how confident you felt, then use the actions below.
             </p>
-            <p className="text-xs text-slate-500">Wrong options: {qq.wrongExplanations.join(" · ")}</p>
-          </div>
+            <div className="mt-4 flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                {i < qs.length - 1 ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={confidenceGate == null || progressionBlocked || !teachOk}
+                    onClick={() => {
+                      flushConfidenceAnd(() => {
+                        resetQuestionUi();
+                        setI(i + 1);
+                      });
+                    }}
+                  >
+                    Continue to next question
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={confidenceGate == null || progressionBlocked || !teachOk}
+                    onClick={() => {
+                      flushConfidenceAnd(() => setQuizWrapUp(true));
+                    }}
+                  >
+                    Finish quiz &amp; wrap up
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn-ghost text-sm"
+                  onClick={() => {
+                    bumpQuizRetryCount(qq.id);
+                    setQuizWrapUp(false);
+                    setFeedbackDetailOpen(false);
+                    setShow(false);
+                    setConfidenceGate(null);
+                    setMissFlashcardCue(null);
+                    setSel(null);
+                    setPicked([]);
+                  }}
+                >
+                  Retry this question
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost text-sm"
+                  onClick={() => addFlashcardFromQuizQuestion(qq)}
+                >
+                  Add to flashcards
+                </button>
+                <button type="button" className="btn-ghost text-sm" onClick={() => markQuestionConfusing(qq.id)}>
+                  Mark as confusing
+                </button>
+              </div>
+            </div>
+          </>
         )}
-        {show && !(isMesser && mode === "exam") && i < qs.length - 1 && (
-          <button
-            type="button"
-            className="btn mt-4"
-            onClick={() => {
-              resetQuestionUi();
-              setI(i + 1);
-            }}
-          >
-            Next
-          </button>
-        )}
-        {show && !(isMesser && mode === "exam") && i === qs.length - 1 && (
-          <div className="mt-4 space-y-3">
+        {show && !(isMesser && mode === "exam") && i === qs.length - 1 && quizWrapUp && (
+          <div className="mt-6 space-y-3 border-t border-slate-800 pt-4">
+            <SessionMomentumCard hasTodayActivity />
+            {!isMesser && <SessionSummary entries={sessionLog} lessonId={id} title="Session summary" />}
+            <p className="text-sm text-slate-400">Wrap up when you&apos;re ready — links stay here until you leave.</p>
             {isMesser ? (
               <Link to="/practice-exams" className="btn inline-block">
                 Back to practice hub
@@ -430,6 +778,34 @@ export default function QuizPage() {
           </div>
         )}
       </div>
+      </div>
+      <AITutorPanel
+        className="lg:sticky lg:top-4 order-first lg:order-none"
+        context={{
+          surface: "quiz",
+          examAiLocked,
+          weakAreas: weakAreasQuiz,
+          quiz: {
+            stem: qq.text,
+            options: qq.options,
+            examKeyword: qq.examKeyword,
+            explanation: qq.explanation,
+            userWasCorrect:
+              show && !(isMesser && mode === "exam") ? gradeQuestion(qq, sel, picked) : undefined,
+            selectedLabel: multi
+              ? picked.length
+                ? picked.map((j) => qq.options[j]!).join("; ")
+                : undefined
+              : sel != null
+                ? qq.options[sel]
+                : undefined,
+            correctLabel: correctAnswerLabel(qq),
+          },
+          coachLines: tutorFeedback
+            ? [tutorFeedback.explanationSimple, tutorFeedback.examRecognitionRule, tutorFeedback.nextActionSuggestion]
+            : undefined,
+        }}
+      />
     </div>
   );
 }

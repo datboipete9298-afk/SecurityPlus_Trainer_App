@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useProgress } from "../context/ProgressContext";
 import MobileStickyContinue from "./MobileStickyContinue";
+import BackupNudgeBanner from "./BackupNudgeBanner";
 
 const mainNav = [
   { to: "/", label: "Dashboard" },
@@ -18,13 +19,13 @@ const moreNav = [
   { to: "/flashcards", label: "Flashcards" },
   { to: "/weak", label: "Weak areas" },
   { to: "/search", label: "Search" },
-  { to: "/import", label: "Import" },
+  { to: "/import", label: "Import lesson (authors)" },
   { to: "/boss", label: "Boss fights" },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const loc = useLocation();
-  const { state, setBeginnerMode } = useProgress();
+  const { state, setBeginnerMode, setSimpleLessonMode } = useProgress();
   const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
@@ -67,6 +68,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           />
         </label>
         <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">Extra plain-English on every lesson when on.</p>
+        <label className="mt-3 flex items-center justify-between gap-2 text-sm text-slate-200 cursor-pointer touch-manipulation">
+          <span>Simple lesson view</span>
+          <input
+            type="checkbox"
+            className="h-5 w-5 rounded border-slate-500 text-emerald-500 focus:ring-emerald-500"
+            checked={!!state.simpleLessonMode}
+            onChange={(e) => setSimpleLessonMode(e.target.checked)}
+          />
+        </label>
+        <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">Less on screen: video, hooks, note, action, quiz — full lesson one tap away.</p>
       </div>
       <p className="text-[10px] text-slate-600 uppercase tracking-wide mb-1">Main</p>
       <nav className="flex flex-col gap-1">
@@ -101,6 +112,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-950">
+      <a
+        href="#main-content"
+        className="fixed left-3 top-3 z-[100] -translate-y-[120%] opacity-0 pointer-events-none focus:pointer-events-auto focus:translate-y-0 focus:opacity-100 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg outline-none ring-2 ring-emerald-300/80 ring-offset-2 ring-offset-slate-950"
+      >
+        Skip to main content
+      </a>
       <header className="md:hidden sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-slate-800 bg-slate-950/95 backdrop-blur-md px-3 py-2.5 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <Link to="/" className="font-bold text-emerald-400 text-base truncate touch-manipulation" onClick={() => setNavOpen(false)}>
           Security+ Trainer
@@ -135,8 +152,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {NavInner}
       </aside>
 
-      <main className="flex-1 w-full min-w-0 px-3 py-4 sm:px-4 md:p-8 max-w-5xl mx-auto pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-8 text-base">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="flex-1 w-full min-w-0 px-3 py-4 sm:px-4 md:p-8 max-w-5xl mx-auto pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-8 text-base outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm"
+      >
         {children}
+        <BackupNudgeBanner />
       </main>
 
       <MobileStickyContinue />

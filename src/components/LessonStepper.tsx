@@ -17,10 +17,12 @@ type Props = {
   p: LessonProgress;
   hasLab: boolean;
   labDone?: boolean;
+  /** Two labs + two sims + decision (training platform) */
+  handsOnComplete?: boolean;
   nextHref?: string;
 };
 
-export default function LessonStepper({ lessonId, p, hasLab, labDone, nextHref }: Props) {
+export default function LessonStepper({ lessonId, p, hasLab, labDone, handsOnComplete, nextHref }: Props) {
   const done = (k: keyof LessonProgress) => !!p[k];
   return (
     <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
@@ -45,6 +47,13 @@ export default function LessonStepper({ lessonId, p, hasLab, labDone, nextHref }
             Lab
           </li>
         )}
+        <li
+          className={`rounded-lg px-2 py-1 border ${
+            handsOnComplete ? "border-emerald-600/50 text-emerald-200" : "border-slate-600 text-slate-500"
+          }`}
+        >
+          Platform (2 labs · 2 sims · decision)
+        </li>
         {nextHref && (
           <li className="rounded-lg px-2 py-1 border border-violet-600/50 text-violet-200">
             <Link to={nextHref} className="hover:underline">

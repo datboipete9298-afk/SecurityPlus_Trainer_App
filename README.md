@@ -1,8 +1,8 @@
 # SecurityPlus Trainer App (SY0-701)
 
-**Canonical project path:** `C:\Users\Petey\Desktop\SecurityPlus_Trainer_App` — see [`ACTIVE_PROJECT_PATH.md`](./ACTIVE_PROJECT_PATH.md) (an older copy under `HeliosII` is deprecated; do not use it).
+**Canonical project path:** `C:\Users\Petey\Desktop\SecurityPlus_Trainer_App` — see [`ACTIVE_PROJECT_PATH.md`](./ACTIVE_PROJECT_PATH.md). The folder `HeliosII (1)\SecurityPlus_Trainer_App` on the Desktop is **deprecated**; do not open it as the active workspace — all work belongs in the path above.
 
-Local, interactive Security+ study app: **React + TypeScript + Tailwind**, **Vite**, **no backend** (progress in `localStorage`). Aligned to **Professor Messer’s section order** with an **adaptive Smart Coach**, **30-minute session mode**, **quizzes**, **flashcards + spacing**, **brain-book notes**, **weak-area repair**, and **safe simulations**.
+Local, interactive Security+ study app: **React + TypeScript + Tailwind**, **Vite** (progress in `localStorage`). Aligned to **Professor Messer’s section order** with an **adaptive Smart Coach**, **optional OpenAI tutor** (server-side API), **30-minute session mode**, **quizzes**, **flashcards + spacing**, **brain-book notes**, **weak-area repair**, and **safe simulations**. **AI setup:** [`README_AI_SETUP.md`](./README_AI_SETUP.md).
 
 ## Quick start (Windows)
 
@@ -14,52 +14,60 @@ npm run dev
 
 Open **http://localhost:5173** (Vite will suggest the port; default 5173).
 
+- **AI tutor (optional):** `npm run dev:all` runs Vite + the Express AI server; configure `.env` from `.env.example` (see [`README_AI_SETUP.md`](./README_AI_SETUP.md)).
 - **Build:** `npm run build` → static site in `dist/`
 - **Preview production:** `npm run preview`
 - **Host for a friend (one public link):** see **`DEPLOYMENT_GUIDE.md`** (Vercel / Netlify) and **`FRIEND_ACCESS_GUIDE.md`**
+- **Audit / QA:** [`TOP_NOTCH_SYSTEM_MAP.md`](./TOP_NOTCH_SYSTEM_MAP.md) · [`TOP_NOTCH_AUDIT_REPORT.md`](./TOP_NOTCH_AUDIT_REPORT.md) · [`TOP_NOTCH_IMPROVEMENT_PLAN.md`](./TOP_NOTCH_IMPROVEMENT_PLAN.md) · [`FRIEND_READY_CHECKLIST.md`](./FRIEND_READY_CHECKLIST.md) · [`FINAL_PRE_SHARE_CHECKLIST.md`](./FINAL_PRE_SHARE_CHECKLIST.md) · [`FINAL_AUDIT_REPORT.md`](./FINAL_AUDIT_REPORT.md) · [`STUDY_READY_CHECKLIST.md`](./STUDY_READY_CHECKLIST.md) · [`SMOKE_TEST_PLAN.md`](./SMOKE_TEST_PLAN.md) · [`MOBILE_QA_CHECKLIST.md`](./MOBILE_QA_CHECKLIST.md)
+- **Master multi-expert review (deep dive):** [`MASTER_EXPERT_REVIEW.md`](./MASTER_EXPERT_REVIEW.md) · [`BEGINNER_EXPERIENCE_REPORT.md`](./BEGINNER_EXPERIENCE_REPORT.md) · [`EXAM_PREP_QUALITY_REPORT.md`](./EXAM_PREP_QUALITY_REPORT.md) · [`LEARNING_SCIENCE_AUDIT.md`](./LEARNING_SCIENCE_AUDIT.md) · [`AI_TUTOR_AUDIT.md`](./AI_TUTOR_AUDIT.md) · [`UX_MOBILE_AUDIT.md`](./UX_MOBILE_AUDIT.md) · [`PRODUCT_RETENTION_AUDIT.md`](./PRODUCT_RETENTION_AUDIT.md) · [`TECHNICAL_QUALITY_AUDIT.md`](./TECHNICAL_QUALITY_AUDIT.md) · [`DATA_CONTENT_INTEGRITY_REPORT.md`](./DATA_CONTENT_INTEGRITY_REPORT.md) · [`PRIVACY_TRUST_AUDIT.md`](./PRIVACY_TRUST_AUDIT.md) · [`DEPLOYMENT_FRIEND_ACCESS_AUDIT.md`](./DEPLOYMENT_FRIEND_ACCESS_AUDIT.md) · [`MASTER_IMPROVEMENT_BACKLOG.md`](./MASTER_IMPROVEMENT_BACKLOG.md) · [`FINAL_MASTER_SCORECARD.md`](./FINAL_MASTER_SCORECARD.md)
+- **AI in production:** [`AI_DEPLOYMENT_CHECKLIST.md`](./AI_DEPLOYMENT_CHECKLIST.md) · [`README_AI_SETUP.md`](./README_AI_SETUP.md)
 
-## What’s included in MVP
+## What’s included (current build)
+
+Validated by `npm run build` (runs data, feedback, training, and video checks before TypeScript + Vite):
 
 | Feature | Status |
 |--------|--------|
-| Dashboard (streak, XP, level, readiness, **Smart Coach**) | Yes |
-| Full roadmap (Messer-ordered `SECTION_ORDER`) | Yes — open any row; **full lesson body** for 5 IDs only |
-| Lesson view (video focus, highlights, brain book, traps, 3-sec, quiz/flash links) | Yes for 5 lessons |
-| 30-minute guided session (timer) | Yes |
-| Quiz engine (MCQ, scenario, BEST, acronym-style) with explanations | Yes for 5 lessons (10 Q total in data) |
-| Flashcards + simple spaced push | Yes |
-| Progress, missed-question journal, domain score | Yes |
-| Search | Yes (lessons, questions, roadmap) |
-| Simulations (starter scenario) | Yes — extend `src/data/simulations.ts` |
-| Import docs | `public/content/example-lesson.json` + Import page |
-| **Full content for all Messer subsections** | **Not in v1** — add via `lessons.ts` + `quizzes.ts` (same shapes) |
+| Dashboard (streak, XP, level, readiness, **Smart Coach** / `nextStepEngine`) | Yes |
+| Full roadmap (Messer-ordered `SECTION_ORDER`) | Yes — **66** full lessons (`hasFullContent`) |
+| Lesson view (video, highlights, brain book, traps, quick action, quiz/flash links, hands-on) | Yes — per-lesson labs/sims/decisions validated |
+| `/start-here` onboarding + optional **AI tutor** (server-side key) | Yes |
+| 30-minute guided session (`/session`) | Yes |
+| Quiz engine (MCQ, multi-select where present, scenarios, exam vs study mode) | **717** questions |
+| Flashcards + spacing + user cards | **330** built-in + user merges |
+| Practice exams A/B/C, PBQ hub + runner | Yes |
+| Progress, missed-question journal, domain score, export/import | Yes |
+| Weak areas, boss fights, search, simulations | Yes |
+| Video mapping | **63** YouTube IDs + **3** explicit “verify URL” slots (see `VIDEO_ALIGNMENT_REPORT.md`) |
 
-## Five completed sample lessons (IDs)
+## Validators
 
-1. `1-1` — Security Controls  
-2. `1-2-cia` — CIA Triad  
-3. `1-2-nr` — Non-repudiation  
-4. `1-2-aaa` — AAA  
-5. `1-2-zt` — Zero Trust  
+```powershell
+npm run validate:data
+npm run validate:feedback
+npm run validate:training
+npm run validate:videos
+npm run validate:ai
+npm run validate:ai-integration
+```
 
-**Unlock rule (MVP chain):** complete `1-1` before `1-2-cia`, etc. Other roadmap items open a **“add content”** page until you add matching entries.
+## Extending content (new sections only)
 
-## How to add the rest of Messer’s notes
+1. Add lesson blocks in `src/data/lessons.ts` (`hasFullContent: true`, Messer order).
+2. Add matching rows in `src/data/quizzes.ts` and `src/data/flashcards.ts`.
+3. Update `src/data/sectionOrder.ts` / video maps if new subsection IDs appear.
+4. Run `npm run build`.
 
-1. Copy a full block from `src/data/lessons.ts` and change `id`, `title`, `order`, and all string fields. Set `hasFullContent: true`.
-2. Add quiz rows in `src/data/quizzes.ts` with `lessonId` matching the lesson.
-3. Add flashcards in `src/data/flashcards.ts` with the same `lessonId`.
-4. Optional: add `src/data/sectionOrder.ts` line if you split a sub-topic not already listed.
-5. Run `npm run build` to verify types.
-
-**Do not change section order** in the user’s curriculum — append in Messer order only.
+**Do not reorder** the user’s curriculum — append in Messer order only.
 
 ## Adaptive engine (summary)
 
-- **Smart Coach** (`src/utils/adaptive.ts`): next lesson, last miss, low domain, lab nudge. Each item includes **“Why”**.
+- **Smart Coach** (`src/core/nextStepEngine.ts` + learning observer): next lesson (hands-on first when needed), thinking alerts, weak domain, last miss, thin notes, spaced cards, boss, then roadmap polish. Each item includes **why** and **three concrete steps**.
+- **Legacy / supplemental heuristics** (`src/utils/adaptive.ts`): readiness and related nudges where still referenced.
 - **Exam readiness** heuristic: completion + quiz % + cards − missed journal penalty.
 - **Domain score** nudges on each quiz record (correct +3, wrong −5 in the question’s domain).
 - **Mistake journal**: wrong answers list → Weak Areas page with retry links.
+- **Adaptive tutor** (`src/core/adaptiveEngine.ts` + `src/core/feedbackEngine.ts`): miss streak / false-confidence / same-lesson confusion shape tiered explanations, “how to think” patterns, teach-back on key items, 3-miss progression pause, session summary, and practice-exam report block — all persisted via `feedbackLoop` in `src/utils/storage.ts`.
 
 ## Safety
 
@@ -75,11 +83,11 @@ All labs in `src/data/labs.ts` are **read-only / local** operations on **your** 
 
 ## What to build next (suggested)
 
-1. **More lessons** in Messer order (largest value).  
-2. **Mistake → auto-flashcard** from missed `questionId` (clone template from answer explanation).  
-3. **PWA / desktop wrap** for offline.  
-4. **CSV import** from your Anki/notes export.  
-5. **Boss fight** UI wired to `BOSSES` in `adaptive.ts` (triggers on domain mastery).
+1. **Code-splitting** heavy routes to reduce the main JS chunk (Vite size warning).  
+2. **PWA / offline** shell for commute review.  
+3. **E2E smoke tests** (Playwright): start-here → lesson → one quiz.  
+4. **Fill the 3 video verification slots** when official Messer URLs are confirmed (`validate:videos`).  
+5. **Deeper a11y** pass (landmarks, quiz announcements).
 
 ---
 

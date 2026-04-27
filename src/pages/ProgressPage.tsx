@@ -1,10 +1,23 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useProgress } from "../context/ProgressContext";
 import { ORDERED_LESSON_IDS } from "../data/lessons";
+import { PBQ_SCENARIOS } from "../data/pbqCatalog";
+import AppShell from "../components/AppShell";
+import PageHeader from "../components/PageHeader";
+import SectionCard from "../components/SectionCard";
+import NextActionCard from "../components/NextActionCard";
+import AITutorPanel from "../components/AITutorPanel";
+import StatusBadge from "../components/StatusBadge";
+import DailyMinimumCard from "../components/DailyMinimumCard";
+import { readinessTrack } from "../utils/readinessBand";
 
 export default function ProgressPage() {
-  const { state, readiness, levelInfo, nextStep, importProgress, exportProgress, resetAllProgress } = useProgress();
+  const { state, readiness, levelInfo, nextStep, nextLesson, importProgress, exportProgress, resetAllProgress, bumpStudyResume } =
+    useProgress();
+  useEffect(() => {
+    bumpStudyResume({ progressPage: true });
+  }, [bumpStudyResume]);
   const [importText, setImportText] = useState("");
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -12,6 +25,36 @@ export default function ProgressPage() {
   const total = ORDERED_LESSON_IDS.length;
   const pct = Math.min(100, Math.round((done / Math.max(total, 1)) * 100));
   const r = readiness;
+
+  const weakDomains = useMemo(
+    () =>
+      Object.entries(state.domainScore)
+        .filter(([, v]) => v < 55)
+        .sort((a, b) => a[1] - b[1]),
+    [state.domainScore],
+  );
+
+  const weakAreas = useMemo(
+    () => weakDomains.map(([d, v]) => `Domain ${d} (${v})`),
+    [weakDomains],
+  );
+
+  const examHistory = useMemo(() => [...(state.practiceExamAttempts ?? [])].slice(-12).reverse(), [state.practiceExamAttempts]);
+
+  const pbqMisses = useMemo(
+    () =>
+      [...state.missedJournal]
+        .filter((m) => m.qid.startsWith("pbq-"))
+        .reverse()
+        .slice(0, 8),
+    [state.missedJournal],
+  );
+
+  const hotCards = useMemo(() => {
+    const entries = Object.entries(state.cardWrongStreak ?? {});
+    entries.sort((a, b) => b[1] - a[1]);
+    return entries.slice(0, 5);
+  }, [state.cardWrongStreak]);
 
   const onDownload = () => {
     const j = exportProgress();
@@ -32,107 +75,240 @@ export default function ProgressPage() {
     }
   };
 
+  const pbqTitle = (qid: string) => PBQ_SCENARIOS.find((p) => `pbq-${p.id}` === qid)?.title ?? qid;
+  const track = useMemo(() => readinessTrack(r.score, r.label), [r.score, r.label]);
+
   return (
-    <div className="space-y-6">
-      <h1 className="h1">Progress</h1>
-      <p className="text-slate-400 text-sm sm:text-base max-w-xl leading-relaxed">
-        Stats, domains, and backup — your Continue target is still the system queue. On each phone or computer, progress stays in{" "}
-        <strong className="text-slate-300">that browser only</strong> unless you export/import JSON.
-      </p>
-
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div className="card">
-          <h2 className="font-semibold text-white">Course</h2>
-          <p className="text-3xl font-bold mt-2 text-emerald-400">{pct}%</p>
-          <p className="text-slate-400 text-sm">
-            {done} / {total} lessons (Messer order)
-          </p>
-          <p className="text-slate-500 text-sm mt-2">
-            🔥 {state.streak} day streak · {state.xp} XP · {levelInfo.name} (next tier {levelInfo.next} XP)
-          </p>
-        </div>
-        <div className="card">
-          <h2 className="font-semibold text-white">Exam readiness</h2>
-          <p className="text-3xl font-bold mt-2 text-white">{r.score}</p>
-          <p className="text-slate-400 capitalize">{r.label.replace("_", " ")}</p>
-        </div>
-      </div>
-
-      <div className="card">
-        <h2 className="font-semibold text-white mb-3">Domains</h2>
-        <ul className="space-y-2 text-sm">
-          {Object.entries(state.domainScore).map(([d, v]) => (
-            <li key={d} className="flex justify-between gap-4 text-slate-300">
-              <span>Domain {d}</span>
-              <span className={v < 50 ? "text-rose-300" : "text-slate-200"}>{v} / 100</span>
-            </li>
-          ))}
-        </ul>
-        <Link to="/weak" className="btn mt-4 w-full sm:w-auto text-center">
-          Open weak areas
-        </Link>
-      </div>
-
-      <div className="card border-slate-700">
-        <h2 className="font-semibold text-white">Backup &amp; restore</h2>
-        <p className="text-slate-500 text-sm mt-1 max-w-lg">
-          Export a JSON file of this device’s progress. No data is sent to a server. Import merges through the same migration path as localStorage — duplicate exports are
-          safe; missing fields are filled with defaults.
-        </p>
-        <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-2">
-          <button type="button" className="btn" onClick={onDownload}>
-            Export progress (download JSON)
-          </button>
-          <button type="button" className="btn-ghost" onClick={() => fileRef.current?.click()}>
-            Import from file…
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            aria-label="Select backup JSON file"
-            title="Select backup JSON file"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const rdr = new FileReader();
-              rdr.onload = () => {
-                setImportText(String(rdr.result ?? ""));
-                setImportMsg("File loaded — review below, then Import.");
-              };
-              rdr.readAsText(f);
-              e.target.value = "";
-            }}
+    <AppShell>
+      <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
+        <div className="min-w-0 space-y-8">
+          <PageHeader
+            title="Progress"
+            purpose={
+              <>
+                <strong className="text-slate-200">This page is your safety hub:</strong> export often, import only when you mean to replace this device&apos;s copy.{" "}
+                Nothing uploads unless <strong className="text-slate-200">you</strong> deploy optional cloud sync later — see below.
+              </>
+            }
+            badge={<StatusBadge tone="ok">{pct}% course</StatusBadge>}
           />
-        </div>
-        <label className="block text-xs text-slate-500 mt-4 mb-1">Or paste JSON</label>
-        <textarea
-          className="w-full min-h-[120px] bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-200"
-          value={importText}
-          onChange={(e) => setImportText(e.target.value)}
-          placeholder="{ ... }"
-        />
-        <div className="mt-2 flex flex-col sm:flex-row gap-2">
-          <button type="button" className="btn text-sm" onClick={onImport} disabled={!importText.trim()}>
-            Import backup (replace progress on this device)
-          </button>
-        </div>
-        {importMsg && <p className="text-sm mt-2 text-amber-200/90">{importMsg}</p>}
-        <p className="text-xs text-rose-300/80 mt-4 border-t border-slate-800 pt-3">
-          <button type="button" className="underline hover:text-rose-200" onClick={resetAllProgress}>
-            Reset all progress on this device
-          </button>{" "}
-          (asks for confirmation)
-        </p>
-      </div>
 
-      <div className="card border-emerald-800/40">
-        <p className="text-xs text-emerald-200/80 uppercase">Next system action</p>
-        <Link to={nextStep.href} className="btn mt-2 inline-block w-full sm:w-auto text-center">
-          {nextStep.buttonLabel} →
-        </Link>
+          <DailyMinimumCard lessonId={nextLesson ?? undefined} />
+
+          <SectionCard title="Optional cloud sync (design)" subtitle="Not required — local-first stays default">
+            <p className="text-sm text-slate-300 leading-relaxed">
+              The app is built so <strong className="text-white">no login is required</strong> and everything works offline-capable in the browser. A future optional sync could let you save encrypted progress to your own account or a passkey — with{" "}
+              <strong className="text-white">the same JSON</strong> you export today as the source of truth.
+            </p>
+            <p className="text-xs text-slate-500 mt-2">
+              Maintainer notes: see <code className="text-amber-200/90">CLOUD_SYNC_DESIGN.md</code> in the project root.
+            </p>
+          </SectionCard>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="card">
+              <h2 className="font-semibold text-white">Course</h2>
+              <p className="text-3xl font-bold mt-2 text-emerald-400">{pct}%</p>
+              <p className="text-slate-400 text-sm">
+                {done} / {total} lessons (Messer order)
+              </p>
+              <p className="text-slate-500 text-sm mt-2">
+                🔥 {state.streak} day streak · {state.xp} XP · {levelInfo.name} (next tier {levelInfo.next} XP)
+              </p>
+            </div>
+            <div className="card">
+              <h2 className="font-semibold text-white">Exam readiness</h2>
+              <p className="text-xs text-emerald-300/90 font-medium mt-2 uppercase tracking-wide">You&apos;re on track</p>
+              <p className="text-xl font-semibold text-white mt-1">{track.headline}</p>
+              <p className="text-sm text-slate-400 mt-1 leading-relaxed">{track.sub}</p>
+              <p className="text-2xl font-bold mt-3 text-white">{r.score}</p>
+              <p className="text-slate-500 text-sm capitalize">{r.label.replace("_", " ")}</p>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                This score reflects your activity here — use it to steer study, not as a pass/fail prediction.
+              </p>
+            </div>
+          </div>
+
+          <SectionCard title="Domain scores" subtitle="Below 55 = worth extra drills">
+            <ul className="space-y-2 text-sm">
+              {Object.entries(state.domainScore).map(([d, v]) => (
+                <li key={d} className="flex justify-between gap-4 text-slate-300">
+                  <span>Domain {d}</span>
+                  <span className={v < 50 ? "text-rose-300" : "text-slate-200"}>{v} / 100</span>
+                </li>
+              ))}
+            </ul>
+            <Link to="/weak" className="btn mt-4 w-full text-center">
+              Open weak areas
+            </Link>
+          </SectionCard>
+
+          <SectionCard title="Practice exam history" subtitle="Most recent attempts on this device">
+            {examHistory.length === 0 ? (
+              <p className="text-sm text-slate-500">No scored attempts yet — open the practice exam hub.</p>
+            ) : (
+              <ul className="text-sm text-slate-300 space-y-2">
+                {examHistory.map((a) => (
+                  <li key={`${a.examId}-${a.at}`} className="border-b border-slate-800 pb-2">
+                    <span className="text-slate-200 font-medium">{a.examId.replace(/^messer-exam-/, "Exam ").toUpperCase()}</span> ·{" "}
+                    <span className="text-emerald-300">
+                      {a.correct}/{a.total}
+                    </span>{" "}
+                    ({Math.round((a.correct / a.total) * 100)}%) ·{" "}
+                    <span className="text-slate-500 capitalize">{a.mode}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link to="/practice-exams" className="btn-ghost mt-3 w-full text-center inline-block text-sm">
+              Practice exams →
+            </Link>
+          </SectionCard>
+
+          <SectionCard title="PBQ skill labs" subtitle="Passes boost readiness; misses are listed for retry">
+            <p className="text-sm text-slate-300 mb-3">
+              Passed at least once:{" "}
+              <strong className="text-emerald-300">{state.pbqPassedIds?.length ?? 0}</strong> / {PBQ_SCENARIOS.length} scenarios
+            </p>
+            {pbqMisses.length === 0 ? (
+              <p className="text-sm text-slate-500">No PBQ misses in your journal — or you have not submitted a wrong order yet.</p>
+            ) : (
+              <ul className="text-sm text-slate-300 space-y-1">
+                {pbqMisses.map((m) => (
+                  <li key={`${m.qid}-${m.at}`}>
+                    {pbqTitle(m.qid)} →{" "}
+                    <Link to={`/pbq/${m.qid.replace(/^pbq-/, "")}`} className="text-emerald-400">
+                      retry lab
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link to="/practice-exams/pbq" className="btn-ghost mt-3 w-full text-center inline-block text-sm">
+              PBQ hub →
+            </Link>
+          </SectionCard>
+
+          <SectionCard title="Flashcards" subtitle="Deck health on this device">
+            <ul className="text-sm text-slate-300 space-y-2">
+              <li>
+                <strong className="text-white">Your cards:</strong> {state.userFlashcards.length} (includes mistake-generated)
+              </li>
+              <li>
+                <strong className="text-white">Scheduled reviews:</strong> {state.spaced.length} in the spaced queue
+              </li>
+              <li>
+                <strong className="text-white">Due now:</strong> {state.spaced.filter((s) => s.nextReview <= Date.now()).length}
+              </li>
+            </ul>
+            {hotCards.length > 0 && (
+              <p className="text-xs text-amber-200/80 mt-2">
+                Hottest streaks: {hotCards.map(([id, n]) => `${id.slice(0, 8)}…(${n})`).join(", ")}
+              </p>
+            )}
+            <Link to="/flashcards" className="btn mt-3 w-full text-center inline-block">
+              Study flashcards →
+            </Link>
+          </SectionCard>
+
+          <div id="backup">
+          <SectionCard
+            title="Backup & restore"
+            subtitle="Export JSON — no server upload"
+          >
+            <p className="text-slate-500 text-sm max-w-lg leading-relaxed">
+              <strong className="text-amber-200/90">Import replaces</strong> progress on this device after confirmation in the importer. Keep a dated export before importing someone else&apos;s file.
+            </p>
+            <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-2">
+              <button type="button" className="btn w-full sm:w-auto text-center" onClick={onDownload}>
+                Export progress (download JSON)
+              </button>
+              <button type="button" className="btn-ghost w-full sm:w-auto text-center" onClick={() => fileRef.current?.click()}>
+                Import from file…
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                aria-label="Select backup JSON file"
+                title="Select backup JSON file"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const rdr = new FileReader();
+                  rdr.onload = () => {
+                    setImportText(String(rdr.result ?? ""));
+                    setImportMsg("File loaded — review below, then Import.");
+                  };
+                  rdr.readAsText(f);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            <label className="block text-xs text-slate-500 mt-4 mb-1">Or paste JSON</label>
+            <textarea
+              className="w-full min-h-[120px] bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs font-mono text-slate-200"
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder="{ ... }"
+            />
+            <div className="mt-2 flex flex-col sm:flex-row gap-2">
+              <button type="button" className="btn text-sm w-full sm:w-auto" onClick={onImport} disabled={!importText.trim()}>
+                Import backup (this device)
+              </button>
+            </div>
+            {importMsg && <p className="text-sm mt-2 text-amber-200/90">{importMsg}</p>}
+            <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+              Import expects a <strong className="text-slate-400">progress backup</strong> from this app (Export above). Lesson JSON for authors belongs on the{" "}
+              <Link to="/import" className="text-emerald-400 underline">
+                content import
+              </Link>{" "}
+              page — pasting that here will fail on purpose.
+            </p>
+            <p className="text-xs text-rose-300/80 mt-4 border-t border-slate-800 pt-3">
+              <button type="button" className="underline hover:text-rose-200" onClick={resetAllProgress}>
+                Reset all progress on this device
+              </button>{" "}
+              (asks for confirmation)
+            </p>
+          </SectionCard>
+          </div>
+
+          <SectionCard title="Lesson content import" subtitle="Not the same as progress backup">
+            <p className="text-sm text-slate-400">
+              To merge new lesson JSON into the app source, use the Import page (validator + copy for <code className="text-amber-200/90">lessons.ts</code>).
+            </p>
+            <Link to="/import" className="btn-ghost mt-2 w-full sm:w-auto text-center inline-block text-sm">
+              Open content import →
+            </Link>
+          </SectionCard>
+
+          <NextActionCard label="Next system action" description="Same Continue target as the dashboard — one queue everywhere.">
+            <Link to={nextStep.href} className="btn w-full text-center">
+              {nextStep.buttonLabel} →
+            </Link>
+          </NextActionCard>
+        </div>
+
+        <AITutorPanel
+          className="lg:sticky lg:top-4 order-first lg:order-none"
+          context={{
+            surface: "dashboard",
+            weakAreas,
+            userProgress: {
+              readiness: r.score,
+              lessonsDone: done,
+              examAttempts: examHistory.length,
+              userCards: state.userFlashcards.length,
+            },
+            coachLines: [
+              `Readiness ${r.score} (${r.label.replace("_", " ")})`,
+              weakDomains[0] ? `Weakest: Domain ${weakDomains[0]![0]}` : "Domains look balanced",
+            ],
+          }}
+        />
       </div>
-    </div>
+    </AppShell>
   );
 }

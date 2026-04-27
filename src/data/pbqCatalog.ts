@@ -182,3 +182,11 @@ export const PBQ_SCENARIOS: PbqScenario[] = [
 export function getPbq(id: string): PbqScenario | undefined {
   return PBQ_SCENARIOS.find((p) => p.id === id);
 }
+
+/** Journal stores misses as `pbq-{scenarioId}` — use for Weak Areas UI. */
+export function getPbqTitleFromJournalQid(qid: string): { pbqId: string; title: string } | null {
+  if (!qid.startsWith("pbq-")) return null;
+  const pbqId = qid.slice(4);
+  const p = PBQ_SCENARIOS.find((x) => x.id === pbqId);
+  return { pbqId, title: p?.title ?? `PBQ drill (${pbqId})` };
+}

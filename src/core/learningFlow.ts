@@ -29,3 +29,17 @@ export const LESSON_BLOCK_ORDER = [
 ] as const;
 
 export type LessonBlockKey = (typeof LESSON_BLOCK_ORDER)[number]["key"];
+
+/** Short labels for “Step N: …” — matches `StepSection` stepIndex 1–10. */
+export const LESSON_STEP_FOCUS: Record<number, string> = {
+  1: "Watch",
+  2: "Highlight",
+  3: "Understand",
+  4: "Why it matters",
+  5: "How it’s defended",
+  6: "Hands-on practice",
+  7: "Quick quiz",
+  8: "Flashcards",
+  9: "Exam intelligence",
+  10: "Complete and next",
+};

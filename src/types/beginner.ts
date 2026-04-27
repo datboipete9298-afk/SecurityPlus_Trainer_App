@@ -32,8 +32,12 @@ export interface LessonProgress {
   teachBackDone?: boolean;
 }
 
-export function isLessonProgressComplete(p: LessonProgress, opts?: { hasLab: boolean }): boolean {
+export function isLessonProgressComplete(
+  p: LessonProgress,
+  opts?: { hasLab: boolean; handsOnComplete?: boolean },
+): boolean {
   const needLab = opts?.hasLab ?? false;
+  const handsOn = opts?.handsOnComplete ?? true;
   return !!(
     p.videoWatched &&
     p.highlightsDone &&
@@ -42,6 +46,12 @@ export function isLessonProgressComplete(p: LessonProgress, opts?: { hasLab: boo
     p.quizCompleted &&
     p.flashcardsReviewed &&
     p.teachBackDone &&
-    (!needLab || p.labDone)
+    (!needLab || p.labDone) &&
+    handsOn
   );
+}
+
+/** Simple lesson mode: video → hooks → one note → action → mini-quiz only (no flashcards/teach-back/lab required). */
+export function isSimpleLessonProgressComplete(p: LessonProgress): boolean {
+  return !!(p.videoWatched && p.highlightsDone && p.notesSaved && p.quickActionDone && p.quizCompleted);
 }

@@ -6,9 +6,21 @@ import {
   exportStateJson,
   importStateFromJson,
   defaultState,
+  mergeTodayActivity,
   type PersistedState,
   type PracticeExamAttempt,
+  type TrainingRunsState,
+  type UserConfidenceLevel,
+  emptyFeedbackLoop,
 } from "../utils/storage";
+import { ensureDomainDayBaseline } from "../utils/identityReinforcement";
+import {
+  canOfferExtensionIdentity,
+  extensionIdentitySlotConsume,
+  markExtensionIdentityEcho,
+  type OutsideIdentityBucket,
+} from "../utils/outsideQuizIdentity";
+import { applyStudyResumeAndEngagement, type StudyResumePatch } from "../utils/studyResume";
 import { correctAnswerLabel } from "../utils/quizHelpers";
 import {
   examReadiness,
@@ -21,17 +33,24 @@ import {
   applyBossFailure,
 } from "../utils/adaptive";
 import { allQuestions } from "../data/quizzes";
+import { conceptKey } from "../core/adaptiveEngine";
 import { getNextStep } from "../core/nextStepEngine";
+import {
+  trainingLabRunKey,
+  trainingSimRunKey,
+  trainingDecisionKey,
+  nextStateAfterTrainingRuns,
+} from "../core/trainingProgress";
 import { lessons } from "../data/lessons";
 import { SECTION_ORDER } from "../data/sectionOrder";
-import type { DomainId, Flashcard } from "../types";
+import type { DomainId, Flashcard, QuizQuestion } from "../types";
 import type { LessonProgress } from "../types/beginner";
 type Ctx = {
   state: PersistedState;
   xp: number;
   streak: number;
   completeLesson: (id: string, secondsSpent: number) => void;
-  recordQuiz: (qid: string, lessonId: string, domain: string, correct: boolean) => void;
+  recordQuiz: (qid: string, lessonId: string, domain: string, correct: boolean, examKeyword?: string) => void;
   saveTeachBack: (lessonId: string, text: string) => void;
   addNote: (note: BrainNote) => void;
   deleteNote: (id: string) => void;
@@ -51,6 +70,7 @@ type Ctx = {
   grantXp: (n: number) => void;
   completeBoss: (bossId: string, pass: boolean, xpReward: number, relatedLesson: string, domain: DomainId) => void;
   setBeginnerMode: (v: boolean) => void;
+  setSimpleLessonMode: (v: boolean) => void;
   markStartHereSeen: () => void;
   patchLessonProgress: (lessonId: string, p: Partial<LessonProgress>) => void;
   /** Replace state from JSON (e.g. backup). */
@@ -61,6 +81,27 @@ type Ctx = {
   markDailyTrainingDone: () => void;
   appendPracticeExamAttempt: (a: PracticeExamAttempt) => void;
   recordPbqMiss: (domain: DomainId, pbqId: string) => void;
+  /** First-time pass: domain nudge up, clears PBQ miss from journal, tracks for readiness */
+  recordPbqPass: (domain: DomainId, pbqId: string) => void;
+  recordTrainingLab: (lessonId: string, labId: string, pass: boolean) => void;
+  recordTrainingSim: (lessonId: string, simId: string, score: number, pass: boolean) => void;
+  recordTrainingDecision: (lessonId: string, scenarioId: string, correct: boolean) => void;
+  recordQuizConfidence: (qid: string, level: UserConfidenceLevel, wasCorrect: boolean) => void;
+  saveMicroTeachBack: (qid: string, text: string) => void;
+  markQuestionConfusing: (qid: string) => void;
+  bumpQuizRetryCount: (qid: string) => void;
+  addFlashcardFromQuizQuestion: (q: QuizQuestion) => void;
+  /** Dismiss streak milestone celebration (updates lastAcknowledgedStreakMilestone). */
+  acknowledgeStreakMilestone: (m: number) => void;
+  /** Session-scoped count of meaningful study actions (backup nudge, not persisted). */
+  sessionProgressSignals: number;
+  /**
+   * Rare outside-quiz identity line — max one per browser session; 72h per-bucket cooldown.
+   * Returns true if the moment was reserved (caller should show copy).
+   */
+  takeExtensionIdentity: (bucket: OutsideIdentityBucket) => boolean;
+  /** Update global “resume” pointers (flashcards lesson filter, etc.) */
+  bumpStudyResume: (patch: StudyResumePatch) => void;
 };
 
 const ProgressContext = createContext<Ctx | null>(null);
@@ -71,6 +112,10 @@ function todayStr() {
 
 export function ProgressProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PersistedState>(() => loadState());
+  const [sessionProgressSignals, setSessionProgressSignals] = useState(0);
+  const bumpSessionProgressSignals = useCallback((n = 1) => {
+    setSessionProgressSignals((c) => c + n);
+  }, []);
 
   useEffect(() => {
     saveState(state);
@@ -84,61 +129,119 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       y.setDate(y.getDate() - 1);
       const ystr = y.toISOString().slice(0, 10);
       const ok = s.lastActiveDay === ystr;
-      return { ...s, streak: ok ? s.streak + 1 : 1, lastActiveDay: t };
+      const streak = ok ? s.streak + 1 : 1;
+      const domainScoreDayBaseline =
+        s.domainScoreDayBaseline?.date === t
+          ? s.domainScoreDayBaseline
+          : { date: t, scores: { ...s.domainScore } };
+      return {
+        ...s,
+        streak,
+        lastActiveDay: t,
+        lastAcknowledgedStreakMilestone: ok ? (s.lastAcknowledgedStreakMilestone ?? 0) : 0,
+        domainScoreDayBaseline,
+      };
     });
+  }, []);
+
+  const acknowledgeStreakMilestone = useCallback((m: number) => {
+    setState((s) => ({
+      ...s,
+      lastAcknowledgedStreakMilestone: Math.max(s.lastAcknowledgedStreakMilestone ?? 0, m),
+    }));
+  }, []);
+
+  const takeExtensionIdentity = useCallback((bucket: OutsideIdentityBucket): boolean => {
+    let allowed = false;
+    setState((s) => {
+      if (!canOfferExtensionIdentity(s, bucket)) return s;
+      allowed = true;
+      return markExtensionIdentityEcho(s, bucket);
+    });
+    if (allowed) extensionIdentitySlotConsume();
+    return allowed;
   }, []);
 
   const grantXp = useCallback((n: number) => {
     setState((s) => ({ ...s, xp: s.xp + n }));
   }, []);
 
-  const completeLesson = useCallback((id: string, secondsSpent: number) => {
-    const day = new Date().toISOString().slice(0, 10);
-    setState((s) => {
-      const newly = !s.completedLessons.includes(id);
-      const done = newly ? [...s.completedLessons, id] : s.completedLessons;
-      return {
-        ...s,
-        completedLessons: done,
-        lessonCompletedOn: newly ? { ...s.lessonCompletedOn, [id]: day } : s.lessonCompletedOn,
-        xp: newly ? s.xp + 25 : s.xp,
-        timeOnLesson: { ...s.timeOnLesson, [id]: (s.timeOnLesson[id] || 0) + secondsSpent },
-      };
-    });
-  }, []);
+  const completeLesson = useCallback(
+    (id: string, secondsSpent: number) => {
+      bumpSessionProgressSignals(1);
+      const day = new Date().toISOString().slice(0, 10);
+      setState((s) => {
+        const newly = !s.completedLessons.includes(id);
+        const done = newly ? [...s.completedLessons, id] : s.completedLessons;
+        const ns: PersistedState = {
+          ...s,
+          completedLessons: done,
+          lessonCompletedOn: newly ? { ...s.lessonCompletedOn, [id]: day } : s.lessonCompletedOn,
+          xp: newly ? s.xp + 25 : s.xp,
+          timeOnLesson: { ...s.timeOnLesson, [id]: (s.timeOnLesson[id] || 0) + secondsSpent },
+        };
+        return mergeTodayActivity(applyStudyResumeAndEngagement(ns, { lessonId: id }), day, { touchLessonId: id });
+      });
+    },
+    [bumpSessionProgressSignals],
+  );
 
-  const recordQuiz = useCallback((qid: string, lessonId: string, domain: string, correct: boolean) => {
-    setState((s) => {
-      const prev = s.questionStats[qid] || { c: 0, w: 0 };
-      const next = { ...prev, c: prev.c + (correct ? 1 : 0), w: prev.w + (correct ? 0 : 1) };
-      let ns: PersistedState = { ...s, questionStats: { ...s.questionStats, [qid]: next } };
-      ns = updateDomainScore(ns, domain, correct);
-      if (!correct) {
-        ns = addMiss(ns, qid, lessonId);
-        const q = allQuestions().find((x) => x.id === qid);
-        if (q) {
-          const cid = `u-mis-${qid}`;
-          if (!ns.userFlashcards.some((c) => c.id === cid)) {
-            ns = {
-              ...ns,
-              userFlashcards: [
-                ...ns.userFlashcards,
-                {
-                  id: cid,
-                  lessonId: q.lessonId,
-                  front: q.text,
-                  back: `Correct: **${correctAnswerLabel(q)}**\n\n${q.explanation}\n\nKeywords: ${q.examKeyword}`,
-                  cardType: "trap",
-                  trap: q.examKeyword,
-                },
-              ],
-            };
+  const recordQuiz = useCallback(
+    (qid: string, lessonId: string, domain: string, correct: boolean, examKeyword = "") => {
+      bumpSessionProgressSignals(1);
+      const day = todayStr();
+      setState((s) => {
+        const base = ensureDomainDayBaseline(s, day);
+        const prev = base.questionStats[qid] || { c: 0, w: 0 };
+        const next = { ...prev, c: prev.c + (correct ? 1 : 0), w: prev.w + (correct ? 0 : 1) };
+        let ns: PersistedState = { ...base, questionStats: { ...base.questionStats, [qid]: next } };
+        ns = updateDomainScore(ns, domain, correct);
+        if (!correct) {
+          ns = addMiss(ns, qid, lessonId);
+          const fl = ns.feedbackLoop ?? emptyFeedbackLoop();
+          const ck = conceptKey(lessonId, examKeyword || "general");
+          const recentSame = ns.missedJournal.slice(-5).filter((m) => m.lessonId === lessonId);
+          let confusion = fl.confusionSignalByConcept;
+          if (recentSame.length >= 2) {
+            const cur = confusion[ck] ?? 0;
+            confusion = { ...confusion, [ck]: cur + 1 };
+          }
+          ns = {
+            ...ns,
+            feedbackLoop: { ...fl, confusionSignalByConcept: confusion },
+          };
+          const q = allQuestions().find((x) => x.id === qid);
+          if (q) {
+            const cid = `u-mis-${qid}`;
+            if (!ns.userFlashcards.some((c) => c.id === cid)) {
+              ns = {
+                ...ns,
+                userFlashcards: [
+                  ...ns.userFlashcards,
+                  {
+                    id: cid,
+                    lessonId: q.lessonId,
+                    front: q.text,
+                    back: `Correct: **${correctAnswerLabel(q)}**\n\n${q.explanation}\n\nKeywords: ${q.examKeyword}`,
+                    cardType: "trap",
+                    trap: q.examKeyword,
+                  },
+                ],
+              };
+            }
           }
         }
-      }
-      return { ...ns, xp: s.xp + (correct ? 8 : 2) };
-    });
-  }, []);
+        const repeatCorrect = correct && next.c >= 2;
+        const understandingXp = repeatCorrect ? 3 : correct && next.c >= 1 ? 1 : 0;
+        const withXp = applyStudyResumeAndEngagement(
+          { ...ns, xp: base.xp + (correct ? 8 : 2) + understandingXp },
+          { quizLessonId: lessonId },
+        );
+        return mergeTodayActivity(withXp, day, { touchLessonId: lessonId, quizAnswered: 1 });
+      });
+    },
+    [bumpSessionProgressSignals],
+  );
 
   const seedHighlightMemory = useCallback((lessonId: string) => {
     setState((s) => {
@@ -167,72 +270,117 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const addNote = useCallback((note: BrainNote) => {
-    setState((s) => {
-      const dayNotes = s.notes.filter((n) => {
-        const d = new Date(n.created).toDateString();
-        return d === new Date().toDateString();
+  const addNote = useCallback(
+    (note: BrainNote) => {
+      const day = todayStr();
+      let added = false;
+      setState((s) => {
+        const dayNotes = s.notes.filter((n) => {
+          const d = new Date(n.created).toDateString();
+          return d === new Date().toDateString();
+        });
+        if (dayNotes.length >= 10) return s;
+        const lessonN = s.notes.filter((n) => n.lessonId === note.lessonId).length;
+        if (lessonN >= 5) return s;
+        added = true;
+        const notes = [...s.notes, note];
+        const lp0 = s.lessonProgress[note.lessonId] ?? {};
+        const merged = mergeTodayActivity(
+          {
+            ...s,
+            notes,
+            lessonProgress: {
+              ...s.lessonProgress,
+              [note.lessonId]: { ...lp0, notesSaved: true },
+            },
+          },
+          day,
+          { touchLessonId: note.lessonId },
+        );
+        return applyStudyResumeAndEngagement(merged, { lessonId: note.lessonId });
       });
-      if (dayNotes.length >= 10) return s;
-      const lessonN = s.notes.filter((n) => n.lessonId === note.lessonId).length;
-      if (lessonN >= 5) return s;
-      const notes = [...s.notes, note];
-      const lp0 = s.lessonProgress[note.lessonId] ?? {};
-      return {
-        ...s,
-        notes,
-        lessonProgress: {
-          ...s.lessonProgress,
-          [note.lessonId]: { ...lp0, notesSaved: true },
-        },
-      };
-    });
-  }, []);
+      if (added) bumpSessionProgressSignals(1);
+    },
+    [bumpSessionProgressSignals],
+  );
 
   const setBeginnerMode = useCallback((v: boolean) => {
     setState((s) => ({ ...s, beginnerMode: v }));
+  }, []);
+
+  const setSimpleLessonMode = useCallback((v: boolean) => {
+    setState((s) => ({ ...s, simpleLessonMode: v }));
   }, []);
 
   const markStartHereSeen = useCallback(() => {
     setState((s) => ({ ...s, onboarding: { ...s.onboarding, hasSeenStartHere: true } }));
   }, []);
 
-  const patchLessonProgress = useCallback((lessonId: string, p: Partial<LessonProgress>) => {
-    setState((s) => {
-      const cur = s.lessonProgress[lessonId] ?? {};
-      return {
-        ...s,
-        lessonProgress: { ...s.lessonProgress, [lessonId]: { ...cur, ...p } },
-      };
-    });
-  }, []);
+  const patchLessonProgress = useCallback(
+    (lessonId: string, p: Partial<LessonProgress>) => {
+      const meaningfulKeys: (keyof LessonProgress)[] = [
+        "videoWatched",
+        "highlightsDone",
+        "notesSaved",
+        "quickActionDone",
+        "quizCompleted",
+        "flashcardsReviewed",
+        "labDone",
+        "teachBackDone",
+      ];
+      const meaningful = meaningfulKeys.some((k) => p[k] !== undefined && p[k] !== false);
+      const day = todayStr();
+      setState((s) => {
+        const cur = s.lessonProgress[lessonId] ?? {};
+        const ns: PersistedState = {
+          ...s,
+          lessonProgress: { ...s.lessonProgress, [lessonId]: { ...cur, ...p } },
+        };
+        if (!meaningful) return ns;
+        return applyStudyResumeAndEngagement(mergeTodayActivity(ns, day, { touchLessonId: lessonId }), {
+          lessonId,
+        });
+      });
+      if (meaningful) bumpSessionProgressSignals(1);
+    },
+    [bumpSessionProgressSignals],
+  );
 
   const deleteNote = useCallback((id: string) => {
     setState((s) => ({ ...s, notes: s.notes.filter((n) => n.id !== id) }));
   }, []);
 
-  const pushSpaced = useCallback((cardId: string, gotRight: boolean) => {
-    setState((s) => {
-      const now = Date.now();
-      const other = s.spaced.filter((x) => x.cardId !== cardId);
-      const prev = s.spaced.find((x) => x.cardId === cardId);
-      const step = (prev?.ease ?? 0) + (gotRight ? 1 : 0);
-      const dayMap = [1, 1, 3, 7, 14, 30];
-      const d = dayMap[Math.min(step, dayMap.length - 1)] ?? 7;
-      const nextStreak = { ...s.cardWrongStreak };
-      if (gotRight) nextStreak[cardId] = 0;
-      else nextStreak[cardId] = (nextStreak[cardId] || 0) + 1;
-      return {
-        ...s,
-        cardWrongStreak: nextStreak,
-        spaced: [
-          ...other,
-          { cardId, nextReview: now + d * 86400000, ease: step, interval: d * 86400000 },
-        ],
-        xp: s.xp + (gotRight ? 5 : 1),
-      };
-    });
-  }, []);
+  const pushSpaced = useCallback(
+    (cardId: string, gotRight: boolean) => {
+      bumpSessionProgressSignals(1);
+      const day = todayStr();
+      setState((s) => {
+        const now = Date.now();
+        const other = s.spaced.filter((x) => x.cardId !== cardId);
+        const prev = s.spaced.find((x) => x.cardId === cardId);
+        const step = (prev?.ease ?? 0) + (gotRight ? 1 : 0);
+        const dayMap = [1, 1, 3, 7, 14, 30];
+        const d = dayMap[Math.min(step, dayMap.length - 1)] ?? 7;
+        const nextStreak = { ...s.cardWrongStreak };
+        if (gotRight) nextStreak[cardId] = 0;
+        else nextStreak[cardId] = (nextStreak[cardId] || 0) + 1;
+        return mergeTodayActivity(
+          applyStudyResumeAndEngagement(
+            {
+              ...s,
+              cardWrongStreak: nextStreak,
+              spaced: [...other, { cardId, nextReview: now + d * 86400000, ease: step, interval: d * 86400000 }],
+              xp: s.xp + (gotRight ? 5 : 1),
+            },
+            {},
+          ),
+          day,
+          { flashcardReviewed: 1 },
+        );
+      });
+    },
+    [bumpSessionProgressSignals],
+  );
 
   const addMistakeFlashcards = useCallback(() => {
     setState((s) => {
@@ -253,8 +401,13 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
           trap: q.examKeyword,
         });
       }
-      return { ...s, userFlashcards: [...s.userFlashcards, ...out] };
+      if (out.length === 0) return s;
+      return applyStudyResumeAndEngagement({ ...s, userFlashcards: [...s.userFlashcards, ...out] }, {});
     });
+  }, []);
+
+  const bumpStudyResume = useCallback((patch: StudyResumePatch) => {
+    setState((s) => applyStudyResumeAndEngagement(s, patch));
   }, []);
 
   const skipLab = useCallback((labId: string) => {
@@ -281,17 +434,175 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const appendPracticeExamAttempt = useCallback((a: PracticeExamAttempt) => {
-    setState((s) => ({
-      ...s,
-      practiceExamAttempts: [...(s.practiceExamAttempts ?? []), a].slice(-80),
-    }));
+    setState((s) =>
+      applyStudyResumeAndEngagement(
+        { ...s, practiceExamAttempts: [...(s.practiceExamAttempts ?? []), a].slice(-80) },
+        { practiceExamId: a.examId },
+      ),
+    );
   }, []);
 
-  const recordPbqMiss = useCallback((domain: DomainId, pbqId: string) => {
+  const recordPbqMiss = useCallback(
+    (domain: DomainId, pbqId: string) => {
+      bumpSessionProgressSignals(1);
+      const day = todayStr();
+      setState((s) => {
+        const lessonId = SECTION_ORDER.find((x) => x.domain === domain)?.id ?? "1-1";
+        let ns = updateDomainScore(s, domain, false);
+        ns = addMiss(ns, `pbq-${pbqId}`, lessonId);
+        return applyStudyResumeAndEngagement(mergeTodayActivity(ns, day, { pbqAttempt: 1 }), { pbqId });
+      });
+    },
+    [bumpSessionProgressSignals],
+  );
+
+  const recordPbqPass = useCallback(
+    (domain: DomainId, pbqId: string) => {
+      const journalQid = `pbq-${pbqId}`;
+      const day = todayStr();
+      let progressed = false;
+      setState((s) => {
+        const prev = s.pbqPassedIds ?? [];
+        if (prev.includes(pbqId)) return s;
+        progressed = true;
+        let ns: PersistedState = {
+          ...s,
+          pbqPassedIds: [...prev, pbqId],
+          missedJournal: s.missedJournal.filter((m) => m.qid !== journalQid),
+        };
+        ns = updateDomainScore(ns, domain, true);
+        return applyStudyResumeAndEngagement(mergeTodayActivity(ns, day, { pbqAttempt: 1 }), { pbqId });
+      });
+      if (progressed) bumpSessionProgressSignals(1);
+    },
+    [bumpSessionProgressSignals],
+  );
+
+  const recordTrainingLab = useCallback((lessonId: string, labId: string, pass: boolean) => {
     setState((s) => {
-      const lessonId = SECTION_ORDER.find((x) => x.domain === domain)?.id ?? "1-1";
-      let ns = updateDomainScore(s, domain, false);
-      ns = addMiss(ns, `pbq-${pbqId}`, lessonId);
+      const tr: TrainingRunsState = s.trainingRuns ?? { labs: {}, sims: {}, decisions: {} };
+      const key = trainingLabRunKey(lessonId, labId);
+      const prev = tr.labs[key];
+      const nextPass = !!(prev?.pass || pass);
+      const nextRetries = pass ? (prev?.retries ?? 0) : (prev?.retries ?? 0) + 1;
+      const nextRuns: TrainingRunsState = {
+        ...tr,
+        labs: { ...tr.labs, [key]: { at: Date.now(), pass: nextPass, retries: nextRetries } },
+      };
+      let ns = nextStateAfterTrainingRuns(s, nextRuns, lessonId);
+      if (pass && !prev?.pass) ns = { ...ns, xp: ns.xp + 8 };
+      return ns;
+    });
+  }, []);
+
+  const recordTrainingSim = useCallback((lessonId: string, simId: string, score: number, pass: boolean) => {
+    setState((s) => {
+      const tr: TrainingRunsState = s.trainingRuns ?? { labs: {}, sims: {}, decisions: {} };
+      const key = trainingSimRunKey(lessonId, simId);
+      const prev = tr.sims[key];
+      const nextPass = !!(prev?.pass || pass);
+      const nextRetries = pass ? (prev?.retries ?? 0) : (prev?.retries ?? 0) + 1;
+      const nextRuns: TrainingRunsState = {
+        ...tr,
+        sims: { ...tr.sims, [key]: { at: Date.now(), score, pass: nextPass, retries: nextRetries } },
+      };
+      let ns = nextStateAfterTrainingRuns(s, nextRuns, lessonId);
+      if (pass && !prev?.pass) ns = { ...ns, xp: ns.xp + 12 };
+      return ns;
+    });
+  }, []);
+
+  const recordQuizConfidence = useCallback((qid: string, level: UserConfidenceLevel, wasCorrect: boolean) => {
+    setState((s) => {
+      const fl = s.feedbackLoop ?? emptyFeedbackLoop();
+      const fc = { ...fl.falseConfidenceHitsByQuestionId };
+      if (level === "very_sure" && !wasCorrect) {
+        fc[qid] = (fc[qid] ?? 0) + 1;
+      }
+      return {
+        ...s,
+        feedbackLoop: {
+          ...fl,
+          falseConfidenceHitsByQuestionId: fc,
+          confidenceByQuestionId: { ...fl.confidenceByQuestionId, [qid]: { level, at: Date.now() } },
+        },
+      };
+    });
+  }, []);
+
+  const saveMicroTeachBack = useCallback((qid: string, text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    setState((s) => {
+      const fl = s.feedbackLoop ?? emptyFeedbackLoop();
+      return {
+        ...s,
+        feedbackLoop: {
+          ...fl,
+          teachBackMicroByQuestionId: { ...fl.teachBackMicroByQuestionId, [qid]: { text: t, at: Date.now() } },
+        },
+      };
+    });
+  }, []);
+
+  const markQuestionConfusing = useCallback((qid: string) => {
+    setState((s) => {
+      const fl = s.feedbackLoop ?? emptyFeedbackLoop();
+      if (fl.confusingQuestionIds.includes(qid)) return s;
+      return {
+        ...s,
+        feedbackLoop: {
+          ...fl,
+          confusingQuestionIds: [...fl.confusingQuestionIds, qid].slice(-80),
+        },
+      };
+    });
+  }, []);
+
+  const bumpQuizRetryCount = useCallback((qid: string) => {
+    setState((s) => {
+      const fl = s.feedbackLoop ?? emptyFeedbackLoop();
+      const n = (fl.quizRetryCountByQuestionId[qid] ?? 0) + 1;
+      return {
+        ...s,
+        feedbackLoop: {
+          ...fl,
+          quizRetryCountByQuestionId: { ...fl.quizRetryCountByQuestionId, [qid]: n },
+        },
+      };
+    });
+  }, []);
+
+  const addFlashcardFromQuizQuestion = useCallback((q: QuizQuestion) => {
+    setState((s) => {
+      const id = `u-tutor-${q.id}`;
+      if (s.userFlashcards.some((c) => c.id === id)) return { ...s, xp: s.xp + 1 };
+      const card: Flashcard = {
+        id,
+        lessonId: q.lessonId,
+        front: q.text,
+        back: `Correct: **${correctAnswerLabel(q)}**\n\n${q.explanation}\n\nKeywords: ${q.examKeyword}`,
+        cardType: "trap",
+        trap: q.examKeyword,
+      };
+      return { ...s, userFlashcards: [...s.userFlashcards, card], xp: s.xp + 3 };
+    });
+  }, []);
+
+  const recordTrainingDecision = useCallback((lessonId: string, scenarioId: string, correct: boolean) => {
+    setState((s) => {
+      const tr: TrainingRunsState = s.trainingRuns ?? { labs: {}, sims: {}, decisions: {} };
+      const key = trainingDecisionKey(lessonId, scenarioId);
+      const prev = tr.decisions[key];
+      if (correct && prev?.correct) return s;
+      const attempts = (prev?.attempts ?? 0) + 1;
+      const nextCorrect = !!(prev?.correct || correct);
+      const nextRuns: TrainingRunsState = {
+        ...tr,
+        decisions: { ...tr.decisions, [key]: { at: Date.now(), correct: nextCorrect, attempts } },
+      };
+      let ns = nextStateAfterTrainingRuns(s, nextRuns, lessonId);
+      if (correct && !prev?.correct) ns = { ...ns, xp: ns.xp + 6 };
       return ns;
     });
   }, []);
@@ -330,6 +641,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       grantXp,
       completeBoss,
       setBeginnerMode,
+      setSimpleLessonMode,
       markStartHereSeen,
       patchLessonProgress,
       importProgress,
@@ -338,9 +650,23 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       markDailyTrainingDone,
       appendPracticeExamAttempt,
       recordPbqMiss,
+      recordPbqPass,
+      recordTrainingLab,
+      recordTrainingSim,
+      recordTrainingDecision,
+      recordQuizConfidence,
+      saveMicroTeachBack,
+      markQuestionConfusing,
+      bumpQuizRetryCount,
+      addFlashcardFromQuizQuestion,
+      acknowledgeStreakMilestone,
+      sessionProgressSignals,
+      takeExtensionIdentity,
+      bumpStudyResume,
     }),
     [
       state,
+      sessionProgressSignals,
       completeLesson,
       recordQuiz,
       saveTeachBack,
@@ -354,6 +680,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       grantXp,
       completeBoss,
       setBeginnerMode,
+      setSimpleLessonMode,
       markStartHereSeen,
       patchLessonProgress,
       importProgress,
@@ -362,6 +689,19 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       markDailyTrainingDone,
       appendPracticeExamAttempt,
       recordPbqMiss,
+      recordPbqPass,
+      recordTrainingLab,
+      recordTrainingSim,
+      recordTrainingDecision,
+      recordQuizConfidence,
+      saveMicroTeachBack,
+      markQuestionConfusing,
+      bumpQuizRetryCount,
+      addFlashcardFromQuizQuestion,
+      acknowledgeStreakMilestone,
+      sessionProgressSignals,
+      takeExtensionIdentity,
+      bumpStudyResume,
     ]
   );
 

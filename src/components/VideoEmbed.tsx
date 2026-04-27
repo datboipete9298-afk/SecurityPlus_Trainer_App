@@ -3,7 +3,11 @@ export default function VideoEmbed({ embedUrl, title }: { embedUrl: string; titl
     return (
       <div className="rounded-xl border border-amber-700/50 bg-amber-950/30 p-6 text-center text-amber-100/90 text-sm">
         <p className="font-semibold">Video link needs verification</p>
-        <p className="text-xs mt-2 text-amber-200/80">No official YouTube id is mapped for this section yet. Add it in `src/data/knownYoutubeIds.ts` from the public Messer playlist, or use Open YouTube / course index on the lesson page.</p>
+        <p className="text-xs mt-2 text-amber-200/80">
+          No official YouTube id is mapped for this section yet (three curriculum slots are verification-only until linked). Add the id in{" "}
+          <code className="text-amber-100/90">src/data/knownYoutubeIds.ts</code> from the public Professor Messer playlist, or open the course index /
+          &quot;Open YouTube&quot; on the lesson page to watch there.
+        </p>
       </div>
     );
   }

@@ -1,11 +1,12 @@
 import { SECTION_ORDER } from "../data/sectionOrder";
 import { lessons, ORDERED_LESSON_IDS } from "../data/lessons";
-import { allQuestions } from "../data/quizzes";
-import { allStaticFlashcards } from "../data/flashcards";
 import { BOSS_FIGHTS } from "../data/bossFights";
 import { getNextStep, getNextStepCoachingLines } from "../core/nextStepEngine";
+import { isLessonHandsOnComplete } from "../core/trainingProgress";
+import { buildLearningProfile } from "../core/learningObserver";
 import type { CoachRecommendation, Readiness } from "../types";
 import type { PersistedState } from "./storage";
+import { computeExamReadiness } from "./examReadinessScore";
 export { nextLessonId } from "./lessonOrder";
 
 const LEVELS = [
@@ -30,31 +31,8 @@ export function getLevelName(xp: number): { level: number; name: string; next: n
   return { level: l.id, name: l.name, next: next || l.xp };
 }
 
-const FULL_LESSON_COUNT = () => Object.values(lessons).filter((x) => x.hasFullContent).length;
-
 export function examReadiness(s: PersistedState): { score: number; label: Readiness } {
-  const qs = allQuestions();
-  let correct = 0,
-    tot = 0;
-  for (const q of qs) {
-    const st = s.questionStats[q.id];
-    if (st) {
-      tot += st.c + st.w;
-      correct += st.c;
-    }
-  }
-  const quizPct = tot ? (correct / tot) * 100 : 0;
-  const nFull = Math.max(FULL_LESSON_COUNT(), 1);
-  const completion = (s.completedLessons.length / nFull) * 40;
-  const cards = allStaticFlashcards().length + s.userFlashcards.length;
-  const cardCoverage = s.spaced.length / Math.max(cards, 1) * 20;
-  const weak = s.missedJournal.length * 2;
-  const raw = Math.min(100, Math.round(completion * 0.4 + quizPct * 0.45 + cardCoverage * 0.15 - weak));
-  let label: Readiness = "not_ready";
-  if (raw >= 80) label = "exam_ready";
-  else if (raw >= 60) label = "almost";
-  else if (raw >= 35) label = "building";
-  return { score: Math.max(0, raw), label };
+  return computeExamReadiness(s);
 }
 
 export type SmartCoachOutput = {
@@ -67,12 +45,26 @@ export type SmartCoachOutput = {
  * Aligned 1:1 with `getNextStep` / `nextStepEngine` — no extra coach noise.
  */
 export function getSmartCoachOutput(s: PersistedState): SmartCoachOutput {
-  return getNextStepCoachingLines(getNextStep(s));
+  const base = getNextStepCoachingLines(getNextStep(s));
+  const profile = buildLearningProfile(s);
+  if (profile.thinkingAlerts[0]) {
+    return {
+      ...base,
+      why: `${profile.thinkingAlerts[0]!.replace(/\*\*/g, "")} · ${base.why}`,
+    };
+  }
+  if (profile.recallStrength < 42 && profile.memoryPlan[0]) {
+    return {
+      ...base,
+      why: `Recall strength is low (${profile.recallStrength}/100) — ${profile.memoryPlan[0]!.reason} · ${base.why}`,
+    };
+  }
+  return base;
 }
 
 export function smartCoach(s: PersistedState): CoachRecommendation[] {
   const step = getNextStep(s);
-  return [
+  const out: CoachRecommendation[] = [
     {
       title: step.nextAction,
       reason: step.why,
@@ -80,6 +72,92 @@ export function smartCoach(s: PersistedState): CoachRecommendation[] {
       type: "lesson",
     },
   ];
+
+  const slipped = s.completedLessons.find(
+    (id) => lessons[id]?.hasFullContent && !isLessonHandsOnComplete(id, s),
+  );
+  if (slipped) {
+    const t = lessons[slipped]?.title ?? slipped;
+    out.push({
+      title: `Hands-on gap: ${t}`,
+      reason: "Lesson marked complete, but labs, simulations, or the decision scenario are not all passed.",
+      why: "Re-open that lesson, use step 6, and finish every checkpoint — the exam rewards procedure, not bookmarks.",
+      type: "lab",
+      targetId: slipped,
+    });
+  }
+
+  const tr = s.trainingRuns;
+  if (tr) {
+    let worst: { retries: number; lessonId: string; kind: "lab" | "sim" } | null = null;
+    for (const [key, r] of Object.entries(tr.labs)) {
+      if (r.retries >= 2 && (!worst || r.retries > worst.retries)) {
+        const lessonId = key.split("::")[0] ?? "";
+        if (lessons[lessonId]?.hasFullContent) worst = { retries: r.retries, lessonId, kind: "lab" };
+      }
+    }
+    for (const [key, r] of Object.entries(tr.sims)) {
+      if (r.retries >= 2 && (!worst || r.retries > worst.retries)) {
+        const lessonId = key.split("::")[0] ?? "";
+        if (lessons[lessonId]?.hasFullContent) worst = { retries: r.retries, lessonId, kind: "sim" };
+      }
+    }
+    if (worst) {
+      out.push({
+        title: `Retry ${worst.kind}: ${lessons[worst.lessonId]?.title ?? worst.lessonId}`,
+        reason: `Several misses logged (${worst.retries}+) — clean runs build automatic exam recognition.`,
+        why: "Use the same lesson’s hands-on block; read every “why” after a wrong branch.",
+        type: "lab",
+        targetId: worst.lessonId,
+      });
+    }
+
+    for (const [key, r] of Object.entries(tr.decisions)) {
+      if (r.attempts >= 3 && !r.correct) {
+        const lessonId = key.split("::")[0] ?? "";
+        if (lessons[lessonId]?.hasFullContent) {
+          out.push({
+            title: `Decision pattern: ${lessons[lessonId]?.title ?? lessonId}`,
+            reason: "Multiple tries without the exam-best answer — slow down and compare consequences.",
+            why: "Re-read the scenario, eliminate the fastest-looking wrong choice first, then pick the control-aligned option.",
+            type: "teach",
+            targetId: lessonId,
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  const confusingN = s.feedbackLoop?.confusingQuestionIds?.length ?? 0;
+  if (confusingN > 0) {
+    out.push({
+      title: "Revisit questions you marked confusing",
+      reason: `${confusingN} flagged — short targeted review beats rereading whole chapters.`,
+      why: "Open the same lesson quiz or practice search, expand the tutor breakdown, and say the rule out loud.",
+      type: "quiz",
+    });
+  }
+
+  const profile = buildLearningProfile(s);
+  if (profile.noteQualityScore < 40 && s.completedLessons.length >= 2) {
+    out.push({
+      title: "Note quality: tighten Brain Book",
+      reason: "Teach-backs and rows look thin — the exam needs hooks, not bookmarks.",
+      why: "Add one MUST-highlight keyword per completed lesson; keep each field under two lines.",
+      type: "teach",
+    });
+  }
+  if (profile.recallStrength < 45 && profile.memoryPlan[0]) {
+    out.push({
+      title: profile.memoryPlan[0]!.reason.slice(0, 72),
+      reason: "Memory engine: spaced recall is trailing understanding.",
+      why: profile.memoryPlan[0]!.reason,
+      type: "flashcard",
+    });
+  }
+
+  return out;
 }
 
 export { LEVELS };

@@ -6,6 +6,8 @@ export default function MobileStickyContinue() {
   const { nextStep } = useProgress();
   const loc = useLocation();
   if (loc.pathname === "/import") return null;
+  /** Lesson quizzes have their own primary actions — avoid competing sticky CTAs. */
+  if (loc.pathname.startsWith("/quiz/")) return null;
 
   return (
     <div
@@ -13,6 +15,7 @@ export default function MobileStickyContinue() {
       role="navigation"
       aria-label="Continue studying"
     >
+      <p className="text-[10px] text-center text-emerald-200/80 mb-1 px-1 leading-tight">This is your next step to improve.</p>
       <Link
         to={nextStep.href}
         className="btn w-full min-h-[52px] text-base font-semibold touch-manipulation active:scale-[0.99] transition-transform"
