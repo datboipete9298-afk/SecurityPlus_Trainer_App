@@ -46,6 +46,7 @@ async function handleAi(req: express.Request, res: express.Response, mode: AiReq
       quizContext: (body.quizContext as Record<string, unknown> | null) ?? null,
       noteContext: (body.noteContext as Record<string, unknown> | null) ?? null,
       labContext: (body.labContext as Record<string, unknown> | null) ?? null,
+      pdfGuideContext: (body.pdfGuideContext as Record<string, unknown> | null) ?? null,
     });
     res.json(out);
   } catch (e) {

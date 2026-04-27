@@ -1,5 +1,7 @@
 import { SECTION_ORDER } from "../data/sectionOrder";
 import { lessons, ORDERED_LESSON_IDS } from "../data/lessons";
+import { quizQuestions } from "../data/quizzes";
+import { pdfGuideSectionKey } from "../data/pdfGuides";
 import { BOSS_FIGHTS } from "../data/bossFights";
 import { getNextStep, getNextStepCoachingLines } from "../core/nextStepEngine";
 import { isLessonHandsOnComplete } from "../core/trainingProgress";
@@ -62,8 +64,52 @@ export function getSmartCoachOutput(s: PersistedState): SmartCoachOutput {
   return base;
 }
 
+function coachItemRank(r: CoachRecommendation): number {
+  if (r.type === "lab" && r.title.startsWith("Hands-on gap")) return 100;
+  if (r.type === "lab" && r.title.startsWith("Retry")) return 97;
+  if (r.type === "teach" && r.title.startsWith("Decision pattern")) return 95;
+  if (r.type === "quiz" && r.href?.includes("/pdf-guides/")) return 92;
+  if (r.title.startsWith("Add your course notes PDF")) return 90;
+  if (r.type === "teach" && r.title.startsWith("PDF guide:")) return 88;
+  if (r.type === "teach" && r.title.includes("Note quality")) return 84;
+  if (r.type === "flashcard") return 76;
+  return 55;
+}
+
+function dedupeCoachByHref(items: CoachRecommendation[]): CoachRecommendation[] {
+  const keyOf = (r: CoachRecommendation) => r.href ?? `${r.type}:${r.targetId ?? r.title}`;
+  const best = new Map<string, CoachRecommendation>();
+  for (const item of items) {
+    const k = keyOf(item);
+    const prev = best.get(k);
+    if (!prev || coachItemRank(item) > coachItemRank(prev)) best.set(k, item);
+  }
+  const out: CoachRecommendation[] = [];
+  const emitted = new Set<string>();
+  for (const item of items) {
+    const k = keyOf(item);
+    if (emitted.has(k)) continue;
+    if (best.get(k) === item) {
+      out.push(item);
+      emitted.add(k);
+    }
+  }
+  return out;
+}
+
+/** Primary step + highest-priority secondary rows — reduces decision fatigue. */
+export function capCoachRecommendations(items: CoachRecommendation[], maxTotal = 6): CoachRecommendation[] {
+  const deduped = dedupeCoachByHref(items);
+  if (deduped.length <= maxTotal) return deduped;
+  const [primary, ...rest] = deduped;
+  const sorted = [...rest].sort((a, b) => coachItemRank(b) - coachItemRank(a));
+  return [primary!, ...sorted.slice(0, maxTotal - 1)];
+}
+
 export function smartCoach(s: PersistedState): CoachRecommendation[] {
   const step = getNextStep(s);
+  const lm = s.pdfLibrary?.localFileMeta ?? {};
+  const hasNotesPdf = !!lm["messer-course-notes-v107"];
   const out: CoachRecommendation[] = [
     {
       title: step.nextAction,
@@ -131,21 +177,32 @@ export function smartCoach(s: PersistedState): CoachRecommendation[] {
 
   const confusingN = s.feedbackLoop?.confusingQuestionIds?.length ?? 0;
   if (confusingN > 0) {
+    const firstQid = s.feedbackLoop!.confusingQuestionIds[0]!;
+    const qMeta = quizQuestions.find((q) => q.id === firstQid);
+    const confusingHref = (() => {
+      if (!hasNotesPdf) return "/pdf-setup";
+      if (!qMeta) return "/pdf-guides/messer-course-notes-v107";
+      if (String(qMeta.lessonId).startsWith("messer-exam")) return "/pdf-guides/messer-practice-exams-v18";
+      return `/pdf-guides/messer-course-notes-v107/${qMeta.lessonId}`;
+    })();
     out.push({
       title: "Revisit questions you marked confusing",
       reason: `${confusingN} flagged — short targeted review beats rereading whole chapters.`,
-      why: "Open the same lesson quiz or practice search, expand the tutor breakdown, and say the rule out loud.",
+      why: "Open the matching PDF guide section, hit MUST-highlight targets, then retry the same quiz stem without peeking.",
       type: "quiz",
+      href: confusingHref,
     });
   }
 
   const profile = buildLearningProfile(s);
   if (profile.noteQualityScore < 40 && s.completedLessons.length >= 2) {
+    const lastLesson = s.completedLessons[s.completedLessons.length - 1];
     out.push({
       title: "Note quality: tighten Brain Book",
       reason: "Teach-backs and rows look thin — the exam needs hooks, not bookmarks.",
       why: "Add one MUST-highlight keyword per completed lesson; keep each field under two lines.",
       type: "teach",
+      href: lastLesson ? `/pdf-guides/messer-course-notes-v107/${lastLesson}` : "/pdf-guides",
     });
   }
   if (profile.recallStrength < 45 && profile.memoryPlan[0]) {
@@ -157,7 +214,45 @@ export function smartCoach(s: PersistedState): CoachRecommendation[] {
     });
   }
 
-  return out;
+  if (!hasNotesPdf && s.completedLessons.length >= 1) {
+    out.push({
+      title: "Add your course notes PDF",
+      reason: "The guided layer can open your licensed Messer notes beside each lesson.",
+      why: "PDF setup keeps files in this browser only — drag them in once, then use Open local PDF from any guide.",
+      type: "teach",
+      href: "/pdf-setup",
+    });
+  }
+
+  if (hasNotesPdf) {
+    for (const lid of [...s.completedLessons].reverse()) {
+      const key = pdfGuideSectionKey("messer-course-notes-v107", lid);
+      const sec = s.pdfLibrary?.bySection[key];
+      if (sec && !sec.completedAt) {
+        out.push({
+          title: `PDF guide: ${lessons[lid]?.title ?? lid}`,
+          reason: "You saved the notes PDF — finish guided checkpoints for this section when you can.",
+          why: "Highlight coach + Brain Book row beats passive re-reading.",
+          type: "teach",
+          href: `/pdf-guides/messer-course-notes-v107/${lid}`,
+        });
+        break;
+      }
+    }
+  }
+
+  const lastMiss = s.missedJournal.length ? s.missedJournal[s.missedJournal.length - 1] : undefined;
+  if (confusingN > 0 && lastMiss && hasNotesPdf) {
+    out.push({
+      title: "Open the PDF guide after a miss",
+      reason: "Re-anchor the exam keywords for that lesson.",
+      why: "Use MUST-highlight targets in the guide while the confusion flag is still active.",
+      type: "quiz",
+      href: `/pdf-guides/messer-course-notes-v107/${lastMiss.lessonId}`,
+    });
+  }
+
+  return capCoachRecommendations(out);
 }
 
 export { LEVELS };

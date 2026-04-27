@@ -43,6 +43,10 @@ import {
 } from "../core/trainingProgress";
 import { lessons } from "../data/lessons";
 import { SECTION_ORDER } from "../data/sectionOrder";
+import { pdfGuideSectionKey } from "../data/pdfGuides";
+import type { PdfSectionProgress } from "../types/pdfLibrary";
+import { isIndexedDbAvailable, listSavedPdfs } from "../utils/localPdfStore";
+import { subscribePdfStorageChanged } from "../utils/pdfStorageBroadcast";
 import type { DomainId, Flashcard, QuizQuestion } from "../types";
 import type { LessonProgress } from "../types/beginner";
 type Ctx = {
@@ -102,6 +106,20 @@ type Ctx = {
   takeExtensionIdentity: (bucket: OutsideIdentityBucket) => boolean;
   /** Update global “resume” pointers (flashcards lesson filter, etc.) */
   bumpStudyResume: (patch: StudyResumePatch) => void;
+  /** PDF guided study (per section key pdfId::lessonId) */
+  touchPdfGuideSession: (pdfId: string, lessonId: string) => void;
+  addPdfHighlight: (pdfId: string, lessonId: string, snippet: string) => void;
+  removePdfHighlight: (pdfId: string, lessonId: string, index: number) => void;
+  setPdfCheckpoint: (pdfId: string, lessonId: string, checkpointId: string, done: boolean) => void;
+  markPdfInterruptSeen: (pdfId: string, lessonId: string, interruptKey: string) => void;
+  completePdfGuideSection: (pdfId: string, lessonId: string) => void;
+  addFlashcardFromPdfSelection: (lessonId: string, front: string, back: string) => void;
+  /** Metadata only — call after `savePdfFile` from localPdfStore */
+  registerLocalPdfFile: (pdfId: string, file: File) => void;
+  removeLocalPdfFile: (pdfId: string) => void;
+  clearAllLocalPdfMeta: () => void;
+  touchPdfSetupVisit: () => void;
+  markPdfSetupComplete: () => void;
 };
 
 const ProgressContext = createContext<Ctx | null>(null);
@@ -120,6 +138,37 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     saveState(state);
   }, [state]);
+
+  const reconcilePdfMetaFromIdb = useCallback(() => {
+    if (!isIndexedDbAvailable()) return;
+    void listSavedPdfs().then((list) => {
+      setState((s) => {
+        const meta = { ...(s.pdfLibrary?.localFileMeta ?? {}) };
+        const idbIds = new Set(list.map((x) => x.pdfId));
+        for (const k of Object.keys(meta)) {
+          if (!idbIds.has(k)) delete meta[k];
+        }
+        for (const row of list) {
+          meta[row.pdfId] = { addedAt: row.savedAt, name: row.name, size: row.size };
+        }
+        return {
+          ...s,
+          pdfLibrary: {
+            bySection: s.pdfLibrary?.bySection ?? {},
+            localFileMeta: meta,
+            pdfSetupLastVisitAt: s.pdfLibrary?.pdfSetupLastVisitAt,
+            pdfSetupMarkedCompleteAt: s.pdfLibrary?.pdfSetupMarkedCompleteAt,
+          },
+        };
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    reconcilePdfMetaFromIdb();
+  }, [reconcilePdfMetaFromIdb]);
+
+  useEffect(() => subscribePdfStorageChanged(() => reconcilePdfMetaFromIdb()), [reconcilePdfMetaFromIdb]);
 
   const touchStreak = useCallback(() => {
     setState((s) => {
@@ -573,6 +622,150 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const patchPdfSection = useCallback((pdfId: string, lessonId: string, fn: (prev: PdfSectionProgress) => PdfSectionProgress) => {
+    const key = pdfGuideSectionKey(pdfId, lessonId);
+    setState((s) => {
+      const lib = s.pdfLibrary ?? { bySection: {}, localFileMeta: {} };
+      const prev = lib.bySection[key] ?? {
+        lastOpenedAt: 0,
+        highlights: [],
+        checkpointsDone: {},
+        interruptSeen: {},
+      };
+      return {
+        ...s,
+        pdfLibrary: {
+          bySection: { ...lib.bySection, [key]: fn(prev) },
+          localFileMeta: lib.localFileMeta ?? {},
+          pdfSetupLastVisitAt: lib.pdfSetupLastVisitAt,
+          pdfSetupMarkedCompleteAt: lib.pdfSetupMarkedCompleteAt,
+        },
+      };
+    });
+  }, []);
+
+  const registerLocalPdfFile = useCallback((pdfId: string, file: File) => {
+    setState((s) => {
+      const lib = s.pdfLibrary ?? { bySection: {}, localFileMeta: {} };
+      return {
+        ...s,
+        pdfLibrary: {
+          ...lib,
+          localFileMeta: {
+            ...(lib.localFileMeta ?? {}),
+            [pdfId]: { addedAt: Date.now(), name: file.name, size: file.size },
+          },
+        },
+      };
+    });
+  }, []);
+
+  const removeLocalPdfFile = useCallback((pdfId: string) => {
+    setState((s) => {
+      const lib = s.pdfLibrary ?? { bySection: {}, localFileMeta: {} };
+      const lm = { ...(lib.localFileMeta ?? {}) };
+      delete lm[pdfId];
+      return { ...s, pdfLibrary: { ...lib, localFileMeta: lm } };
+    });
+  }, []);
+
+  const clearAllLocalPdfMeta = useCallback(() => {
+    setState((s) => {
+      const lib = s.pdfLibrary ?? { bySection: {}, localFileMeta: {} };
+      return { ...s, pdfLibrary: { ...lib, localFileMeta: {} } };
+    });
+  }, []);
+
+  const touchPdfSetupVisit = useCallback(() => {
+    setState((s) => {
+      const lib = s.pdfLibrary ?? { bySection: {}, localFileMeta: {} };
+      return { ...s, pdfLibrary: { ...lib, pdfSetupLastVisitAt: Date.now() } };
+    });
+  }, []);
+
+  const markPdfSetupComplete = useCallback(() => {
+    setState((s) => {
+      const lib = s.pdfLibrary ?? { bySection: {}, localFileMeta: {} };
+      return { ...s, pdfLibrary: { ...lib, pdfSetupMarkedCompleteAt: Date.now() } };
+    });
+  }, []);
+
+  const touchPdfGuideSession = useCallback(
+    (pdfId: string, lessonId: string) => {
+      patchPdfSection(pdfId, lessonId, (p) => ({ ...p, lastOpenedAt: Date.now() }));
+    },
+    [patchPdfSection],
+  );
+
+  const addPdfHighlight = useCallback(
+    (pdfId: string, lessonId: string, snippet: string) => {
+      const t = snippet.trim().slice(0, 280);
+      if (t.length < 3) return;
+      patchPdfSection(pdfId, lessonId, (p) => {
+        if (p.highlights.includes(t)) return { ...p, lastOpenedAt: Date.now() };
+        const highlights = [...p.highlights, t].slice(-12);
+        return { ...p, highlights, lastOpenedAt: Date.now() };
+      });
+      bumpSessionProgressSignals(1);
+    },
+    [patchPdfSection, bumpSessionProgressSignals],
+  );
+
+  const removePdfHighlight = useCallback(
+    (pdfId: string, lessonId: string, index: number) => {
+      patchPdfSection(pdfId, lessonId, (p) => ({
+        ...p,
+        highlights: p.highlights.filter((_, i) => i !== index),
+        lastOpenedAt: Date.now(),
+      }));
+    },
+    [patchPdfSection],
+  );
+
+  const setPdfCheckpoint = useCallback(
+    (pdfId: string, lessonId: string, checkpointId: string, done: boolean) => {
+      patchPdfSection(pdfId, lessonId, (p) => ({
+        ...p,
+        checkpointsDone: { ...p.checkpointsDone, [checkpointId]: done },
+        lastOpenedAt: Date.now(),
+      }));
+      if (done) bumpSessionProgressSignals(1);
+    },
+    [patchPdfSection, bumpSessionProgressSignals],
+  );
+
+  const markPdfInterruptSeen = useCallback(
+    (pdfId: string, lessonId: string, interruptKey: string) => {
+      patchPdfSection(pdfId, lessonId, (p) => ({
+        ...p,
+        interruptSeen: { ...p.interruptSeen, [interruptKey]: true },
+        lastOpenedAt: Date.now(),
+      }));
+    },
+    [patchPdfSection],
+  );
+
+  const completePdfGuideSection = useCallback(
+    (pdfId: string, lessonId: string) => {
+      patchPdfSection(pdfId, lessonId, (p) => ({ ...p, completedAt: Date.now(), lastOpenedAt: Date.now() }));
+      bumpSessionProgressSignals(1);
+    },
+    [patchPdfSection, bumpSessionProgressSignals],
+  );
+
+  const addFlashcardFromPdfSelection = useCallback((lessonId: string, front: string, back: string) => {
+    const f = front.trim();
+    const b = back.trim();
+    if (f.length < 2 || b.length < 2) return;
+    const id = `u-pdf-${lessonId}-${Date.now().toString(36)}`;
+    setState((s) => {
+      if (s.userFlashcards.some((c) => c.front === f && c.back === b)) return { ...s, xp: s.xp + 1 };
+      const card: Flashcard = { id, lessonId, front: f, back: b, cardType: "def" };
+      return { ...s, userFlashcards: [...s.userFlashcards, card], xp: s.xp + 2 };
+    });
+    bumpSessionProgressSignals(1);
+  }, [bumpSessionProgressSignals]);
+
   const addFlashcardFromQuizQuestion = useCallback((q: QuizQuestion) => {
     setState((s) => {
       const id = `u-tutor-${q.id}`;
@@ -663,6 +856,18 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       sessionProgressSignals,
       takeExtensionIdentity,
       bumpStudyResume,
+      touchPdfGuideSession,
+      addPdfHighlight,
+      removePdfHighlight,
+      setPdfCheckpoint,
+      markPdfInterruptSeen,
+      completePdfGuideSection,
+      addFlashcardFromPdfSelection,
+      registerLocalPdfFile,
+      removeLocalPdfFile,
+      clearAllLocalPdfMeta,
+      touchPdfSetupVisit,
+      markPdfSetupComplete,
     }),
     [
       state,
@@ -702,6 +907,18 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       sessionProgressSignals,
       takeExtensionIdentity,
       bumpStudyResume,
+      touchPdfGuideSession,
+      addPdfHighlight,
+      removePdfHighlight,
+      setPdfCheckpoint,
+      markPdfInterruptSeen,
+      completePdfGuideSection,
+      addFlashcardFromPdfSelection,
+      registerLocalPdfFile,
+      removeLocalPdfFile,
+      clearAllLocalPdfMeta,
+      touchPdfSetupVisit,
+      markPdfSetupComplete,
     ]
   );
 

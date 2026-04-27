@@ -24,6 +24,7 @@ const required = [
   "server/rateLimit.ts",
   "server/safety.ts",
   "server/aiCore.ts",
+  "server/pdfGuideAiGuards.ts",
   "src/components/AITutorPanel.tsx",
   "src/lib/aiClient.ts",
   "src/lib/aiTutorFallback.ts",

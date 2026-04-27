@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useProgress, getNotesTodayCount } from "../context/ProgressContext";
 import { buildLearningProfile } from "../core/learningObserver";
 import { COURSE_TOUR_LINKS } from "../data/beginnerPath";
-import { lessons, ORDERED_LESSON_IDS } from "../data/lessons";
+import { ORDERED_LESSON_IDS } from "../data/lessons";
 import ContinueButton from "../components/ContinueButton";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
@@ -13,7 +13,6 @@ import ProgressSafetyCard from "../components/ProgressSafetyCard";
 import RetentionStreakCard from "../components/RetentionStreakCard";
 import MicroConfidenceLine from "../components/MicroConfidenceLine";
 import IdentityReinforcementLine from "../components/IdentityReinforcementLine";
-import NextActionCard from "../components/NextActionCard";
 import SessionMomentumCard from "../components/SessionMomentumCard";
 import { getResumeLabel, getYouAreHereIndex } from "../utils/sessionResume";
 import { readinessTrack } from "../utils/readinessBand";
@@ -52,7 +51,6 @@ export default function Dashboard() {
 
   const dayStr = new Date().toISOString().slice(0, 10);
 
-  const nextLabel = nextLesson && lessons[nextLesson] ? lessons[nextLesson].title : "—";
   const totalSections = ORDERED_LESSON_IDS.length;
   const done = useMemo(
     () => state.completedLessons.filter((id) => ORDERED_LESSON_IDS.includes(id)).length,
@@ -127,17 +125,19 @@ export default function Dashboard() {
           <PracticeExamDraftResume />
           <ResumeWhereCard state={state} />
 
-          <SectionCard title="Quick first win (under 2 minutes)" subtitle="One question from your first section — then explore the full lesson when you’re ready.">
-            <Link
-              to={`/quiz/${firstLessonId}?quick=1`}
-              className="btn w-full text-center min-h-[48px] touch-manipulation"
-            >
-              Answer 1 practice question →
-            </Link>
-            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              Tiny quiz only — your full path and Smart Coach stay on this dashboard.
-            </p>
-          </SectionCard>
+          {!(done >= 4 && hasTodayActivity) && (
+            <SectionCard title="Quick first win (under 2 minutes)" subtitle="One question from your first section — then explore the full lesson when you’re ready.">
+              <Link
+                to={`/quiz/${firstLessonId}?quick=1`}
+                className="btn w-full text-center min-h-[48px] touch-manipulation"
+              >
+                Answer 1 practice question →
+              </Link>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                Tiny quiz only — your full path and Smart Coach stay on this dashboard.
+              </p>
+            </SectionCard>
+          )}
 
           <DailyMinimumCard lessonId={nextLesson ?? undefined} />
 
@@ -267,23 +267,13 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      <div className="card border-emerald-800/50 bg-emerald-950/20 ring-1 ring-emerald-800/50">
-        <p className="text-xs text-emerald-200/80 uppercase tracking-wide">Next best action</p>
-        <p className="text-lg font-semibold mt-1 text-white">{nextStep.nextAction.replace(/\*\*/g, "")}</p>
-        <p className="text-sm text-amber-100/80 mt-2">Why this matters: {nextStep.why}</p>
-        <div className="mt-4">
-          <ContinueButton step={nextStep} className="btn w-full sm:w-auto text-center" />
-        </div>
-        <p className="text-xs text-slate-500 mt-2">Reference (next in order): {nextLabel}</p>
-      </div>
-
       {(aiProfile.thinkingAlerts[0] || aiProfile.noteQualityScore < 45) && (
         <div className="card border-violet-800/40 bg-violet-950/20">
           <p className="text-xs text-violet-200/90 uppercase tracking-wide">AI learning observer</p>
           {aiProfile.thinkingAlerts[0] && (
             <p className="text-sm text-amber-100/90 mt-2">{aiProfile.thinkingAlerts[0].replace(/\*\*/g, "")}</p>
           )}
-          <p className="text-xs text-slate-400 mt-2">
+          <p className="text-xs text-slate-400 mt-2 hidden sm:block">
             Recall strength: <span className="text-slate-200">{aiProfile.recallStrength}</span>/100 · Note quality:{" "}
             <span className="text-slate-200">{aiProfile.noteQualityScore}</span>/100 · Readiness model:{" "}
             <span className="text-slate-200">{aiProfile.examReadiness}</span>/100
@@ -379,8 +369,8 @@ export default function Dashboard() {
         <p className="mt-1 text-white font-medium text-sm leading-relaxed">{coachV2.todaysBestMove.replace(/\*\*/g, "")}</p>
         <p className="text-xs text-emerald-200/80 uppercase tracking-wide mt-3">WHY</p>
         <p className="text-slate-300 text-sm mt-1">{coachV2.why}</p>
-        <p className="text-xs text-emerald-200/80 uppercase tracking-wide mt-3">DO THIS NEXT (MAX 3)</p>
-        <ol className="mt-2 list-decimal list-inside text-slate-200 text-sm space-y-1">
+        <p className="text-xs text-emerald-200/80 uppercase tracking-wide mt-3">Do this next (primary + up to 2 more)</p>
+        <ol className="mt-2 list-decimal list-inside text-slate-200 text-sm space-y-1 [&>li:nth-child(n+4)]:hidden [&>li:nth-child(n+3)]:max-md:hidden">
           <li>{coachV2.doThisNext[0]?.replace(/\*\*/g, "")}</li>
           <li>{coachV2.doThisNext[1]?.replace(/\*\*/g, "")}</li>
           <li>{coachV2.doThisNext[2]?.replace(/\*\*/g, "")}</li>
@@ -392,13 +382,6 @@ export default function Dashboard() {
           Notes today: {notesToday} / 10 · User flashcards: {state.userFlashcards.length} · Missed in journal: {state.missedJournal.length}
         </p>
       </div>
-
-      <NextActionCard
-        label="Next time you open the app"
-        description="Start here — same Smart Coach queue as Continue on every screen. You never have to remember where you left off."
-      >
-        <ContinueButton step={nextStep} className="btn w-full text-center" />
-      </NextActionCard>
 
       <div className="grid md:grid-cols-2 gap-4">
         <div className="card">

@@ -5,6 +5,9 @@ export type FallbackHints = {
   coachLines?: string[];
   lessonTitle?: string;
   sectionId?: string;
+  /** PDF guided study — keeps fallback anchored to the same section */
+  pdfSectionTitle?: string;
+  pdfLessonId?: string;
 };
 
 export function smartCoachOfflineResponse(hints: FallbackHints): AiTutorResponse {
@@ -12,19 +15,24 @@ export function smartCoachOfflineResponse(hints: FallbackHints): AiTutorResponse
   const where = hints.lessonTitle
     ? `${hints.lessonTitle}${hints.sectionId ? ` (${hints.sectionId})` : ""}`
     : hints.sectionId ?? "this section";
+  const pdfAnchor =
+    hints.pdfSectionTitle ?
+      ` You’re in PDF guide “${hints.pdfSectionTitle}”${hints.pdfLessonId ? ` (lesson ${hints.pdfLessonId})` : ""} — search that phrase in your notes PDF, mark one MUST-highlight hook, then one Brain Book row.`
+    : "";
   return {
     answer:
-      "You’re still fully covered: this isn’t a broken app. The live AI model is simply unavailable (offline, not configured, or busy) — Smart Coach, lesson traps, quiz explanations, and flashcards all work without it. Use those first; turn AI back on when your connection or server is ready.",
+      "You’re still fully covered: this isn’t a broken app. The live AI model is unavailable, empty, or too thin — Smart Coach, lesson traps, quiz explanations, and flashcards still work without it. Use the bullets below as your guaranteed next moves; turn live AI back on when your server or key is ready." +
+      pdfAnchor,
     keyPoints:
       lines.length > 0
         ? lines
         : [
-            "Re-read the lesson MUST highlights (3–8 hooks, not paragraphs).",
+            "Re-read the lesson MUST highlights (3–6 hooks, not paragraphs).",
             "Say the idea out loud in one sentence, then check the quiz explanation.",
             "Add one exam keyword you expect to see in a stem.",
           ],
     examTip: "Security+ rewards recognition: match the stem’s trigger word to the best definition, not the longest story.",
-    nextAction: `Spend 90 seconds on ${where}: one highlight, one note row, one quiz retry.`,
+    nextAction: `Next 3 minutes on ${where}: one PDF search phrase, one highlight hook, one quiz retry (or one flashcard).`,
     confidence: "medium",
   };
 }

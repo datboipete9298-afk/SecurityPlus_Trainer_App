@@ -14,6 +14,8 @@ const mainNav = [
 
 const moreNav = [
   { to: "/start-here", label: "Start here" },
+  { to: "/pdf-guides", label: "PDF guides" },
+  { to: "/pdf-setup", label: "PDF setup" },
   { to: "/practice-exams", label: "Practice exams" },
   { to: "/session", label: "30-min session" },
   { to: "/flashcards", label: "Flashcards" },

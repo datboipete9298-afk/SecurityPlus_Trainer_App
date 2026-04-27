@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AiRequestMode, AiTutorResponse } from "../types/aiTutor";
 import { postAi, checkAiHealth, isAiApiBaseConfigured } from "../lib/aiClient";
 import { examModeAiLockedResponse, rateLimitedAiResponse, smartCoachOfflineResponse } from "../lib/aiTutorFallback";
+import { enforceStructuredAiResponse, isWeakAiResponse } from "../lib/aiResponseQuality";
 import { useProgress } from "../context/ProgressContext";
 import StatusBadge from "./StatusBadge";
 
@@ -41,6 +42,17 @@ export type AITutorPanelContext = {
   lab?: { objective: string; category?: string; checkpoints?: string[] };
   sim?: { title: string; narrative?: string; lastChoice?: string; wasGood?: boolean };
   coachLines?: string[];
+  /** When set (PDF guided lesson view), tutor prompts include section + user highlights */
+  pdfGuide?: {
+    pdfId: string;
+    lessonId: string;
+    sectionTitle: string;
+    summary: string;
+    mustHighlight: string[];
+    userHighlights?: string[];
+    /** True when this pdfId is present in IndexedDB (metadata on persisted state). */
+    pdfFileAvailable?: boolean;
+  };
 };
 
 type Msg = { role: "user" | "assistant"; text: string; structured?: AiTutorResponse };
@@ -113,24 +125,43 @@ export default function AITutorPanel({ context, variant = "full", className }: P
   const coachFallback = useCallback(() => {
     return smartCoachOfflineResponse({
       coachLines: context.coachLines,
-      lessonTitle: context.lesson?.title,
-      sectionId: context.lesson?.id,
+      lessonTitle: context.lesson?.title ?? context.pdfGuide?.sectionTitle,
+      sectionId: context.lesson?.id ?? context.pdfGuide?.lessonId,
+      pdfSectionTitle: context.pdfGuide?.sectionTitle,
+      pdfLessonId: context.pdfGuide?.lessonId,
     });
-  }, [context.coachLines, context.lesson?.id, context.lesson?.title]);
+  }, [
+    context.coachLines,
+    context.lesson?.id,
+    context.lesson?.title,
+    context.pdfGuide?.lessonId,
+    context.pdfGuide?.sectionTitle,
+  ]);
 
-  const pushAssistant = useCallback((structured: AiTutorResponse) => {
+  type TutorLayer = "live" | "fallback" | "rate_limited" | "exam_lock";
+
+  const pushAssistant = useCallback((structured: AiTutorResponse, layer: TutorLayer = "fallback") => {
+    const layerLine =
+      layer === "live"
+        ? "\n\n— Tutor layer: live model (structure verified)"
+        : layer === "fallback"
+          ? "\n\n— Tutor layer: built-in fallback (guaranteed actionable)"
+          : layer === "rate_limited"
+            ? "\n\n— Tutor layer: rate limit message"
+            : "\n\n— Tutor layer: exam lock";
     const text =
       `${structured.answer}\n\n` +
       (structured.keyPoints.length ? `• ${structured.keyPoints.join("\n• ")}\n\n` : "") +
       (structured.examTip ? `Exam tip: ${structured.examTip}\n\n` : "") +
-      (structured.nextAction ? `Next: ${structured.nextAction}` : "");
+      (structured.nextAction ? `Next: ${structured.nextAction}` : "") +
+      layerLine;
     setMsgs((m) => [...m, { role: "assistant", text: text.trim(), structured }]);
   }, []);
 
   const run = useCallback(
     async (mode: AiRequestMode, userQuestion: string) => {
       if (context.examAiLocked) {
-        pushAssistant(examModeAiLockedResponse());
+        pushAssistant(examModeAiLockedResponse(), "exam_lock");
         return;
       }
       const q = userQuestion.trim();
@@ -145,6 +176,17 @@ export default function AITutorPanel({ context, variant = "full", className }: P
           userProgress: context.userProgress,
           weakAreas: context.weakAreas,
           quizContext: context.quiz,
+          pdfGuideContext: context.pdfGuide
+            ? {
+                pdfId: context.pdfGuide.pdfId,
+                lessonId: context.pdfGuide.lessonId,
+                sectionTitle: context.pdfGuide.sectionTitle,
+                summary: context.pdfGuide.summary,
+                mustHighlight: context.pdfGuide.mustHighlight,
+                userHighlights: context.pdfGuide.userHighlights,
+                pdfFileAvailable: context.pdfGuide.pdfFileAvailable,
+              }
+            : undefined,
           noteContext:
             context.noteDraft || context.noteHeuristic
               ? { draft: context.noteDraft, heuristic: context.noteHeuristic }
@@ -157,18 +199,21 @@ export default function AITutorPanel({ context, variant = "full", className }: P
           simpleMode: state.beginnerMode,
         };
 
-        const out = await postAi(mode, body);
-        if (out.answer.includes("not configured") || out.answer.toLowerCase().includes("openai_api_key")) {
-          pushAssistant(coachFallback());
+        const outRaw = await postAi(mode, body);
+        if (outRaw.answer.includes("not configured") || outRaw.answer.toLowerCase().includes("openai_api_key")) {
+          pushAssistant(coachFallback(), "fallback");
+        } else if (isWeakAiResponse(outRaw)) {
+          pushAssistant(coachFallback(), "fallback");
         } else {
-          pushAssistant(out);
+          const out = enforceStructuredAiResponse(outRaw, mode);
+          pushAssistant(out, "live");
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : "";
         if (msg === "rate_limited") {
-          pushAssistant(rateLimitedAiResponse());
+          pushAssistant(rateLimitedAiResponse(), "rate_limited");
         } else {
-          pushAssistant(coachFallback());
+          pushAssistant(coachFallback(), "fallback");
         }
       } finally {
         setLoading(false);
@@ -213,15 +258,50 @@ export default function AITutorPanel({ context, variant = "full", className }: P
         "Summarize lesson",
         "Exam will ask…",
         "Note help",
+        "Help me find this in my PDF",
+        "Check my note",
       ]),
       quiz: new Set(["Why wrong?", "Why right?", "Exam keyword", "Similar Q", "Explain trap"]),
       lab: new Set(["I’m stuck (lab)", "Explain step", "Why it matters", "What to notice", "On the exam"]),
       sim: new Set(["I’m stuck (lab)", "Explain step", "Why it matters", "What to notice", "On the exam"]),
       dashboard: new Set(["Explain simpler", "Real-world example", "Quiz me", "Summarize lesson", "Exam will ask…"]),
     };
+    const pdfExtras =
+      context.pdfGuide ?
+        [
+          {
+            label: "Help me find this in my PDF" as const,
+            mode: "tutor" as const,
+            q:
+              context.pdfGuide.pdfFileAvailable ?
+                `I added the PDF in PDF setup. For section "${context.pdfGuide.sectionTitle}", what should I type in the PDF search box first, and what nearby headings to trust if search fails?`
+              : `I have not added this PDF in PDF setup yet. Tell me exactly what to do first, then how to find "${context.pdfGuide.sectionTitle}" once the file is local.`,
+          },
+          {
+            label: "What matters here?" as const,
+            mode: "tutor" as const,
+            q: `I'm in PDF guided mode on "${context.pdfGuide.sectionTitle}". List the 5 highest-yield exam ideas and one trap for each.`,
+          },
+          {
+            label: "Exam traps (PDF)" as const,
+            mode: "tutor" as const,
+            q: `For "${context.pdfGuide.sectionTitle}", what distractors does CompTIA love, and how do I eliminate them fast?`,
+          },
+          {
+            label: "Turn into flashcards" as const,
+            mode: "tutor" as const,
+            q: `From this section summary and must-highlight list, propose 3 flashcard fronts with backs (definition-style).`,
+          },
+          {
+            label: "Check my note" as const,
+            mode: "note-feedback" as const,
+            q: "Critique my Brain Book draft for this section: vagueness, missing exam keyword, or textbook copy-paste tone. Suggest one tighter rewrite.",
+          },
+        ]
+      : [];
     const set = labelsBySurface[context.surface];
-    return quick.filter((x) => set.has(x.label));
-  }, [context.surface, quick]);
+    return [...quick.filter((x) => set.has(x.label)), ...pdfExtras];
+  }, [context.surface, context.pdfGuide, quick]);
 
   const title = variant === "compact" ? "AI tutor" : "AI tutor (Security+)";
   const expanded = isLg || mobileCoachOpen;
@@ -276,6 +356,12 @@ export default function AITutorPanel({ context, variant = "full", className }: P
             ))}
         </div>
         <p className="text-[11px] text-slate-400 mt-1 leading-snug">{sub}</p>
+        {context.pdfGuide && context.pdfGuide.pdfFileAvailable === false && (
+          <p className="text-[11px] text-amber-200/90 mt-2 leading-snug">
+            PDF not stored in this browser yet — open <strong className="text-amber-100">PDF setup</strong> to add your file; highlights here still
+            save to progress.
+          </p>
+        )}
         {(aiConn === "guided" || aiConn === "offline") && !context.examAiLocked && (
           <p className="text-[11px] text-teal-200/85 mt-2 leading-snug border-t border-violet-900/35 pt-2">
             You&apos;re still learning correctly — AI is optional. Lessons, quizzes, and Smart Coach don&apos;t depend on a live model.

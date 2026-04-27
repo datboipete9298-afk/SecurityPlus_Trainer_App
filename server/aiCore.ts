@@ -2,6 +2,7 @@ import type { AiRequestMode, AiTutorResponse } from "../src/types/aiTutor";
 import { getChatModel, getOpenAI } from "./openaiClient";
 import { systemPromptForMode, userPayloadSummary, maxTokensForPrompt } from "./prompts";
 import { sanitizeUserQuestion } from "./safety";
+import { isPdfGuideContextPresent, normalizePdfGuideAiResponse } from "./pdfGuideAiGuards";
 
 function emptyResponse(reason: string): AiTutorResponse {
   return {
@@ -49,18 +50,31 @@ export type AskTutorInput = {
   quizContext?: Record<string, unknown> | null;
   noteContext?: Record<string, unknown> | null;
   labContext?: Record<string, unknown> | null;
+  pdfGuideContext?: Record<string, unknown> | null;
   simpleMode?: boolean;
 };
 
 export async function askTutor(input: AskTutorInput): Promise<AiTutorResponse> {
+  const sq = sanitizeUserQuestion(input.userQuestion);
+  const hasPdf = isPdfGuideContextPresent(input.pdfGuideContext);
+
   const client = getOpenAI();
   if (!client) {
-    return emptyResponse("AI is not configured (missing OPENAI_API_KEY).");
+    return normalizePdfGuideAiResponse(
+      emptyResponse("AI is not configured (missing OPENAI_API_KEY)."),
+      input.pdfGuideContext as Record<string, unknown> | undefined,
+      input.mode,
+      sq.text || undefined,
+    );
   }
 
-  const sq = sanitizeUserQuestion(input.userQuestion);
   if (!sq.ok) {
-    return emptyResponse(sq.reason ?? "Invalid question.");
+    return normalizePdfGuideAiResponse(
+      emptyResponse(sq.reason ?? "Invalid question."),
+      input.pdfGuideContext as Record<string, unknown> | undefined,
+      input.mode,
+      undefined,
+    );
   }
 
   const payload: Record<string, unknown> = {
@@ -70,6 +84,7 @@ export async function askTutor(input: AskTutorInput): Promise<AiTutorResponse> {
     quizContext: input.quizContext ?? undefined,
     noteContext: input.noteContext ?? undefined,
     labContext: input.labContext ?? undefined,
+    pdfGuideContext: input.pdfGuideContext ?? undefined,
     userQuestion: sq.text || undefined,
   };
 
@@ -83,20 +98,23 @@ export async function askTutor(input: AskTutorInput): Promise<AiTutorResponse> {
     temperature: simple ? 0.3 : 0.35,
     max_tokens: maxTokensForPrompt(simple),
     messages: [
-      { role: "system", content: systemPromptForMode(input.mode, { simple }) },
+      { role: "system", content: systemPromptForMode(input.mode, { simple, hasPdfGuideContext: hasPdf }) },
       { role: "user", content: userContent },
     ],
   });
 
   const content = completion.choices[0]?.message?.content?.trim() ?? "";
   const parsed = parseJsonContent(content);
-  if (parsed) return parsed;
+  if (parsed) {
+    return normalizePdfGuideAiResponse(parsed, input.pdfGuideContext as Record<string, unknown> | undefined, input.mode, sq.text || undefined);
+  }
 
-  return {
+  const rough: AiTutorResponse = {
     answer: content.slice(0, 2000) || "No response from model.",
     keyPoints: [],
     examTip: "Re-read the objective wording; Security+ loves precise definitions.",
     nextAction: "Try rewriting your question in one sentence.",
     confidence: "low",
   };
+  return normalizePdfGuideAiResponse(rough, input.pdfGuideContext as Record<string, unknown> | undefined, input.mode, sq.text || undefined);
 }

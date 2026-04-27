@@ -22,6 +22,10 @@ const SimPage = lazy(() => import("./pages/SimPage"));
 const ImportPage = lazy(() => import("./pages/ImportPage"));
 const BossHub = lazy(() => import("./pages/BossHub"));
 const BossFight = lazy(() => import("./pages/BossFight"));
+const PdfGuideHubPage = lazy(() => import("./pages/PdfGuideHubPage"));
+const PdfGuidePdfPage = lazy(() => import("./pages/PdfGuidePdfPage"));
+const PdfLessonGuidePage = lazy(() => import("./pages/PdfLessonGuidePage"));
+const PdfSetupPage = lazy(() => import("./pages/PdfSetupPage"));
 
 export default function App() {
   return (
@@ -48,6 +52,10 @@ export default function App() {
           <Route path="/import" element={<ImportPage />} />
           <Route path="/boss" element={<BossHub />} />
           <Route path="/boss/:id" element={<BossFight />} />
+          <Route path="/pdf-guides" element={<PdfGuideHubPage />} />
+          <Route path="/pdf-setup" element={<PdfSetupPage />} />
+          <Route path="/pdf-guides/:pdfId" element={<PdfGuidePdfPage />} />
+          <Route path="/pdf-guides/:pdfId/:lessonId" element={<PdfLessonGuidePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

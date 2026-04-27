@@ -35,6 +35,11 @@ export type StudyResumeState = {
   progressPageAt?: number;
   searchAt?: number;
   importPageAt?: number;
+  /** Last PDF lesson guide `/pdf-guides/:pdfId/:lessonId` */
+  pdfGuidePdfId?: string;
+  pdfGuideLessonId?: string;
+  pdfGuideSectionTitle?: string;
+  pdfGuideAt?: number;
 };
 
 export type StudyResumePatch = {
@@ -54,6 +59,9 @@ export type StudyResumePatch = {
   progressPage?: boolean;
   search?: boolean;
   import?: boolean;
+  pdfGuidePdfId?: string;
+  pdfGuideLessonId?: string;
+  pdfGuideSectionTitle?: string;
 };
 
 export function markEngaged(s: PersistedState): PersistedState {
@@ -78,7 +86,8 @@ function patchHasResumeFields(patch: StudyResumePatch): boolean {
     patch.roadmap !== undefined ||
     patch.progressPage !== undefined ||
     patch.search !== undefined ||
-    patch.import !== undefined
+    patch.import !== undefined ||
+    (patch.pdfGuidePdfId !== undefined && patch.pdfGuideLessonId !== undefined)
   );
 }
 
@@ -145,6 +154,12 @@ export function applyStudyResumeAndEngagement(s: PersistedState, patch: StudyRes
   if (patch.import) {
     next.importPageAt = now;
   }
+  if (patch.pdfGuidePdfId !== undefined && patch.pdfGuideLessonId !== undefined) {
+    next.pdfGuidePdfId = patch.pdfGuidePdfId;
+    next.pdfGuideLessonId = patch.pdfGuideLessonId;
+    next.pdfGuideSectionTitle = patch.pdfGuideSectionTitle ?? prev.pdfGuideSectionTitle;
+    next.pdfGuideAt = now;
+  }
   return { ...base, studyResume: next };
 }
 
@@ -164,7 +179,8 @@ export type ResumeKind =
   | "roadmap"
   | "progress"
   | "search"
-  | "import";
+  | "import"
+  | "pdfGuide";
 
 export type ResumeLinkItem = {
   kind: ResumeKind;
@@ -205,6 +221,7 @@ const KIND_ICON: Record<ResumeKind, string> = {
   progress: "◎",
   search: "⌕",
   import: "⤓",
+  pdfGuide: "📄",
 };
 
 /** Tier 0 = study activity (shown first); tier 1 = navigation / tools (deprioritized vs study). */
@@ -374,6 +391,16 @@ export function buildResumeLinkList(
       label: "Import lesson (authors)",
       to: "/import",
       at: sr.importPageAt,
+    });
+  }
+  if (sr.pdfGuidePdfId && sr.pdfGuideLessonId && sr.pdfGuideAt) {
+    const title = sr.pdfGuideSectionTitle ?? lessons[sr.pdfGuideLessonId]?.title ?? sr.pdfGuideLessonId;
+    items.push({
+      kind: "pdfGuide",
+      typeLabel: "PDF guide",
+      label: `Continue PDF guide: ${title}`,
+      to: `/pdf-guides/${sr.pdfGuidePdfId}/${sr.pdfGuideLessonId}`,
+      at: sr.pdfGuideAt,
     });
   }
 

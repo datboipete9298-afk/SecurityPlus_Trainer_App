@@ -18,7 +18,10 @@ const PATH_BY_MODE: Record<AiRequestMode, string> = {
   "lab-coach": "/api/ai/lab-coach",
 };
 
-export async function postAi(mode: AiRequestMode, body: Omit<AiTutorRequestBody, "mode">): Promise<AiTutorResponse> {
+export async function postAi(
+  mode: AiRequestMode,
+  body: Omit<AiTutorRequestBody, "mode"> & { pdfGuideContext?: Record<string, unknown> | null },
+): Promise<AiTutorResponse> {
   const path = PATH_BY_MODE[mode];
   const url = `${apiBase()}${path}`;
   const res = await fetch(url, {

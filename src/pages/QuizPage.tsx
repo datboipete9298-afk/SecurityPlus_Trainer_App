@@ -474,6 +474,12 @@ export default function QuizPage() {
                 <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/practice-exams">
                   Exam hub
                 </Link>
+                <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/pdf-guides/messer-practice-exams-v18">
+                  PDF guide (exams)
+                </Link>
+                <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/pdf-setup">
+                  PDF setup
+                </Link>
               </>
             }
           />
@@ -632,6 +638,32 @@ export default function QuizPage() {
               detailOpen={feedbackDetailOpen}
               onDetailOpenChange={setFeedbackDetailOpen}
             />
+            {!correctNow && (
+              <div className="rounded-xl border border-cyan-800/45 bg-cyan-950/25 p-3 mt-3 text-sm space-y-2" role="region" aria-label="PDF recall repair">
+                <p className="text-cyan-100/95 font-medium text-xs uppercase tracking-wide">Active recall — same lesson in your PDF</p>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Open the exact guide section, search for <span className="text-slate-200 font-medium">{qq.examKeyword.split(",")[0]?.trim() ?? "the keyword above"}</span> in your notes PDF, then say the correct rule in one sentence without looking at the quiz.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {String(qq.lessonId).startsWith("messer-exam") ?
+                    <Link
+                      className="btn-ghost text-xs min-h-[44px] border border-cyan-700/50 inline-flex items-center justify-center px-3"
+                      to="/pdf-guides/messer-practice-exams-v18"
+                    >
+                      PDF guide (exams) →
+                    </Link>
+                  : <Link
+                      className="btn text-xs min-h-[44px] inline-flex items-center justify-center px-3"
+                      to={`/pdf-guides/messer-course-notes-v107/${qq.lessonId}`}
+                    >
+                      PDF guide (this lesson) →
+                    </Link>}
+                  <Link className="btn-ghost text-xs min-h-[44px] border border-slate-600 inline-flex items-center justify-center px-3" to="/pdf-setup">
+                    PDF setup
+                  </Link>
+                </div>
+              </div>
+            )}
             {missFlashcardCue === "new" && (
               <div
                 className="rounded-xl border border-emerald-700/45 bg-emerald-950/30 px-3 py-3 text-sm text-emerald-100 mt-3"
@@ -689,6 +721,16 @@ export default function QuizPage() {
                     <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/sim">
                       Labs / sims
                     </Link>
+                    {String(qq.lessonId).startsWith("messer-exam") ?
+                      <Link className="btn text-sm min-h-[44px] justify-center touch-manipulation" to="/pdf-guides/messer-practice-exams-v18">
+                        PDF guide (exams)
+                      </Link>
+                    : <Link
+                        className="btn text-sm min-h-[44px] justify-center touch-manipulation"
+                        to={`/pdf-guides/messer-course-notes-v107/${qq.lessonId}`}
+                      >
+                        PDF guide (this lesson)
+                      </Link>}
                   </>
                 }
               />

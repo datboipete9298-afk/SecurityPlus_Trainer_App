@@ -11,6 +11,7 @@ import AITutorPanel from "../components/AITutorPanel";
 import StatusBadge from "../components/StatusBadge";
 import DailyMinimumCard from "../components/DailyMinimumCard";
 import { readinessTrack } from "../utils/readinessBand";
+import { PDF_REGISTRY } from "../data/pdfRegistry";
 
 export default function ProgressPage() {
   const { state, readiness, levelInfo, nextStep, nextLesson, importProgress, exportProgress, resetAllProgress, bumpStudyResume } =
@@ -40,6 +41,19 @@ export default function ProgressPage() {
   );
 
   const examHistory = useMemo(() => [...(state.practiceExamAttempts ?? [])].slice(-12).reverse(), [state.practiceExamAttempts]);
+
+  const pdfStats = useMemo(() => {
+    const lib = state.pdfLibrary;
+    const by = lib?.bySection ?? {};
+    let sectionsDone = 0;
+    let highlightCount = 0;
+    for (const v of Object.values(by)) {
+      if (v.completedAt) sectionsDone++;
+      highlightCount += v.highlights?.length ?? 0;
+    }
+    const files = lib?.localFileMeta ?? {};
+    return { fileN: Object.keys(files).length, sectionsDone, highlightCount, brainNotes: state.notes.length };
+  }, [state.pdfLibrary, state.notes.length]);
 
   const pbqMisses = useMemo(
     () =>
@@ -211,13 +225,43 @@ export default function ProgressPage() {
             </Link>
           </SectionCard>
 
+          <SectionCard title="PDF guides (this device)" subtitle="Bring your own PDFs — IndexedDB">
+            <ul className="text-sm text-slate-300 space-y-2">
+              <li>
+                <strong className="text-white">PDF files saved:</strong> {pdfStats.fileN} / {PDF_REGISTRY.length} registry slots
+              </li>
+              <li>
+                <strong className="text-white">Guide sections completed:</strong> {pdfStats.sectionsDone}
+              </li>
+              <li>
+                <strong className="text-white">Saved highlight hooks:</strong> {pdfStats.highlightCount}
+              </li>
+              <li>
+                <strong className="text-white">Brain Book rows (all lessons):</strong> {pdfStats.brainNotes}
+              </li>
+            </ul>
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <Link to="/pdf-setup" className="btn w-full sm:w-auto text-center">
+                PDF setup →
+              </Link>
+              <Link to="/pdf-guides" className="btn-ghost w-full sm:w-auto text-center border border-slate-600">
+                PDF guides →
+              </Link>
+            </div>
+            <p className="text-xs text-amber-200/85 mt-3 leading-relaxed border-t border-slate-800 pt-3">
+              Your PDF files stay in this browser. <strong className="text-amber-100">Export backup below does not include PDF binaries</strong> — only
+              progress JSON. After a new device or if you clear site data, <strong>re-add PDFs</strong> under PDF setup.
+            </p>
+          </SectionCard>
+
           <div id="backup">
           <SectionCard
             title="Backup & restore"
             subtitle="Export JSON — no server upload"
           >
             <p className="text-slate-500 text-sm max-w-lg leading-relaxed">
-              <strong className="text-amber-200/90">Import replaces</strong> progress on this device after confirmation in the importer. Keep a dated export before importing someone else&apos;s file.
+              <strong className="text-amber-200/90">Import replaces</strong> progress on this device after confirmation in the importer. Keep a dated export before importing someone else&apos;s file.{" "}
+              <strong className="text-slate-400">PDF files are not inside this JSON</strong> — use PDF setup again after restore if needed.
             </p>
             <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-2">
               <button type="button" className="btn w-full sm:w-auto text-center" onClick={onDownload}>

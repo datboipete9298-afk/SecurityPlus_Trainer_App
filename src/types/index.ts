@@ -123,4 +123,6 @@ export interface CoachRecommendation {
   why: string;
   type: "lesson" | "quiz" | "lab" | "flashcard" | "teach" | "break";
   targetId?: string;
+  /** Optional deep link when this recommendation is shown as a button */
+  href?: string;
 }

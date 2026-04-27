@@ -630,6 +630,12 @@ export default function LessonPage() {
           )}
         </ul>
         <div className="mt-4 flex flex-wrap gap-2">
+          <Link to={`/pdf-guides/messer-course-notes-v107/${id}`} className="btn-ghost text-sm min-h-[44px] touch-manipulation">
+            PDF guide (Messer notes)
+          </Link>
+          <Link to={`/pdf-guides/sy0-701-study-guide/${id}`} className="btn-ghost text-sm min-h-[44px] touch-manipulation">
+            PDF guide (Study guide)
+          </Link>
           <Link to="/session" className="btn-ghost text-sm">
             30-min session
           </Link>

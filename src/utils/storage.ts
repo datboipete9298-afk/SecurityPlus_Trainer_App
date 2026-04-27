@@ -1,7 +1,7 @@
 import type { DomainId } from "../types";
 
 const KEY = "spt_v1_state";
-const SCHEMA_VERSION = 9 as const;
+const SCHEMA_VERSION = 11 as const;
 
 export type UserConfidenceLevel = "not_sure" | "somewhat_sure" | "very_sure" | "skipped";
 
@@ -100,6 +100,8 @@ export interface PersistedState {
   outsideQuizIdentityEcho?: { bucket: string; at: number };
   /** Last touched lesson / quiz / flashcards / PBQ for global resume */
   studyResume?: import("./studyResume").StudyResumeState;
+  /** PDF guided study — highlights, checkpoints, interrupts (per pdfId::lessonId) */
+  pdfLibrary?: import("../types/pdfLibrary").PdfLibraryProgress;
 }
 
 export type TodayActivity = {
@@ -174,6 +176,7 @@ const defaultState = (): PersistedState => ({
   feedbackLoop: emptyFeedbackLoop(),
   pbqPassedIds: [],
   lastAcknowledgedStreakMilestone: 0,
+  pdfLibrary: { bySection: {}, localFileMeta: {} },
 });
 
 function migrateAndNormalize(base: PersistedState, raw: unknown): PersistedState {
@@ -295,15 +298,28 @@ function migrateAndNormalize(base: PersistedState, raw: unknown): PersistedState
       "progressPageAt",
       "searchAt",
       "importPageAt",
+      "pdfGuideAt",
     ] as const;
     for (const k of nums) {
       if (r[k] != null && typeof r[k] !== "number") delete r[k];
     }
-    const strs = ["watchLessonId", "practiceExamId", "bossId"] as const;
+    const strs = ["watchLessonId", "practiceExamId", "bossId", "pdfGuidePdfId", "pdfGuideLessonId", "pdfGuideSectionTitle"] as const;
     for (const k of strs) {
       if (r[k] != null && typeof r[k] !== "string") delete r[k];
     }
     if (r.simLessonId !== undefined && r.simLessonId !== null && typeof r.simLessonId !== "string") delete r.simLessonId;
+  }
+  if (!o.pdfLibrary || typeof o.pdfLibrary !== "object") {
+    o.pdfLibrary = { bySection: {}, localFileMeta: {} };
+  } else {
+    const pl = o.pdfLibrary as import("../types/pdfLibrary").PdfLibraryProgress;
+    const lm = pl.localFileMeta && typeof pl.localFileMeta === "object" ? pl.localFileMeta : {};
+    o.pdfLibrary = {
+      bySection: typeof pl.bySection === "object" && pl.bySection ? pl.bySection : {},
+      localFileMeta: lm,
+      pdfSetupLastVisitAt: typeof pl.pdfSetupLastVisitAt === "number" ? pl.pdfSetupLastVisitAt : undefined,
+      pdfSetupMarkedCompleteAt: typeof pl.pdfSetupMarkedCompleteAt === "number" ? pl.pdfSetupMarkedCompleteAt : undefined,
+    };
   }
   return o;
 }

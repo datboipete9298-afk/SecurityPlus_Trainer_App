@@ -19,6 +19,8 @@ export type AiTutorRequestBody = {
   quizContext?: Record<string, unknown> | null;
   noteContext?: Record<string, unknown> | null;
   labContext?: Record<string, unknown> | null;
+  /** PDF guided study — section summary, must highlights, user-captured hooks */
+  pdfGuideContext?: Record<string, unknown> | null;
   /** When true (Beginner mode): shorter, plainer answers on the server */
   simpleMode?: boolean;
 };
