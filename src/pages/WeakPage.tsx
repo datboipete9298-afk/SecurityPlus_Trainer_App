@@ -10,6 +10,7 @@ import SectionCard from "../components/SectionCard";
 import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
 import ContinueButton from "../components/ContinueButton";
 import { examDomainShortTitle } from "../utils/identityPersonalization";
+import TrustReminderStrip from "../components/TrustReminderStrip";
 
 function missLabel(m: { qid: string; lessonId: string }) {
   const pbq = getPbqTitleFromJournalQid(m.qid);
@@ -62,6 +63,8 @@ export default function WeakPage() {
           purpose="One repair path at a time — start with the button below, then come back to your queue when you are ready."
         />
 
+        <TrustReminderStrip dense />
+
         <FlowPrimaryStrip>
           {primaryRepair ?
             <Link to={primaryRepair.href} className="btn w-full text-center min-h-[48px] touch-manipulation justify-center">
@@ -105,7 +108,11 @@ export default function WeakPage() {
 
         <SectionCard title="Recent misses" subtitle="Newest first — tap retry on any row">
           <ul className="text-sm space-y-3">
-            {missed.length === 0 && <li className="text-slate-500">No misses yet — take a quiz or submit a PBQ lab wrong once to see items here.</li>}
+            {missed.length === 0 && (
+              <li className="text-slate-400 leading-relaxed border border-slate-800 rounded-lg p-3 bg-slate-950/40">
+                No journal misses yet — keep running lesson quizzes and PBQs; wrong answers land here automatically. Meanwhile, use mixed practice so domains stay honest.
+              </li>
+            )}
             {missed.map((m) => {
               const row = missLabel(m);
               return (
@@ -127,7 +134,7 @@ export default function WeakPage() {
           <button
             type="button"
             className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800/50 min-h-[48px] touch-manipulation flex justify-between items-center gap-2"
-            aria-expanded={detailsOpen}
+            aria-expanded={detailsOpen ? "true" : "false"}
             onClick={() => setDetailsOpen((o) => !o)}
           >
             <span>Domain scores &amp; lab reminders</span>

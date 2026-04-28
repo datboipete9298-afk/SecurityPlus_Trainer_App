@@ -75,7 +75,7 @@ export default function FlashcardsPage() {
             </FlowPrimaryStrip>
             <PageHeader
               title="Flashcards"
-              purpose="No cards in this deck yet. Add content in data files, convert quiz misses, or open flashcards from a lesson that has cards."
+              purpose="This filtered deck is empty — open flashcards from a lesson that includes cards, convert quiz misses from home, or drop the lesson filter below."
             />
             <SectionCard title="Empty deck" subtitle="Secondary paths">
               <details className="group">

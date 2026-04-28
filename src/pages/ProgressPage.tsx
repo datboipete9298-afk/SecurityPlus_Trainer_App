@@ -13,6 +13,7 @@ import DailyMinimumCard from "../components/DailyMinimumCard";
 import { readinessTrack, weakestDomainHintFromScores } from "../utils/readinessBand";
 import { PDF_REGISTRY } from "../data/pdfRegistry";
 import { flashcards as builtInFlashcards } from "../data/flashcards";
+import TrustReminderStrip from "../components/TrustReminderStrip";
 
 export default function ProgressPage() {
   const { state, readiness, levelInfo, nextStep, nextLesson, importProgress, exportProgress, resetAllProgress, bumpStudyResume } =
@@ -132,6 +133,8 @@ export default function ProgressPage() {
             }
             badge={<StatusBadge tone="ok">{pct}% course</StatusBadge>}
           />
+
+          <TrustReminderStrip dense />
 
           <DailyMinimumCard lessonId={nextLesson ?? undefined} />
 

@@ -2,11 +2,11 @@ import type { AiRequestMode } from "../src/types/aiTutor";
 
 const JSON_RULES = `You MUST respond with valid JSON only (no markdown fences), shape:
 {"answer":"string","keyPoints":["string",...],"examTip":"string","nextAction":"string","confidence":"low"|"medium"|"high"}
-Rules: Sound like a calm human tutor — direct answer first, no "as an AI", no meta about the system. "answer": max 3 short sentences. keyPoints: 2–4 items, ≤14 words each. Total across answer+keyPoints ≤ 160 words. SY0-701 tone. No step-by-step hacking. If unsure, confidence low.`;
+Rules: Sound like a calm human tutor — direct answer first, no "as an AI", no meta about the system. "answer": max 3 short sentences. keyPoints: 2–4 items, ≤14 words each. Total across answer+keyPoints ≤ 160 words. SY0-701 tone. No step-by-step hacking. If unsure, confidence low. nextAction: one imperative line the learner can do in under 5 minutes (name a screen or drill, e.g. "Open Weak areas → Domain 4 quiz") — never vague filler like "study more" or "review the material". examTip: name one trap or keyword hook, not boilerplate.`;
 
 const JSON_RULES_SIMPLE = `You MUST respond with valid JSON only (no markdown fences), shape:
 {"answer":"string","keyPoints":["string",...],"examTip":"string","nextAction":"string","confidence":"low"|"medium"|"high"}
-Rules: BEGINNER SIMPLIFY — use everyday words. "answer" = max 2 short sentences. Include at least one concrete example (workplace or simple scenario) in answer or keyPoints. Define any acronym the first time (e.g., "AES (encryption standard)"). keyPoints: max 3 items, each under 15 words. Less jargon. Total words across answer+keyPoints ≤ 90.`;
+Rules: BEGINNER SIMPLIFY — use everyday words. "answer" = max 2 short sentences. Include at least one concrete example (workplace or simple scenario) in answer or keyPoints. Define any acronym the first time (e.g., "AES (encryption standard)"). keyPoints: max 3 items, each under 15 words. Less jargon. Total words across answer+keyPoints ≤ 90. nextAction: one short imperative with a clear next screen or action. examTip: one exam hook, not fluff.`;
 
 /** Extra constraints when Context JSON includes non-empty pdfGuideContext. */
 const PDF_GUIDE_CONTEXT_RULES = `
