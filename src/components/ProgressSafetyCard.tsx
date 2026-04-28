@@ -11,17 +11,19 @@ export default function ProgressSafetyCard() {
         Your progress is yours — keep a copy
       </h2>
       <p className="text-sm text-slate-300 leading-relaxed">
-        Your study data lives in <strong className="text-slate-100">this browser only</strong>. Another device, another browser, or cleared site data means a fresh start — unless you use{" "}
-        <strong className="text-slate-100">Progress → Backup &amp; export</strong> to keep a file.
+        Notes and progress are saved on <strong className="text-slate-100">this device</strong>. PDFs stay on this device too.
       </p>
       <div className="flex flex-col sm:flex-row gap-2 pt-1">
         <Link to="/progress#backup" className="btn w-full sm:w-auto text-center text-sm min-h-[44px] touch-manipulation">
-          Backup &amp; export →
+          Back up your progress →
         </Link>
         <p className="text-xs text-slate-500 sm:self-center sm:pl-2">
-          Takes seconds. No account required.
+          Takes a few seconds. No account required.
         </p>
       </div>
+      <p className="text-[11px] text-slate-500 leading-relaxed border-t border-teal-900/40 pt-2">
+        <strong className="text-slate-400">Tip:</strong> Use one tab while studying so progress saves cleanly.
+      </p>
       <p className="text-xs text-slate-500 leading-relaxed border-t border-teal-900/40 pt-2">
         Percentages and readiness in the app are <strong className="text-slate-400">honest signals from your practice here</strong> — useful for steering, not a promise about the real CompTIA exam.
       </p>

@@ -60,7 +60,7 @@ export default function WeakPage() {
       <div className="max-w-3xl space-y-6">
         <PageHeader
           title="Weak area repair"
-          purpose="One repair path at a time — start with the button below, then come back to your queue when you are ready."
+          purpose="One repair at a time — tap the button below. Come back when you’re ready for more."
         />
 
         <TrustReminderStrip dense />
@@ -134,7 +134,7 @@ export default function WeakPage() {
           <button
             type="button"
             className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800/50 min-h-[48px] touch-manipulation flex justify-between items-center gap-2"
-            aria-expanded={detailsOpen ? "true" : "false"}
+            aria-expanded={detailsOpen}
             onClick={() => setDetailsOpen((o) => !o)}
           >
             <span>Domain scores &amp; lab reminders</span>

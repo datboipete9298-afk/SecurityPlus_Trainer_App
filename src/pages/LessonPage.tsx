@@ -31,9 +31,12 @@ import AITutorPanel from "../components/AITutorPanel";
 import DailyMinimumCard from "../components/DailyMinimumCard";
 import { flashExtensionIdentityForDashboard } from "../utils/outsideQuizIdentity";
 import { buildLessonCompleteIdentityLine } from "../utils/identityPersonalization";
-import TrustReminderStrip from "../components/TrustReminderStrip";
 import VideoStudyMode, { type PauseContextPayload } from "../components/video/VideoStudyMode";
 import { buildPausePromptPoolFromLesson } from "../utils/pausePrompts";
+import LessonStepIndicator from "../components/LessonStepIndicator";
+import { pickConfidenceLine, pickNextLine } from "../utils/microEncouragement";
+import { markUsage, markUsageOnce } from "../utils/localUsageSignals";
+import MultiTabHint from "../components/MultiTabHint";
 
 export default function LessonPage() {
   const { id } = useParams();
@@ -60,6 +63,7 @@ export default function LessonPage() {
   useEffect(() => {
     if (!id) return;
     bumpStudyResume({ lessonId: id });
+    markUsage("lesson_started");
   }, [id, bumpStudyResume]);
   const [note, setNote] = useState({
     topic: "",
@@ -225,10 +229,16 @@ export default function LessonPage() {
       created: Date.now(),
     };
     addNote(b);
+    markUsage("video_note_saved");
     setNote({ topic: "", whatItMeans: "", realLife: "", whyMatters: "", examKeyword: "", memory: "" });
-    setNoteAiMsg(
-      analysis.severity === "warn" ? analysis.messages.join(" ") : "Saved — tight note. Teach it once out loud.",
-    );
+    if (analysis.severity === "warn") {
+      setNoteAiMsg(analysis.messages.join(" "));
+    } else {
+      const seed = `${id}:${b.id}`;
+      const confidence = pickConfidenceLine(seed);
+      const next = pickNextLine("after-note", seed);
+      setNoteAiMsg(`Saved — tight note. ${confidence} ${next}`);
+    }
   };
 
   const nxt = getNextSectionId(id) ?? null;
@@ -272,8 +282,15 @@ export default function LessonPage() {
     saveTeachBack(id, teach);
     patchLessonProgress(id, { teachBackDone: teachOk });
     completeLesson(id, sec);
-    if (wasNewCompletion && takeExtensionIdentity("lesson_complete") && L) {
-      flashExtensionIdentityForDashboard(buildLessonCompleteIdentityLine(L.title, readiness.label));
+    if (wasNewCompletion && L) {
+      markUsage("lesson_completed");
+      markUsageOnce("first_win");
+      const seed = `${id}:${state.completedLessons.length}`;
+      const fallback = `${pickConfidenceLine(seed)} ${pickNextLine("after-lesson", seed)}`;
+      const line = takeExtensionIdentity("lesson_complete")
+        ? buildLessonCompleteIdentityLine(L.title, readiness.label)
+        : fallback;
+      flashExtensionIdentityForDashboard(line);
     }
     nav("/");
   };
@@ -294,8 +311,15 @@ export default function LessonPage() {
       flashcardsReviewed: true,
     });
     completeLesson(id, sec);
-    if (wasNewCompletion && takeExtensionIdentity("lesson_complete") && L) {
-      flashExtensionIdentityForDashboard(buildLessonCompleteIdentityLine(L.title, readiness.label));
+    if (wasNewCompletion && L) {
+      markUsage("lesson_completed");
+      markUsageOnce("first_win");
+      const seed = `${id}:${state.completedLessons.length}:simple`;
+      const fallback = `${pickConfidenceLine(seed)} ${pickNextLine("after-lesson", seed)}`;
+      const line = takeExtensionIdentity("lesson_complete")
+        ? buildLessonCompleteIdentityLine(L.title, readiness.label)
+        : fallback;
+      flashExtensionIdentityForDashboard(line);
     }
     nav("/");
   };
@@ -518,123 +542,118 @@ export default function LessonPage() {
             </h2>
             <p className="text-lg font-semibold text-white leading-snug">{doNowHint.headline}</p>
             <p className="text-sm text-slate-300 leading-relaxed">{doNowHint.detail}</p>
-            <p className="text-xs text-slate-500 border-t border-emerald-900/40 pt-2">{doNowHint.then}</p>
+            <p className="text-xs text-emerald-200/80 border-t border-emerald-900/40 pt-2">
+              <span className="text-emerald-300/95 font-semibold">Loop:</span> Watch → pause → write one note → answer 3 questions.
+            </p>
+            <p className="text-xs text-slate-500">{doNowHint.then}</p>
           </section>
 
-          <TrustReminderStrip dense />
+          <LessonStepIndicator currentStep={flowStep} strict={lessonOneStepUi || state.beginnerMode} />
+
+          <MultiTabHint />
 
           <PageHeader
             eyebrow={`Domain ${L.domain}${L.sectionNumber ? ` · Section ${L.sectionNumber}` : ""}`}
             title={L.title}
-            purpose="Work the green “Do this now” line first — then the step blocks below scroll in order. Open “More” only for shortcuts or coach stats."
+            purpose="Follow the green Do this now line — the steps below scroll in order."
           />
 
-          <details className="rounded-xl border border-slate-700 bg-slate-900/40 group">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-300 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
-              <span className="mr-2 text-slate-500 group-open:text-emerald-400">▸</span>
-              More — path, lesson display, coach
+          <details className="rounded-xl border border-slate-700 bg-slate-900/30 group mb-8">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm text-slate-400 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+              Lesson reference &amp; settings <span className="ml-1 text-slate-600">(optional)</span>
             </summary>
-            <div className="px-4 pb-4 pt-0 border-t border-slate-800 space-y-4">
-              {!state.beginnerMode && (
-                <label className="flex flex-wrap items-center gap-3 text-sm text-slate-300 touch-manipulation cursor-pointer min-h-[44px]">
-                  <span className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      className="h-11 w-11 sm:h-5 sm:w-5 rounded border-slate-600 shrink-0"
-                      checked={lessonOneStepUi}
-                      onChange={(e) => setLessonOneStepUi(e.target.checked)}
-                      aria-label="Show one lesson step at a time"
-                    />
-                    One step at a time
-                  </span>
-                  <span className="text-[11px] text-slate-500">Off = preview the whole lesson (more scrolling).</span>
-                </label>
-              )}
-              <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-500" aria-label="Breadcrumb">
-                <Link to="/roadmap" className="text-emerald-400 hover:underline">
-                  Lesson path
-                </Link>
-                <span aria-hidden>/</span>
-                <span className="text-slate-400">Domain {L.domain}</span>
-                <span aria-hidden>/</span>
-                <span className="text-slate-300 truncate max-w-[min(100%,14rem)] sm:max-w-md">{L.title}</span>
-              </nav>
-              <button type="button" className="btn-ghost text-sm w-full min-h-[44px] touch-manipulation" onClick={() => setSimpleLessonMode(true)}>
-                Simple lesson view (shorter pass)
-              </button>
-              {antiPassive.length > 0 && (
-                <div className="rounded-xl border border-amber-800/50 bg-amber-950/25 p-3 text-sm text-amber-100/95">
-                  <p className="text-[10px] uppercase text-amber-200/90 font-semibold">Coach</p>
-                  <ul className="list-disc pl-4 mt-1 space-y-1">
-                    {antiPassive.map((a, i) => (
-                      <li key={i}>{a}</li>
-                    ))}
+            <div className="px-3 pb-3 pt-0 border-t border-slate-800 space-y-3">
+              <details className="rounded-lg border border-slate-700/70 bg-slate-900/40 group/inner">
+                <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-medium text-slate-300 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+                  <span className="mr-2 text-slate-500 group-open/inner:text-emerald-400">▸</span>
+                  Path, display, coach
+                </summary>
+                <div className="px-3 pb-3 pt-0 border-t border-slate-800 space-y-3">
+                  {!state.beginnerMode && (
+                    <label className="flex flex-wrap items-center gap-3 text-sm text-slate-300 touch-manipulation cursor-pointer min-h-[44px]">
+                      <span className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="h-11 w-11 sm:h-5 sm:w-5 rounded border-slate-600 shrink-0"
+                          checked={lessonOneStepUi}
+                          onChange={(e) => setLessonOneStepUi(e.target.checked)}
+                          aria-label="Show one lesson step at a time"
+                        />
+                        One step at a time
+                      </span>
+                      <span className="text-[11px] text-slate-500">Off = preview the whole lesson (more scrolling).</span>
+                    </label>
+                  )}
+                  <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-500" aria-label="Breadcrumb">
+                    <Link to="/roadmap" className="text-emerald-400 hover:underline">
+                      Lesson path
+                    </Link>
+                    <span aria-hidden>/</span>
+                    <span className="text-slate-400">Domain {L.domain}</span>
+                    <span aria-hidden>/</span>
+                    <span className="text-slate-300 truncate max-w-[min(100%,14rem)] sm:max-w-md">{L.title}</span>
+                  </nav>
+                  <button type="button" className="btn-ghost text-sm w-full min-h-[44px] touch-manipulation" onClick={() => setSimpleLessonMode(true)}>
+                    Simple lesson view (shorter pass)
+                  </button>
+                  {antiPassive.length > 0 && (
+                    <div className="rounded-xl border border-amber-800/50 bg-amber-950/25 p-3 text-sm text-amber-100/95">
+                      <p className="text-[10px] uppercase text-amber-200/90 font-semibold">Coach</p>
+                      <ul className="list-disc pl-4 mt-1 space-y-1">
+                        {antiPassive.map((a, i) => (
+                          <li key={i}>{a}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-slate-500">
+                    Recall {observer.recallStrength} · Notes {observer.noteQualityScore} · Readiness {observer.examReadiness}
+                  </p>
+                </div>
+              </details>
+
+              <details className="rounded-lg border border-slate-700/70 bg-slate-900/40 group/inner">
+                <summary className="cursor-pointer list-none px-3 py-2.5 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+                  <span className="mr-2 text-slate-600 group-open/inner:text-emerald-400">▸</span>
+                  How the blocks fit together
+                </summary>
+                <div className="px-3 pb-3 pt-0 border-t border-slate-800 text-sm text-slate-300 space-y-2">
+                  {!state.simpleLessonMode && (
+                    <p className="text-xs text-slate-500 leading-relaxed pt-2">
+                      <span className="text-emerald-200/90 font-medium">Fast path: </span>
+                      video → mini-quiz → flashcards → complete.
+                    </p>
+                  )}
+                  <ul className="space-y-1.5 list-none text-slate-200">
+                    <li><span className="text-emerald-300 font-medium">Watch: </span>Step 1 video.</li>
+                    <li><span className="text-emerald-300 font-medium">Highlight: </span>Short hooks in step 2 — not paragraphs.</li>
+                    <li><span className="text-emerald-300 font-medium">Write: </span>One Brain Book row.</li>
+                    <li><span className="text-emerald-300 font-medium">Do: </span>{L.quickAction}</li>
+                    <li><span className="text-emerald-300 font-medium">Quiz: </span>{quizCount} questions · same topic as this section.</li>
+                    <li><span className="text-emerald-300 font-medium">Next: </span>Flashcards, then complete — Continue on Home picks what&apos;s next.</li>
                   </ul>
                 </div>
-              )}
-              <p className="text-[10px] text-slate-500">
-                Recall {observer.recallStrength} · Notes {observer.noteQualityScore} · Readiness {observer.examReadiness}
-              </p>
+              </details>
+
+              <details className="rounded-lg border border-slate-700/70 bg-slate-900/40 group/inner">
+                <summary className="cursor-pointer list-none px-3 py-2.5 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+                  <span className="mr-2 text-slate-600 group-open/inner:text-emerald-400">▸</span>
+                  Pipeline checklist (same as coach)
+                </summary>
+                <div className="px-3 pb-3 pt-0 border-t border-slate-800">
+                  <LessonStepper
+                    lessonId={id}
+                    p={lp}
+                    hasLab={labs.length > 0}
+                    labDone={lp.labDone}
+                    handsOnComplete={handsOnOk}
+                    nextHref={nxt && lessons[nxt!] ? `/lesson/${nxt}` : undefined}
+                  />
+                </div>
+              </details>
             </div>
           </details>
-
-      <details className="rounded-xl border border-slate-700 bg-slate-900/30 group">
-        <summary className="cursor-pointer list-none px-3 py-2.5 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
-          <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
-          FAQ: how blocks fit together
-        </summary>
-        <div className="px-3 pb-3 border-t border-slate-800 pt-3 card border-0 bg-transparent text-sm text-slate-300 !p-0 space-y-2">
-        {!state.simpleLessonMode && (
-          <p className="text-xs text-slate-500 leading-relaxed">
-            <span className="text-emerald-200/90 font-medium">Fast path: </span>
-            video → mini-quiz → flashcards → complete.
-          </p>
-        )}
-        <ul className="space-y-1.5 list-none text-slate-200">
-          <li>
-            <span className="text-emerald-300 font-medium">Watch: </span>
-            Step 1 video.
-          </li>
-          <li>
-            <span className="text-emerald-300 font-medium">Highlight: </span>
-            Short hooks in step 2 — not paragraphs.
-          </li>
-          <li>
-            <span className="text-emerald-300 font-medium">Write: </span>
-            One Brain Book row.
-          </li>
-          <li>
-            <span className="text-emerald-300 font-medium">Do: </span>
-            {L.quickAction}
-          </li>
-          <li>
-            <span className="text-emerald-300 font-medium">Quiz: </span>
-            {quizCount} questions · same topic as this section.
-          </li>
-          <li>
-            <span className="text-emerald-300 font-medium">Next: </span>
-            Flashcards, then complete — Continue on Home picks what&apos;s next.
-          </li>
-        </ul>
-        </div>
-      </details>
-
-      <details className="rounded-2xl border border-slate-700 bg-slate-900/30 group mb-8">
-        <summary className="cursor-pointer list-none px-4 py-3 text-sm text-slate-400 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden font-medium">
-          <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
-          Pipeline checklist (same as coach)
-        </summary>
-        <div className="px-4 pb-4 pt-2 border-t border-slate-800">
-          <LessonStepper
-            lessonId={id}
-            p={lp}
-            hasLab={labs.length > 0}
-            labDone={lp.labDone}
-            handsOnComplete={handsOnOk}
-            nextHref={nxt && lessons[nxt!] ? `/lesson/${nxt}` : undefined}
-          />
-        </div>
-      </details>
 
       {encourageMsg && (
         <p className="text-sm text-emerald-300/95 text-center rounded-xl border border-emerald-800/35 bg-emerald-950/20 px-3 py-2" role="status">
@@ -1367,7 +1386,14 @@ export default function LessonPage() {
           value={teach}
           onChange={(e) => setTeach(e.target.value)}
           onBlur={(e) => {
-            if (e.target.value.trim().length >= 20) patchLessonProgress(id, { teachBackDone: true });
+            const ok = e.target.value.trim().length >= 20;
+            if (!ok) return;
+            const wasAlreadyDone = !!lp.teachBackDone;
+            patchLessonProgress(id, { teachBackDone: true });
+            if (!wasAlreadyDone) {
+              setEncourageMsg("Teach-back saved — that’s the move that locks it in.");
+              window.setTimeout(() => setEncourageMsg(null), 4000);
+            }
           }}
         />
 

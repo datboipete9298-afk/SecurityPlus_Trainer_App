@@ -14,6 +14,15 @@ import { readinessTrack, weakestDomainHintFromScores } from "../utils/readinessB
 import { PDF_REGISTRY } from "../data/pdfRegistry";
 import { flashcards as builtInFlashcards } from "../data/flashcards";
 import TrustReminderStrip from "../components/TrustReminderStrip";
+import {
+  markUsage,
+  readUsageSignals,
+  summarizeUsageSignals,
+  clearUsageSignals,
+  USAGE_SIGNAL_LABELS,
+} from "../utils/localUsageSignals";
+import CloudSyncStub from "../components/CloudSyncStub";
+import MultiTabHint from "../components/MultiTabHint";
 
 export default function ProgressPage() {
   const { state, readiness, levelInfo, nextStep, nextLesson, importProgress, exportProgress, resetAllProgress, bumpStudyResume } =
@@ -100,6 +109,7 @@ export default function ProgressPage() {
     a.download = `securityplus-trainer-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
+    markUsage("export_completed");
   };
 
   const onImport = () => {
@@ -127,14 +137,15 @@ export default function ProgressPage() {
             title="Progress"
             purpose={
               <>
-                <strong className="text-slate-200">This page is your safety hub:</strong> export often, import only when you mean to replace this device&apos;s copy.{" "}
-                Nothing uploads unless <strong className="text-slate-200">you</strong> deploy optional cloud sync later — see below.
+                <strong className="text-slate-200">Your safety hub.</strong> Export when you finish a session. Import only to replace this device&apos;s copy. Nothing leaves your browser.
               </>
             }
             badge={<StatusBadge tone="ok">{pct}% course</StatusBadge>}
           />
 
           <TrustReminderStrip dense />
+
+          <MultiTabHint />
 
           <DailyMinimumCard lessonId={nextLesson ?? undefined} />
 
@@ -174,15 +185,25 @@ export default function ProgressPage() {
             </Link>
           </SectionCard>
 
-          <SectionCard title="Optional cloud sync (design)" subtitle="Not required — local-first stays default">
+          <CloudSyncStub />
+
+          <UsageSignalsPanel />
+
+          <section
+            className="rounded-2xl border border-slate-700/85 bg-slate-900/40 px-4 py-4 space-y-2"
+            aria-labelledby="offline-ready-h"
+          >
+            <h2 id="offline-ready-h" className="text-sm font-bold text-slate-100 uppercase tracking-wide">
+              Offline ready
+            </h2>
             <p className="text-sm text-slate-300 leading-relaxed">
-              The app is built so <strong className="text-white">no login is required</strong> and everything works offline-capable in the browser. A future optional sync could let you save encrypted progress to your own account or a passkey — with{" "}
-              <strong className="text-white">the same JSON</strong> you export today as the source of truth.
+              After your first visit on a device, this app loads even with no internet. Notes, quizzes, and PDFs you’ve added still work.
+              The study tutor falls back to the built-in coach when the API is unreachable.
             </p>
-            <p className="text-xs text-slate-500 mt-2">
-              Maintainer notes: see <code className="text-amber-200/90">CLOUD_SYNC_DESIGN.md</code> in the project root.
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Service worker caches the app shell only — your private PDFs and progress stay in IndexedDB / localStorage and are never uploaded by the cache.
             </p>
-          </SectionCard>
+          </section>
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="card">
@@ -390,7 +411,14 @@ export default function ProgressPage() {
             title="Backup & restore"
             subtitle="Export JSON — no server upload"
           >
-            <p className="text-slate-500 text-sm max-w-lg leading-relaxed">
+            <p className="text-sm text-slate-300 leading-relaxed">
+              <strong className="text-white">Notes and progress are saved on this device.</strong> Tap{" "}
+              <strong className="text-emerald-200/95">Export progress</strong> below to keep a file copy.
+            </p>
+            <p className="text-[11px] text-slate-500 leading-relaxed mt-2">
+              <strong className="text-slate-400">Tip:</strong> Use one tab while studying so progress saves cleanly. Two tabs editing at once can overwrite each other.
+            </p>
+            <p className="text-slate-500 text-sm max-w-lg leading-relaxed mt-3">
               <strong className="text-amber-200/90">Import replaces</strong> progress on this device after confirmation in the importer. Keep a dated export before importing someone else&apos;s file.{" "}
               <strong className="text-slate-400">PDF files are not inside this JSON</strong> — use Add PDF files again after restore if needed.
             </p>
@@ -485,5 +513,61 @@ export default function ProgressPage() {
         />
       </div>
     </AppShell>
+  );
+}
+
+function UsageSignalsPanel() {
+  const signals = readUsageSignals();
+  const summary = summarizeUsageSignals(signals);
+  const fmt = (t: number) => (t ? new Date(t).toLocaleString() : "—");
+  return (
+    <section
+      className="rounded-2xl border border-slate-700/85 bg-slate-900/40 px-4 py-4 space-y-3"
+      aria-labelledby="usage-signals-h"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="usage-signals-h" className="text-sm font-bold text-slate-100 uppercase tracking-wide">
+          Usage signals (private to this device)
+        </h2>
+        <span className="text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 bg-slate-800/80 text-slate-400 border border-slate-700">
+          Local only
+        </span>
+      </div>
+      <p className="text-xs text-slate-400 leading-relaxed">
+        Lightweight counters tracked in your browser to help <em>you</em> see momentum. Nothing is sent anywhere.{" "}
+        <strong className="text-slate-300">{summary.totalEvents}</strong> events ·{" "}
+        <strong className="text-slate-300">{summary.uniqueSignals}</strong> signal types{" "}
+        {summary.hasFirstWin ? <span className="text-emerald-300/95">· first win logged</span> : null}
+      </p>
+      {summary.recentSignals.length === 0 ? (
+        <p className="text-xs text-slate-500">
+          No signals yet — start a lesson, save a video note, or finish a quick quiz to see this fill in.
+        </p>
+      ) : (
+        <ul className="text-xs text-slate-300 space-y-1.5">
+          {summary.recentSignals.map((row) => (
+            <li key={row.name} className="flex items-baseline justify-between gap-3 border-b border-slate-800/70 pb-1">
+              <span>
+                <span className="text-slate-400">{USAGE_SIGNAL_LABELS[row.name]}</span>
+                <span className="text-slate-500"> · ×{row.count}</span>
+              </span>
+              <span className="text-[10px] text-slate-500 shrink-0">{fmt(row.lastAt)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <button
+        type="button"
+        className="btn-ghost text-xs min-h-[40px] touch-manipulation border border-slate-700"
+        onClick={() => {
+          if (window.confirm("Clear local usage counters? This won't affect notes, quiz history, or progress.")) {
+            clearUsageSignals();
+            window.location.reload();
+          }
+        }}
+      >
+        Clear local counters
+      </button>
+    </section>
   );
 }

@@ -95,9 +95,7 @@ export default function WatchLesson() {
 
         {v.needsVideoUrl && (
           <div className="rounded-xl border border-amber-600/50 bg-amber-950/40 px-3 py-3 text-amber-100 text-sm">
-            <strong className="text-amber-50">Video link needs verification</strong> — add the official YouTube id in{" "}
-            <code className="text-xs">src/data/knownYoutubeIds.ts</code> for <code className="text-xs">{id}</code> until then, use YouTube links above or the
-            lesson page embed.
+            <strong className="text-amber-50">This video link is being verified.</strong> If the embed doesn’t load, use the YouTube link above — your notes and quiz still work the same.
           </div>
         )}
 

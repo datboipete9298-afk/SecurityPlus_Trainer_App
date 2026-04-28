@@ -26,8 +26,19 @@ import {
   readPracticeExamDraft,
   writePracticeExamDraft,
 } from "../utils/practiceExamDraft";
+import { buildMomentumPair } from "../utils/microEncouragement";
+import { markUsage } from "../utils/localUsageSignals";
 
 const MESSER_PREFIX = "messer-exam-";
+
+/**
+ * Session-only position key for lesson study quizzes — restores current question
+ * on a tab refresh so users don't think their work vanished. Recorded answers
+ * (right/wrong stats, flashcards) are unaffected; only `i` is persisted.
+ */
+function lessonQuizPosKey(id: string, wrongOnly: boolean, quickCap: number | null) {
+  return `spt_lq_pos::${id}::wo${wrongOnly ? 1 : 0}::qc${quickCap ?? "all"}`;
+}
 
 export default function QuizPage() {
   const { id } = useParams();
@@ -136,6 +147,41 @@ export default function QuizPage() {
     setQuizWrapUp(false);
     setQuizIdentityLine(null);
   }, [i]);
+
+  useEffect(() => {
+    if (!id || isMesser) return;
+    try {
+      const raw = sessionStorage.getItem(lessonQuizPosKey(id, wrongOnly, quickCap));
+      if (!raw) return;
+      const n = parseInt(raw, 10);
+      if (!Number.isFinite(n) || n <= 0) return;
+      const cap = qs.length;
+      if (cap <= 1) return;
+      setI(Math.min(n, cap - 1));
+    } catch {
+      /* sessionStorage unavailable — ignore */
+    }
+  }, [id, isMesser, wrongOnly, quickCap, qs.length]);
+
+  useEffect(() => {
+    if (!id || isMesser) return;
+    if (i <= 0) return;
+    try {
+      sessionStorage.setItem(lessonQuizPosKey(id, wrongOnly, quickCap), String(i));
+    } catch {
+      /* ignore */
+    }
+  }, [id, isMesser, wrongOnly, quickCap, i]);
+
+  useEffect(() => {
+    if (!id || isMesser) return;
+    if (!quizWrapUp) return;
+    try {
+      sessionStorage.removeItem(lessonQuizPosKey(id, wrongOnly, quickCap));
+    } catch {
+      /* ignore */
+    }
+  }, [id, isMesser, wrongOnly, quickCap, quizWrapUp]);
 
   useEffect(() => {
     if (!id || !isMesser || draftLoaded || mode !== "exam" || wrongOnly) return;
@@ -632,7 +678,12 @@ export default function QuizPage() {
           type="button"
           className="btn w-full text-center min-h-[48px] touch-manipulation"
           disabled={nextDisabled}
-          onClick={() => flushConfidenceAnd(() => setQuizWrapUp(true))}
+          onClick={() =>
+            flushConfidenceAnd(() => {
+              setQuizWrapUp(true);
+              markUsage("quiz_completed");
+            })
+          }
         >
           Finish quiz
         </button>
@@ -663,6 +714,11 @@ export default function QuizPage() {
       <TrustReminderStrip dense />
       <div>
         <h1 className="h1">{isMesser ? "Practice exam" : "Quiz"}</h1>
+        {!isMesser && (
+          <p className="text-[11px] text-slate-500 mt-1.5 leading-snug" role="note">
+            If you refresh, this run picks up where you left off. Your progress is still saved.
+          </p>
+        )}
         {quickCap && baseQs.length > 0 && (
           <details className="mt-2 rounded-xl border border-sky-700/45 bg-sky-950/35 text-sm group">
             <summary className="cursor-pointer list-none px-3 py-2.5 text-sky-100/95 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
@@ -859,9 +915,22 @@ export default function QuizPage() {
             </details>
           </>
         )}
-        {show && !(isMesser && mode === "exam") && i === qs.length - 1 && quizWrapUp && (
-          <div className="mt-6 space-y-3 border-t border-slate-800 pt-4">
-            <details className="rounded-xl border border-slate-700 bg-slate-900/30 group">
+        {show && !(isMesser && mode === "exam") && i === qs.length - 1 && quizWrapUp && (() => {
+          const correctCount = sessionLog.filter((e) => e.correct).length;
+          const seed = `${id ?? "quiz"}:${qs.length}:${correctCount}`;
+          const pair = buildMomentumPair("after-quiz", seed);
+          return (
+            <div className="mt-6 space-y-3 border-t border-slate-800 pt-4">
+              <div
+                className="rounded-xl border border-emerald-800/45 bg-emerald-950/25 px-4 py-3 space-y-1"
+                role="status"
+                aria-live="polite"
+              >
+                <p className="text-sm text-emerald-100 font-medium">Run finished — {correctCount} / {sessionLog.length} this session.</p>
+                <p className="text-sm text-slate-200">{pair.confidence}</p>
+                <p className="text-xs text-emerald-200/85">{pair.next}</p>
+              </div>
+              <details className="rounded-xl border border-slate-700 bg-slate-900/30 group">
               <summary className="cursor-pointer list-none px-3 py-2.5 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
                 <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
                 Session summary
@@ -888,8 +957,9 @@ export default function QuizPage() {
                 )}
               </div>
             </details>
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </div>
       </div>
       <details className="rounded-2xl border border-violet-900/45 bg-violet-950/15 lg:sticky lg:top-4 group">

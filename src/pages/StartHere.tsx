@@ -95,7 +95,7 @@ export default function StartHere() {
           <button
             type="button"
             className="w-full flex items-center justify-between gap-3 text-left px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800/60 touch-manipulation min-h-[48px]"
-            aria-expanded={howItWorksOpen ? "true" : "false"}
+            aria-expanded={howItWorksOpen}
             onClick={() => setHowItWorksOpen((o) => !o)}
           >
             <span>How it works (videos, AI, saving progress) ▾</span>

@@ -16,7 +16,7 @@ export default function ConfidenceSelector({ value, onChange, disabled }: Props)
   return (
     <div className="rounded-xl border border-violet-800/40 bg-violet-950/15 p-3 space-y-2">
       <p className="text-[10px] uppercase font-bold text-violet-200/90 tracking-wide">How confident were you?</p>
-      <p className="text-xs text-slate-500">Helps the coach spot false confidence — no wrong answers here.</p>
+      <p className="text-xs text-slate-500">Honest tap — no wrong answers here. The coach uses this to spot confident wrongs.</p>
       <div className="flex flex-col sm:flex-row flex-wrap gap-2">
         {BTNS.map((b) => (
           <button

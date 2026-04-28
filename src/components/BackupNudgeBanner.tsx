@@ -69,8 +69,8 @@ export default function BackupNudgeBanner() {
       role="status"
     >
       <p className="text-sm text-slate-200 leading-relaxed">
-        <strong className="text-cyan-100">Back up your progress</strong> (about 5 seconds) — exports streak, notes, and quiz history to a file you keep.
-        Browsers can clear site data or you might switch devices; <strong className="text-cyan-50">without an export, that progress can be gone</strong>.
+        <strong className="text-cyan-100">Back up your progress</strong> — about 5 seconds.
+        Saves your streak, notes, and quiz history to a file you keep. Quick safety net for new devices or browser resets.
       </p>
       <div className="flex flex-col sm:flex-row gap-2 shrink-0">
         <Link to="/progress#backup" className="btn text-sm text-center min-h-[44px] touch-manipulation">

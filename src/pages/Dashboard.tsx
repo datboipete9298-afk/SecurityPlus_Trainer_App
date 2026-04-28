@@ -25,6 +25,7 @@ import ResumeWhereCard from "../components/ResumeWhereCard";
 import PracticeExamDraftResume from "../components/PracticeExamDraftResume";
 import SectionCard from "../components/SectionCard";
 import TrustReminderStrip from "../components/TrustReminderStrip";
+import FirstLoopCard from "../components/FirstLoopCard";
 
 export default function Dashboard() {
   const {
@@ -89,6 +90,8 @@ export default function Dashboard() {
   );
   const showFirstSessionsPath = done < 4 || (r.score < 48 && quizAttempts < 24);
   const firstLessonId = COURSE_TOUR_LINKS.firstLesson.replace(/^\/lesson\//, "");
+  /** True for brand-new users — no completions, no quiz attempts, no notes — show the simple 10-minute loop hero only. */
+  const isFreshUser = done === 0 && quizAttempts === 0 && state.notes.length === 0;
   const masteryLessons = state.trainingMasteryLessonIds?.length ?? 0;
   const pbqPassed = state.pbqPassedIds?.length ?? 0;
   const pbqTotal = PBQ_SCENARIOS.length;
@@ -118,40 +121,70 @@ export default function Dashboard() {
     <AppShell>
       <div className="lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
         <div className="space-y-6 min-w-0">
-          <PageHeader title="Home" purpose="Tap Continue for the smartest next move. Readiness reflects your work in this app — not CompTIA’s internal cut score (they don’t publish one)." />
+          <PageHeader
+            title="Home"
+            purpose={
+              isFreshUser
+                ? "Welcome. Local-first study app for Security+ — your progress saves on this device."
+                : "Tap Continue for the smartest next move. Readiness reflects your practice here — not a real CompTIA score."
+            }
+          />
 
-          <TrustReminderStrip dense />
-
-          {!state.onboarding.hasSeenStartHere && <OnboardingHintBanner onDismiss={() => markStartHereSeen()} />}
+          {extensionFlashLine && (
+            <div
+              className="rounded-xl border border-emerald-800/45 bg-emerald-950/25 px-4 py-3"
+              role="status"
+              aria-live="polite"
+            >
+              <p className="text-sm text-emerald-100/95 leading-relaxed">{extensionFlashLine}</p>
+            </div>
+          )}
 
           <PracticeExamDraftResume />
 
-          <FlowPrimaryStrip>
-            <ContinueButton step={nextStep} className="btn w-full text-center text-lg py-4 min-h-[52px]" coachHint="" />
-          </FlowPrimaryStrip>
-
-          <div className="rounded-xl border border-slate-700/85 bg-slate-900/40 px-4 py-3 text-center">
-            {resumeCue ?
-              <>
-                <Link
-                  to={resumeCue.href}
-                  className="text-sm font-medium text-violet-200 hover:text-white underline underline-offset-2 touch-manipulation inline-block min-h-[44px]"
-                >
-                  {resumeCue.line}
-                </Link>
-                {resumeCue.sub ?
-                  <p className="text-xs text-slate-500 mt-1.5 leading-snug">{resumeCue.sub}</p>
-                : null}
-              </>
-            : <p className="text-sm text-slate-400 leading-snug">Resume: bookmark a spot by opening any lesson, quiz, or PDF guide — it will appear here.</p>}
-          </div>
+          {isFreshUser ? (
+            <>
+              <FirstLoopCard />
+              {!state.onboarding.hasSeenStartHere && <OnboardingHintBanner onDismiss={() => markStartHereSeen()} />}
+            </>
+          ) : (
+            <>
+              {!state.onboarding.hasSeenStartHere && <OnboardingHintBanner onDismiss={() => markStartHereSeen()} />}
+              <FlowPrimaryStrip>
+                <ContinueButton step={nextStep} className="btn w-full text-center text-lg py-4 min-h-[52px]" coachHint="" />
+              </FlowPrimaryStrip>
+              <p className="text-[11px] text-slate-500 text-center leading-snug">
+                This guides you step by step — just follow Continue.
+              </p>
+              <div className="rounded-xl border border-slate-700/85 bg-slate-900/40 px-4 py-3 text-center">
+                {resumeCue ? (
+                  <>
+                    <Link
+                      to={resumeCue.href}
+                      className="text-sm font-medium text-violet-200 hover:text-white underline underline-offset-2 touch-manipulation inline-block min-h-[44px]"
+                    >
+                      {resumeCue.line}
+                    </Link>
+                    {resumeCue.sub ? <p className="text-xs text-slate-500 mt-1.5 leading-snug">{resumeCue.sub}</p> : null}
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400 leading-snug">Resume: bookmark a spot by opening any lesson, quiz, or PDF guide — it will appear here.</p>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 text-center" aria-live="polite">
+                {pct}% course · {done}/{totalSections} sections
+                {here.title ? <span className="text-slate-600"> · {here.title}</span> : null}
+              </p>
+            </>
+          )}
 
           <details className="rounded-2xl border border-slate-700 bg-slate-900/25 group">
             <summary className="cursor-pointer list-none px-4 py-3.5 text-sm font-medium text-slate-200 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
               <span className="text-slate-500 mr-2 group-open:text-emerald-400">▸</span>
-              Coach, roadmap &amp; extras
+              More study tools
             </summary>
             <div className="px-4 pb-5 pt-0 space-y-6 border-t border-slate-800/80">
+              <TrustReminderStrip dense />
               <section className="rounded-2xl border border-emerald-800/40 bg-slate-900/50 px-4 py-4">
                 <h2 className="text-xs font-bold text-emerald-200/90 uppercase tracking-wide">Why this next</h2>
                 <p className="text-sm text-white mt-2 leading-snug">{coachV2.todaysBestMove.replace(/\*\*/g, "")}</p>
@@ -234,11 +267,7 @@ export default function Dashboard() {
                   )
                 )}
                 <MicroConfidenceLine streak={state.streak} dayIso={dayStr} hasActivityToday={hasTodayActivity} />
-                {extensionFlashLine ? (
-                  <p className="text-xs text-slate-500 italic border-l-2 border-slate-700 pl-3">{extensionFlashLine}</p>
-                ) : (
-                  <IdentityReinforcementLine state={state} dayIso={dayStr} hasActivityToday={hasTodayActivity} />
-                )}
+                <IdentityReinforcementLine state={state} dayIso={dayStr} hasActivityToday={hasTodayActivity} />
               </div>
 
               <SessionMomentumCard hasTodayActivity={hasTodayActivity} />

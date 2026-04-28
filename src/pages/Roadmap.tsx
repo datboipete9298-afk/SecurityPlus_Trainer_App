@@ -46,19 +46,20 @@ export default function Roadmap() {
               <div className="min-w-0 text-[15px] sm:text-sm leading-snug">
                 <span className="text-slate-500 text-xs w-7 inline-block align-top">{i + 1}.</span>
                 <span className="text-slate-200 font-medium">{s.label}</span>
-                {L && (
-                  <span
-                    className={`mt-1 sm:mt-0 sm:ml-2 block sm:inline text-xs rounded px-2 py-0.5 ${
-                      L.hasFullContent ? "bg-emerald-900/50 text-emerald-300" : "bg-slate-800 text-slate-500"
-                    }`}
-                  >
-                    {L.hasFullContent ? "content ready" : "scaffold — add data"}
+                {L?.hasFullContent && (
+                  <span className="mt-1 sm:mt-0 sm:ml-2 block sm:inline text-xs rounded px-2 py-0.5 bg-emerald-900/50 text-emerald-300">
+                    Ready
+                  </span>
+                )}
+                {L && !L.hasFullContent && (
+                  <span className="mt-1 sm:mt-0 sm:ml-2 block sm:inline text-xs rounded px-2 py-0.5 bg-slate-800 text-slate-400">
+                    Coming soon
                   </span>
                 )}
                 {youHere && (
                   <span className="block sm:inline mt-1 sm:mt-0 sm:ml-2 text-xs text-emerald-300 font-semibold">· you are here</span>
                 )}
-                {!L && <span className="block sm:inline mt-1 text-xs text-amber-400/80">import JSON to enable rich lesson</span>}
+                {!L && <span className="block sm:inline mt-1 text-xs text-slate-500">Coming soon</span>}
               </div>
               <div className="flex flex-wrap gap-2 items-center sm:shrink-0">
                 {done && <span className="text-xs text-emerald-400">done</span>}

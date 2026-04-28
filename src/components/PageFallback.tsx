@@ -10,7 +10,7 @@ export default function PageFallback() {
         className="h-9 w-9 border-2 border-emerald-700/50 border-t-emerald-400 rounded-full animate-spin"
         aria-hidden
       />
-      <p>Loading screen…</p>
+      <p>One moment…</p>
     </div>
   );
 }

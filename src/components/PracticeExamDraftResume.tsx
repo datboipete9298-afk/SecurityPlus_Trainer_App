@@ -29,7 +29,7 @@ export default function PracticeExamDraftResume({ className = "" }: { className?
         Resume practice exam
       </h2>
       <p className="text-xs text-amber-200/85 leading-relaxed">
-        Finish this run soon — it lives in this tab only, not in your backup.
+        Pick up where you left off. Drafts live in this tab only — once you finish, the score saves with your progress.
       </p>
       <ul className="space-y-2 list-none">
         {ids.map((examId) => (

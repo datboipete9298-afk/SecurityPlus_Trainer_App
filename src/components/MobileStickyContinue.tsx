@@ -15,14 +15,14 @@ export default function MobileStickyContinue() {
       role="navigation"
       aria-label="Continue studying"
     >
-      <p className="text-[10px] text-center text-emerald-200/80 mb-1 px-1 leading-tight">This is your next step to improve.</p>
+      <p className="text-[10px] text-center text-emerald-200/80 mb-1 px-1 leading-tight">Your next step.</p>
       <Link
         to={nextStep.href}
         className="btn w-full min-h-[52px] text-base font-semibold touch-manipulation active:scale-[0.99] transition-transform"
       >
         Continue: {nextStep.buttonLabel} →
       </Link>
-      <p className="text-[10px] text-center text-slate-500 mt-1.5 px-1 leading-tight">Same as Home · progress stays on this device</p>
+      <p className="text-[10px] text-center text-slate-500 mt-1.5 px-1 leading-tight">Same as Home — progress saved.</p>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from "../utils/localPdfStore";
 import { verifyPdfFile, type PdfVerifyResult } from "../utils/pdfFileVerifier";
 import type { PdfLocalFileMeta } from "../types/pdfLibrary";
+import { markUsage } from "../utils/localUsageSignals";
 
 function pdfRegistryTitle(pdfId: string): string {
   return PDF_REGISTRY.find((p) => p.id === pdfId)?.title ?? pdfId;
@@ -81,6 +82,7 @@ export default function PdfSetupPage() {
       try {
         await savePdfFile(pdfId, file);
         await registerLocalPdfFile(pdfId, file);
+        markUsage("pdf_added");
         setRows((r) => ({
           ...r,
           [pdfId]: {
@@ -180,14 +182,13 @@ export default function PdfSetupPage() {
           </div>
         )}
 
-        <div className="rounded-xl border border-amber-800/40 bg-amber-950/20 p-4 text-xs text-amber-100/90 leading-relaxed space-y-2">
+        <div className="rounded-xl border border-slate-700/80 bg-slate-900/40 p-4 text-xs text-slate-300 leading-relaxed space-y-2">
           <p>
-            <strong>Backup:</strong> Export on Progress saves notes, quiz stats, and checkpoints —{" "}
-            <strong>not the PDF files themselves</strong>. PDFs live only in this browser profile. New device or cleared site data means{" "}
-            <strong>re-add PDFs here</strong>.
+            <strong className="text-slate-100">PDFs stay on this device.</strong> Your notes and quiz stats export to JSON on Progress —
+            PDFs themselves don’t. If you switch devices or reset this browser, just re-add the same files here.
           </p>
           <p className="text-slate-400">
-            On your phone, drag-and-drop may be missing — use <strong>Choose files</strong> and pick from Files / Downloads.
+            On phone, drag-and-drop isn’t always available — tap <strong className="text-slate-200">Choose files</strong> and pick from Files or Downloads.
           </p>
         </div>
 

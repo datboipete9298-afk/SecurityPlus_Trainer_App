@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { ProgressProvider } from "./context/ProgressContext";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import App from "./App";
+import { registerServiceWorker } from "./utils/registerServiceWorker";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
@@ -17,3 +18,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+registerServiceWorker();

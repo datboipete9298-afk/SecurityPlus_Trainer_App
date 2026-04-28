@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useProgress } from "../context/ProgressContext";
 import MobileStickyContinue from "./MobileStickyContinue";
 import BackupNudgeBanner from "./BackupNudgeBanner";
+import OfflineStatusBanner from "./OfflineStatusBanner";
+import AppUpdateBanner from "./AppUpdateBanner";
 
 const mainNav = [
   { to: "/", label: "Home" },
@@ -114,6 +116,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-950">
+      <OfflineStatusBanner />
       <a
         href="#main-content"
         className="fixed left-3 top-3 z-[100] -translate-y-[120%] opacity-0 pointer-events-none focus:pointer-events-auto focus:translate-y-0 focus:opacity-100 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg outline-none ring-2 ring-emerald-300/80 ring-offset-2 ring-offset-slate-950"
@@ -127,7 +130,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 touch-manipulation min-h-[44px] min-w-[44px]"
-          aria-expanded={navOpen ? "true" : "false"}
+          aria-expanded={navOpen}
           aria-controls="mobile-drawer"
           aria-label="Open menu"
           onClick={() => setNavOpen(true)}
@@ -164,6 +167,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <MobileStickyContinue />
+      <AppUpdateBanner />
     </div>
   );
 }

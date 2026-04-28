@@ -390,29 +390,33 @@ export default function AITutorPanel({ context, variant = "full", className }: P
   const title = variant === "compact" ? "Study tutor" : "Study tutor (optional AI)";
   const expanded = isLg || mobileCoachOpen;
 
+  /**
+   * Unified badge + subcopy — one promise: same structured answer (answer · key points · next).
+   * Live = full model; Built-in = same structure from local coach. No "vague" labels.
+   */
   const sub =
     context.examAiLocked && context.surface === "quiz"
-      ? "Exam mode: tutoring is paused until review — avoids giving away answers mid-test."
+      ? "Paused during exam mode — comes back at review so it can’t spoil answers."
       : aiConn === "live"
-        ? "Live assistant is reachable — answers fall back automatically if anything errors."
+        ? "Same shape every time: answer · key points · next step."
         : aiConn === "guided"
-          ? "Server is up but not running the full tutor model — you still get the same bullet structure."
+          ? "Same shape every time: answer · key points · next step."
           : aiConn === "offline"
-            ? "Predictable built-in replies — taps never fail silently."
-            : "Briefly probing the tutor endpoint… (~4 s max), then switching to built-in coaching.";
+            ? "Same shape every time: answer · key points · next step."
+            : "Connecting briefly, then either way you get the same shape.";
 
   const badgeLabel =
     context.examAiLocked ?
-      "Exam paused"
+      "Paused"
     : aiConn === "live" ?
-      "Live AI"
+      "Tutor ready"
     : aiConn === "guided" ?
-      "Limited API"
+      "Tutor ready"
     : aiConn === "offline" ?
-      "Built‑in coach"
-    : "Checking";
+      "Built-in coach"
+    : "Connecting";
   const badgeTone =
-    context.examAiLocked ? "warn" : aiConn === "live" ? "accent" : aiConn === "checking" ? "neutral" : "neutral";
+    context.examAiLocked ? "warn" : aiConn === "live" || aiConn === "guided" ? "accent" : "neutral";
 
   return (
     <aside
@@ -459,7 +463,13 @@ export default function AITutorPanel({ context, variant = "full", className }: P
 
       {expanded && (
         <>
-      <div className="flex-1 min-h-[140px] overflow-y-auto px-3 py-2 space-y-2 text-sm">
+      <div
+        className="flex-1 min-h-[140px] overflow-y-auto px-3 py-2 space-y-2 text-sm"
+        role="region"
+        aria-label="Study tutor conversation"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
         {msgs.length === 0 && (
           <p className="text-xs text-slate-500">
             Ask anything about this screen, or tap a shortcut. If live AI isn’t available, you’ll get the same structured help (answer, key points, next step) from built-in coaching — never an empty error.
@@ -475,7 +485,11 @@ export default function AITutorPanel({ context, variant = "full", className }: P
             {m.text}
           </div>
         ))}
-        {loading && <p className="text-xs text-violet-200/80 animate-pulse">Thinking…</p>}
+        {loading && (
+          <p className="text-xs text-violet-200/80 animate-pulse" role="status" aria-live="polite">
+            Thinking…
+          </p>
+        )}
       </div>
 
       <div className="border-t border-violet-900/35 bg-slate-950/40 px-2 py-2 space-y-2 shrink-0">
