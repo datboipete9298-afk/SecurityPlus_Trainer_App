@@ -1,7 +1,7 @@
 import type { DomainId } from "../types";
 
 const KEY = "spt_v1_state";
-const SCHEMA_VERSION = 11 as const;
+const SCHEMA_VERSION = 12 as const;
 
 export type UserConfidenceLevel = "not_sure" | "somewhat_sure" | "very_sure" | "skipped";
 
@@ -33,6 +33,27 @@ export type TrainingRunsState = {
   labs: Record<string, { at: number; pass: boolean; retries: number }>;
   sims: Record<string, { at: number; score: number; pass: boolean; retries: number }>;
   decisions: Record<string, { at: number; correct: boolean; attempts: number }>;
+};
+
+/** Last structured attempt for Elite Lab Factory — keyed like training lab runs (`lessonId::labId`) */
+export type EliteLabPortfolioEntry = {
+  labId: string;
+  /** Denormalized for resume exports */
+  lessonId?: string;
+  templateId: string;
+  seed: number;
+  instanceId: string;
+  decisions: string[];
+  score: number;
+  pass: boolean;
+  /** Highest alignment seen for this composite key */
+  bestScore?: number;
+  /** Graded submissions counted */
+  attempts?: number;
+  /** Optional trace (e.g. top-ranked alert titles) */
+  artifacts?: string[];
+  skills?: string[];
+  at: number;
 };
 
 export type PracticeExamAttempt = {
@@ -102,6 +123,8 @@ export interface PersistedState {
   studyResume?: import("./studyResume").StudyResumeState;
   /** PDF guided study — highlights, checkpoints, interrupts (per pdfId::lessonId) */
   pdfLibrary?: import("../types/pdfLibrary").PdfLibraryProgress;
+  /** Elite Lab Factory — structured portfolio rows (key: `lessonId::labId`) */
+  eliteLabPortfolio?: Record<string, EliteLabPortfolioEntry>;
 }
 
 export type TodayActivity = {
@@ -177,6 +200,7 @@ const defaultState = (): PersistedState => ({
   pbqPassedIds: [],
   lastAcknowledgedStreakMilestone: 0,
   pdfLibrary: { bySection: {}, localFileMeta: {} },
+  eliteLabPortfolio: {},
 });
 
 function migrateAndNormalize(base: PersistedState, raw: unknown): PersistedState {
@@ -309,6 +333,50 @@ function migrateAndNormalize(base: PersistedState, raw: unknown): PersistedState
     }
     if (r.simLessonId !== undefined && r.simLessonId !== null && typeof r.simLessonId !== "string") delete r.simLessonId;
   }
+  if (!o.eliteLabPortfolio || typeof o.eliteLabPortfolio !== "object") {
+    o.eliteLabPortfolio = {};
+  } else {
+    const cleaned: Record<string, EliteLabPortfolioEntry> = {};
+    for (const [k, v] of Object.entries(o.eliteLabPortfolio)) {
+      if (typeof v !== "object" || !v) continue;
+      const e = v as Partial<EliteLabPortfolioEntry>;
+      if (
+        typeof e.labId !== "string" ||
+        typeof e.templateId !== "string" ||
+        typeof e.at !== "number" ||
+        !Array.isArray(e.decisions)
+      ) {
+        continue;
+      }
+      const parts = k.split("::");
+      const inferredLesson =
+        typeof e.lessonId === "string" && e.lessonId.trim() ?
+          e.lessonId
+        : parts.length >= 2 ?
+          parts.slice(0, -1).join("::")
+        : undefined;
+
+      cleaned[k] = {
+        labId: e.labId,
+        ...(inferredLesson ? { lessonId: inferredLesson } : {}),
+        templateId: e.templateId,
+        seed: typeof e.seed === "number" ? e.seed : 0,
+        instanceId: typeof e.instanceId === "string" ? e.instanceId : "",
+        decisions: Array.isArray(e.decisions)
+          ? e.decisions.filter((x: unknown): x is string => typeof x === "string")
+          : [],
+        score: typeof e.score === "number" ? e.score : 0,
+        pass: !!e.pass,
+        bestScore: typeof e.bestScore === "number" ? e.bestScore : typeof e.score === "number" ? e.score : 0,
+        attempts: typeof e.attempts === "number" ? e.attempts : 1,
+        artifacts: Array.isArray(e.artifacts) ? e.artifacts.filter((x: unknown): x is string => typeof x === "string") : undefined,
+        skills: Array.isArray(e.skills) ? e.skills.filter((x: unknown): x is string => typeof x === "string") : undefined,
+        at: e.at,
+      };
+    }
+    o.eliteLabPortfolio = cleaned;
+  }
+
   if (!o.pdfLibrary || typeof o.pdfLibrary !== "object") {
     o.pdfLibrary = { bySection: {}, localFileMeta: {} };
   } else {

@@ -1,11 +1,9 @@
 import type { AiTutorResponse } from "../types/aiTutor";
 
 export type FallbackHints = {
-  /** Short lines from deterministic coach / heuristics */
   coachLines?: string[];
   lessonTitle?: string;
   sectionId?: string;
-  /** PDF guided study — keeps fallback anchored to the same section */
   pdfSectionTitle?: string;
   pdfLessonId?: string;
 };
@@ -17,22 +15,28 @@ export function smartCoachOfflineResponse(hints: FallbackHints): AiTutorResponse
     : hints.sectionId ?? "this section";
   const pdfAnchor =
     hints.pdfSectionTitle ?
-      ` You’re in PDF guide “${hints.pdfSectionTitle}”${hints.pdfLessonId ? ` (lesson ${hints.pdfLessonId})` : ""} — search that phrase in your notes PDF, mark one MUST-highlight hook, then one Brain Book row.`
+      `\n\n**PDF focus:** you’re anchored to “${hints.pdfSectionTitle}”${hints.pdfLessonId ? ` (lesson ${hints.pdfLessonId})` : ""}. Search that exact phrase, mark one MUST line, mirror it into Brain Book — that’s deliberate exam prep, not busywork.`
     : "";
+
+  const baseKp =
+    lines.length >= 3 ?
+      [lines[0]!, lines[1]!, lines[2]!, lines[3] ?? "Close the loop — one retrieval action (quiz, flashcard, or PDF line) in the next 3 minutes."]
+    : [
+        "Name the one rule the exam would bold-face (don’t paraphrase into mush).",
+        "Give the fastest wrong answer people pick — and the five-word fix.",
+        "Pick your next move: PDF search, one flashcard, or one quiz retry (choose one, finish it).",
+        `Stay inside ${where} so today’s reps stack instead of drifting topics.`,
+      ];
+
   return {
     answer:
-      "You’re still fully covered: this isn’t a broken app. The live AI model is unavailable, empty, or too thin — Smart Coach, lesson traps, quiz explanations, and flashcards still work without it. Use the bullets below as your guaranteed next moves; turn live AI back on when your server or key is ready." +
-      pdfAnchor,
-    keyPoints:
-      lines.length > 0
-        ? lines
-        : [
-            "Re-read the lesson MUST highlights (3–6 hooks, not paragraphs).",
-            "Say the idea out loud in one sentence, then check the quiz explanation.",
-            "Add one exam keyword you expect to see in a stem.",
-          ],
-    examTip: "Security+ rewards recognition: match the stem’s trigger word to the best definition, not the longest story.",
-    nextAction: `Next 3 minutes on ${where}: one PDF search phrase, one highlight hook, one quiz retry (or one flashcard).`,
+      `**Guided coach (offline link)** — the live assistant is paused, but you’re still on-script.\n\n` +
+      `**Why you’re seeing this:** the app refuses to silently fail — structured steps beat empty chatter until the connection returns.` +
+      pdfAnchor +
+      `\n\n**Trust this rhythm:** skim → retrieve → explain once → tiny write — same loop Security+ rewards.`,
+    keyPoints: baseKp,
+    examTip: "Stem keyword → shortest defensible definition → eliminate trap answers that introduce new nouns.",
+    nextAction: `Spend the next six minutes entirely on ${where}: one honest retrieval, one note line, zero tab-hopping.`,
     confidence: "medium",
   };
 }
@@ -40,10 +44,14 @@ export function smartCoachOfflineResponse(hints: FallbackHints): AiTutorResponse
 export function rateLimitedAiResponse(): AiTutorResponse {
   return {
     answer:
-      "Too many requests right now — the server is protecting itself. Wait a minute, then try again. Meanwhile, read the question explanation or use Smart Coach tips on this screen.",
-    keyPoints: ["Take a short break — rate limits reset quickly.", "Study mode explanations are always available.", "One quiz miss reviewed beats ten rushed AI questions."],
-    examTip: "On exam day there’s no tutor — practicing with explanations first builds real recall.",
-    nextAction: "Review the last explanation out loud, then retry this question in two minutes.",
+      "**Rate limit:** the tutor will refresh in about a minute — that protects quality (and tokens) so answers stay purposeful instead of sprayed.\n\n**Use this pause:** rehearse the last explanation aloud, then try the same stem without peeking.",
+    keyPoints: [
+      "Treat the throttle as spaced retrieval — boredom here is rehearsal for exam pacing.",
+      "Re-read the on-screen explanation — it is always available and exam-shaped.",
+      "Jot one exam keyword you almost ignored; that’s the fix you’ll remember.",
+    ],
+    examTip: "If you feel rushed, slow the stem read — CompTIA hides traps in adjectives and scopes.",
+    nextAction: "Walk through the last wrong answer’s logic in one breath, then retry when the button unblocks.",
     confidence: "high",
   };
 }
@@ -51,10 +59,14 @@ export function rateLimitedAiResponse(): AiTutorResponse {
 export function examModeAiLockedResponse(): AiTutorResponse {
   return {
     answer:
-      "During Exam mode, AI help stays off until you submit the full attempt — same discipline as the real test. Finish the run, then use AI on the review screen or switch to Study mode.",
-    keyPoints: ["No per-question AI during timed exam flow.", "After submit: review + AI explain is allowed.", "Use Study mode anytime for question-by-question help."],
-    examTip: "On exam day you won’t get explanations mid-item — practice sitting with uncertainty here.",
-    nextAction: "Submit the exam, then open a missed item in Study mode or ask AI on the review page.",
+      "**Exam mode discipline:** AI stays dark until you finish — same constraint as test day, so you practice choosing under uncertainty.\n\n**After submit:** unlock explanations, AI, and flashcards for repair — that’s when coaching matters most.",
+    keyPoints: [
+      "Mark uncertain items and move on — time strategy is part of the score.",
+      "Post-review: turn each miss into one flashcard front/back.",
+      "Switch to Study mode anytime you need line-by-line help before the next attempt.",
+    ],
+    examTip: "Flag + skip beats staring — you can return if time allows; the real exam punishes blank bubbles more than educated guesses.",
+    nextAction: "Finish the attempt, then attack review like a second pass exam.",
     confidence: "high",
   };
 }

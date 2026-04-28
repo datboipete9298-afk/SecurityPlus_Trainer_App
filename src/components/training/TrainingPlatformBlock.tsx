@@ -12,7 +12,7 @@ import DecisionPanel from "./DecisionPanel";
 type Props = { lessonId: string };
 
 export default function TrainingPlatformBlock({ lessonId }: Props) {
-  const { state, recordTrainingLab, recordTrainingSim, recordTrainingDecision } = useProgress();
+  const { state, recordTrainingLab, recordEliteLabPortfolio, recordTrainingSim, recordTrainingDecision } = useProgress();
   const runs = state.trainingRuns ?? { labs: {}, sims: {}, decisions: {} };
   const [simRetry, setSimRetry] = useState<Record<string, number>>({});
 
@@ -48,6 +48,7 @@ export default function TrainingPlatformBlock({ lessonId }: Props) {
                 lessonId={lessonId}
                 lessonTitle={lessonTitle}
                 onComplete={(pass) => recordTrainingLab(lessonId, lab.id, pass)}
+                onElitePortfolio={(entry) => recordEliteLabPortfolio(lessonId, entry)}
               />
             );
           })}

@@ -22,7 +22,7 @@ export default function MobileStickyContinue() {
       >
         Continue: {nextStep.buttonLabel} →
       </Link>
-      <p className="text-[10px] text-center text-slate-500 mt-1.5 px-1 leading-tight">Same as dashboard · progress stays on this device</p>
+      <p className="text-[10px] text-center text-slate-500 mt-1.5 px-1 leading-tight">Same as Home · progress stays on this device</p>
     </div>
   );
 }

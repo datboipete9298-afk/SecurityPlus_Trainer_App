@@ -7,7 +7,7 @@ export function isWeakAiResponse(r: AiTutorResponse | Partial<AiTutorResponse> |
   if (a.length < 28) return true;
   if (/^(error|sorry|i cannot|i can't|as an ai)/i.test(a) && a.length < 100) return true;
   const kp = Array.isArray(r.keyPoints) ? r.keyPoints.filter((x) => String(x).trim().length > 0) : [];
-  if (kp.length < 1) return true;
+  if (kp.length < 2) return true;
   const na = r.nextAction != null ? String(r.nextAction).trim() : "";
   if (na.length < 10) return true;
   return false;

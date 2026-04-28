@@ -2,6 +2,13 @@ import type { DomainId } from "../types";
 import { lessons } from "../data/lessons";
 import { labs as staticLabs } from "../data/labs";
 import { pick, pickN } from "./trainingHash";
+import type { LabInstance } from "../eliteLab/labInstance";
+import {
+  deriveLessonSeed,
+  generateAlertTriageLabInstance,
+  labInstanceToTrainingLab,
+  pickDifficultyFromLesson,
+} from "../eliteLab/labGenerator";
 
 export type LabCategory =
   | "SYSTEM_INTERACTION"
@@ -34,6 +41,8 @@ export type TrainingLab = {
   terminalScenarioId?: string;
   /** Correct top-to-bottom order for visual ordering labs */
   orderingCanonical?: string[];
+  /** Elite Lab Factory — seeded instance powering dynamic SOC / IR drills */
+  eliteInstance?: LabInstance;
 };
 
 const CATS: LabCategory[] = [
@@ -268,8 +277,15 @@ function synthLab(lessonId: string, category: LabCategory, slot: number): Traini
   return { id, lessonId, category, ...base };
 }
 
-/** ≥2 labs per lesson: static curriculum labs first, then generated to fill. */
+/** ≥2 labs per lesson: **slot A** = seeded Elite SOC triage, **slot B** = legacy static+synth filler. */
 export function generateTrainingLabsForLesson(lessonId: string): TrainingLab[] {
+  const eliteInstance = generateAlertTriageLabInstance({
+    lessonId,
+    seed: deriveLessonSeed(lessonId),
+    difficulty: pickDifficultyFromLesson(lessonId),
+  });
+  const elite = labInstanceToTrainingLab(eliteInstance);
+
   const fromStatic = staticToTraining(lessonId);
   const cats = pickN(CATS, lessonId, "lab-cats", 2);
   const synth: TrainingLab[] = [];
@@ -279,16 +295,17 @@ export function generateTrainingLabsForLesson(lessonId: string): TrainingLab[] {
   }
   const merged = [...fromStatic, ...synth];
   const seen = new Set<string>();
-  const out: TrainingLab[] = [];
+  const pool: TrainingLab[] = [];
   for (const L of merged) {
     if (seen.has(L.id)) continue;
     seen.add(L.id);
-    out.push(L);
-    if (out.length >= 2) break;
+    pool.push(L);
+    if (pool.length >= 3) break;
   }
-  while (out.length < 2) {
-    const c = CATS[out.length % CATS.length]!;
-    out.push(synthLab(lessonId, c, slot++));
+  while (pool.length < 3) {
+    const c = CATS[pool.length % CATS.length]!;
+    pool.push(synthLab(lessonId, c, slot++));
   }
-  return out;
+  const second = pool.find((L) => L.id !== elite.id) ?? synthLab(lessonId, CATS[slot % CATS.length]!, slot++);
+  return [elite, second];
 }

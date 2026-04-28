@@ -54,6 +54,9 @@ export default function NotePanel({ lessonId, writeThisDown }: Props) {
   return (
     <section className="rounded-xl border border-emerald-800/40 bg-emerald-950/15 p-4 space-y-3">
       <h3 className="text-xs font-bold text-emerald-200 uppercase tracking-wide">Write this down (Brain Book)</h3>
+      <p className="text-[11px] text-slate-500 leading-snug">
+        Brain Book is <strong className="text-slate-300">your notes inside this app</strong> — not text saved into the PDF file.
+      </p>
       <p className="text-xs text-slate-400">{writeThisDown}</p>
       <p className="text-[10px] text-slate-500 uppercase">
         Do not write: long paragraphs · raw PDF copy · obvious definitions without a keyword

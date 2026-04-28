@@ -7,11 +7,10 @@ import { buildPbqFirstIdentityLine } from "../utils/identityPersonalization";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
-import NextActionCard from "../components/NextActionCard";
+import ContinueButton from "../components/ContinueButton";
+import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
 import AITutorPanel from "../components/AITutorPanel";
 import StatusBadge from "../components/StatusBadge";
-import FailureRecoveryPanel from "../components/FailureRecoveryPanel";
-
 function shuffledOrder(correct: number[]): number[] {
   const a = [...correct];
   for (let i = a.length - 1; i > 0; i--) {
@@ -113,10 +112,23 @@ export default function PbqRunnerPage() {
     <AppShell>
       <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
         <div className="min-w-0 space-y-6 max-w-2xl">
+          <FlowPrimaryStrip>
+            {!submitted ? (
+              <button type="button" className="btn w-full text-center min-h-[48px] touch-manipulation" onClick={grade}>
+                Submit order
+              </button>
+            ) : !correct ? (
+              <button type="button" className="btn w-full text-center min-h-[48px] touch-manipulation" onClick={reset}>
+                Try again
+              </button>
+            ) : (
+              <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />
+            )}
+          </FlowPrimaryStrip>
           <PageHeader
             eyebrow={`Domain ${def.domain} · PBQ-style drill`}
             title={def.title}
-            purpose="Reorder steps to match a secure process. Wrong submit nudges weak signals for this domain — same thinking as performance-based items, original wording."
+            purpose="Use Up / Down, then Submit order above."
             badge={<StatusBadge tone="accent">Hands-on</StatusBadge>}
           />
 
@@ -163,11 +175,6 @@ export default function PbqRunnerPage() {
                 </li>
               ))}
             </ol>
-            {!submitted && (
-              <button type="button" className="btn w-full sm:w-auto mt-4" onClick={grade}>
-                Submit for scoring
-              </button>
-            )}
             {submitted && (
               <div className="text-sm space-y-2 border-t border-slate-800 pt-4 mt-4">
                 <p className={correct ? "text-emerald-300" : "text-rose-300"}>
@@ -183,67 +190,56 @@ export default function PbqRunnerPage() {
                   <strong className="text-slate-400">What Security+ is testing:</strong> {def.examTests}
                 </p>
                 {!correct && (
-                  <FailureRecoveryPanel
-                    tone="sky"
-                    title="Order didn’t match — here’s your repair lane"
-                    whatHappened="Your submitted sequence didn’t match the secure process this lab is teaching."
-                    whyItMatters="PBQs reward procedure memory. One short repair pass now beats guessing on exam day."
-                    nextStep="Pick one action, skim the rationale above, then use Retry lab."
-                    ariaLabel="PBQ lab recovery"
-                    actions={
-                      <>
-                        <Link to="/weak" className="btn text-sm min-h-[44px] justify-center touch-manipulation text-center">
-                          Weak areas
-                        </Link>
-                        <Link
-                          to={`/flashcards?lesson=${encodeURIComponent(repairLessonId)}`}
-                          className="btn text-sm min-h-[44px] justify-center touch-manipulation text-center"
-                        >
-                          Flashcards
-                        </Link>
-                        <Link
-                          to={`/quiz/${repairLessonId}?quick=5`}
-                          className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation text-center"
-                        >
-                          Quick quiz
-                        </Link>
-                        <Link
-                          to={`/lesson/${repairLessonId}`}
-                          className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation text-center"
-                        >
-                          Open lesson
-                        </Link>
-                        <Link to="/practice-exams/pbq" className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation text-center">
-                          PBQ hub
-                        </Link>
-                      </>
-                    }
-                  />
+                  <details className="mt-3 rounded-xl border border-sky-800/40 bg-sky-950/20 group">
+                    <summary className="cursor-pointer list-none px-3 py-2 text-sm text-sky-200 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+                      <span className="mr-2 text-sky-500 group-open:text-sky-300">▸</span>
+                      Extra repair links
+                    </summary>
+                    <div className="px-3 pb-3 border-t border-slate-800 pt-3 flex flex-col gap-2">
+                      <Link to={`/lesson/${repairLessonId}`} className="btn text-sm min-h-[44px] justify-center touch-manipulation text-center">
+                        Open lesson
+                      </Link>
+                      <Link to="/weak" className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation text-center border border-slate-600">
+                        Weak areas
+                      </Link>
+                      <Link
+                        to={`/flashcards?lesson=${encodeURIComponent(repairLessonId)}`}
+                        className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation text-center border border-slate-600"
+                      >
+                        Flashcards
+                      </Link>
+                      <Link to="/practice-exams/pbq" className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation text-center border border-slate-600">
+                        PBQ hub
+                      </Link>
+                    </div>
+                  </details>
                 )}
-                <button type="button" className="btn-ghost w-full sm:w-auto mt-2" onClick={reset}>
-                  Retry lab
-                </button>
+                <p className="text-xs text-slate-500 mt-2">Tap <strong className="text-slate-300">Try again</strong> in Next step above.</p>
               </div>
             )}
           </SectionCard>
 
-          <NextActionCard
-            label="Next step"
-            description={correct ? "Take a quiz in this domain or return to the PBQ list." : "Use AI for hints, or retry after reading the explanation."}
-          >
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Link to="/practice-exams/pbq" className="btn-ghost w-full sm:w-auto text-center">
-                PBQ hub
-              </Link>
-              <Link to={nextStep.href} className="btn w-full sm:w-auto text-center">
-                {nextStep.buttonLabel} →
+          <details className="rounded-xl border border-slate-700 bg-slate-900/30 group">
+            <summary className="cursor-pointer list-none px-3 py-2.5 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+              PBQ hub
+            </summary>
+            <div className="px-3 pb-3 border-t border-slate-800 pt-3">
+              <Link to="/practice-exams/pbq" className="btn-ghost w-full text-center min-h-[44px] border border-slate-600 inline-block leading-[44px]">
+                Open PBQ list
               </Link>
             </div>
-          </NextActionCard>
+          </details>
         </div>
 
+        <details className="rounded-2xl border border-violet-900/45 bg-violet-950/15 lg:sticky lg:top-4 group">
+          <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium text-violet-100 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+            <span className="text-violet-400/90 mr-2 group-open:rotate-90 transition-transform inline-block">▸</span>
+            Ask something (optional)
+          </summary>
+          <div className="p-2 pt-0">
         <AITutorPanel
-          className="lg:sticky lg:top-4 order-first lg:order-none"
+          className="lg:sticky lg:top-4 order-first lg:order-none !border-0 rounded-xl bg-violet-950/20"
           context={{
             surface: "lab",
             weakAreas,
@@ -256,6 +252,8 @@ export default function PbqRunnerPage() {
             coachLines: [def.examTests, def.scenario.slice(0, 120)].filter(Boolean),
           }}
         />
+          </div>
+        </details>
       </div>
     </AppShell>
   );

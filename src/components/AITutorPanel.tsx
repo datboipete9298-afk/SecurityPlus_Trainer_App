@@ -39,7 +39,36 @@ export type AITutorPanelContext = {
   quiz?: AITutorQuizContext;
   noteDraft?: Record<string, string>;
   noteHeuristic?: string[];
-  lab?: { objective: string; category?: string; checkpoints?: string[] };
+  lab?:
+    | { objective: string; category?: string; checkpoints?: string[] }
+    | {
+        objective: string;
+        category?: string;
+        checkpoints?: string[];
+        eliteLabMentor?: {
+          templateId: string;
+          instanceId?: string;
+          submissionPhase?: "before_score" | "after_score";
+          rubricBullets?: string[];
+          examPrinciples?: string[];
+          guidingDirective?: string;
+          currentDecisionTrace?: string[];
+          mistakeHints?: string[];
+          lastScore?: number;
+          domainCoach?: {
+            label: string;
+            decisionPrinciple: string;
+            examTrap: string;
+            prioritize: string;
+            doNotOvervalue: string;
+            keywords: string;
+          };
+          debriefAnchors?: {
+            prioritizedWell?: string;
+            missedFocus?: string;
+          };
+        };
+      };
   sim?: { title: string; narrative?: string; lastChoice?: string; wasGood?: boolean };
   coachLines?: string[];
   /** When set (PDF guided lesson view), tutor prompts include section + user highlights */
@@ -85,7 +114,7 @@ export default function AITutorPanel({ context, variant = "full", className }: P
   const [input, setInput] = useState("");
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [loading, setLoading] = useState(false);
-  const [aiConn, setAiConn] = useState<AiConnState>("checking");
+  const [aiConn, setAiConn] = useState<AiConnState>(() => (isAiApiBaseConfigured() ? "checking" : "offline"));
   const [isLg, setIsLg] = useState(false);
   const [mobileCoachOpen, setMobileCoachOpen] = useState(false);
 
@@ -104,12 +133,20 @@ export default function AITutorPanel({ context, variant = "full", className }: P
 
   useEffect(() => {
     let cancelled = false;
+    const failSafe = window.setTimeout(() => {
+      if (!cancelled) setAiConn((c) => (c === "checking" ? "offline" : c));
+    }, 4500);
     if (!isAiApiBaseConfigured()) {
       setAiConn("offline");
-      return;
+      window.clearTimeout(failSafe);
+      return () => {
+        cancelled = true;
+        window.clearTimeout(failSafe);
+      };
     }
     void checkAiHealth().then((h) => {
       if (cancelled) return;
+      window.clearTimeout(failSafe);
       if (!h) {
         setAiConn("offline");
         return;
@@ -119,6 +156,7 @@ export default function AITutorPanel({ context, variant = "full", className }: P
     });
     return () => {
       cancelled = true;
+      window.clearTimeout(failSafe);
     };
   }, []);
 
@@ -140,21 +178,12 @@ export default function AITutorPanel({ context, variant = "full", className }: P
 
   type TutorLayer = "live" | "fallback" | "rate_limited" | "exam_lock";
 
-  const pushAssistant = useCallback((structured: AiTutorResponse, layer: TutorLayer = "fallback") => {
-    const layerLine =
-      layer === "live"
-        ? "\n\n— Tutor layer: live model (structure verified)"
-        : layer === "fallback"
-          ? "\n\n— Tutor layer: built-in fallback (guaranteed actionable)"
-          : layer === "rate_limited"
-            ? "\n\n— Tutor layer: rate limit message"
-            : "\n\n— Tutor layer: exam lock";
+  const pushAssistant = useCallback((structured: AiTutorResponse, _layer: TutorLayer = "fallback") => {
     const text =
       `${structured.answer}\n\n` +
       (structured.keyPoints.length ? `• ${structured.keyPoints.join("\n• ")}\n\n` : "") +
       (structured.examTip ? `Exam tip: ${structured.examTip}\n\n` : "") +
-      (structured.nextAction ? `Next: ${structured.nextAction}` : "") +
-      layerLine;
+      (structured.nextAction ? `Next: ${structured.nextAction}` : "");
     setMsgs((m) => [...m, { role: "assistant", text: text.trim(), structured }]);
   }, []);
 
@@ -212,8 +241,27 @@ export default function AITutorPanel({ context, variant = "full", className }: P
         const msg = err instanceof Error ? err.message : "";
         if (msg === "rate_limited") {
           pushAssistant(rateLimitedAiResponse(), "rate_limited");
+        } else if (msg === "ai_network_timeout") {
+          const fb = coachFallback();
+          pushAssistant(
+            {
+              ...fb,
+              answer:
+                "**Tutor request timed out** — that’s usually Wi‑Fi/VPN or the API host waking cold. Your homework still works; this is coaching only.\n\n" +
+                fb.answer,
+            },
+            "fallback",
+          );
         } else {
-          pushAssistant(coachFallback(), "fallback");
+          const fb = coachFallback();
+          pushAssistant(
+            {
+              ...fb,
+              answer:
+                "**Request didn’t finish** — still giving you the same structured offline pattern (not a blank crash).\n\n" + fb.answer,
+            },
+            "fallback",
+          );
         }
       } finally {
         setLoading(false);
@@ -274,8 +322,8 @@ export default function AITutorPanel({ context, variant = "full", className }: P
             mode: "tutor" as const,
             q:
               context.pdfGuide.pdfFileAvailable ?
-                `I added the PDF in PDF setup. For section "${context.pdfGuide.sectionTitle}", what should I type in the PDF search box first, and what nearby headings to trust if search fails?`
-              : `I have not added this PDF in PDF setup yet. Tell me exactly what to do first, then how to find "${context.pdfGuide.sectionTitle}" once the file is local.`,
+                `I added my PDF under Add PDF files. For section "${context.pdfGuide.sectionTitle}", what should I search for in the PDF first, and which heading should I look under if search fails?`
+              : `I have not added this PDF to the app yet. Tell me the first step, then how to find "${context.pdfGuide.sectionTitle}" after my file is added.`,
           },
           {
             label: "What matters here?" as const,
@@ -303,30 +351,39 @@ export default function AITutorPanel({ context, variant = "full", className }: P
     return [...quick.filter((x) => set.has(x.label)), ...pdfExtras];
   }, [context.surface, context.pdfGuide, quick]);
 
-  const title = variant === "compact" ? "AI tutor" : "AI tutor (Security+)";
+  const title = variant === "compact" ? "Study tutor" : "Study tutor (optional AI)";
   const expanded = isLg || mobileCoachOpen;
 
   const sub =
     context.examAiLocked && context.surface === "quiz"
-      ? "Locked during exam — finish the attempt first."
+      ? "Exam mode: tutoring is paused until review — avoids giving away answers mid-test."
       : aiConn === "live"
-        ? "Live model on — exam-focused answers. If the request fails, you still get structured Smart Coach–style fallback (never a silent blank)."
+        ? "Live assistant is reachable — answers fall back automatically if anything errors."
         : aiConn === "guided"
-          ? "Guided: backend is up but the live model isn’t fully available (for example, no API key). Shortcuts still return structured coaching."
+          ? "Server is up but not running the full tutor model — you still get the same bullet structure."
           : aiConn === "offline"
-            ? "Offline: no AI URL or the service didn’t respond. Shortcuts use built-in coaching only. Lessons and quizzes work the same."
-            : "Checking tutor service…";
+            ? "Predictable built-in replies — taps never fail silently."
+            : "Briefly probing the tutor endpoint… (~4 s max), then switching to built-in coaching.";
 
   const badgeLabel =
-    context.examAiLocked ? "Exam lock" : aiConn === "live" ? "Live" : aiConn === "guided" ? "Guided" : aiConn === "offline" ? "Offline" : "…";
-  const badgeTone = context.examAiLocked ? "warn" : aiConn === "live" ? "accent" : "neutral";
+    context.examAiLocked ?
+      "Exam paused"
+    : aiConn === "live" ?
+      "Live AI"
+    : aiConn === "guided" ?
+      "Limited API"
+    : aiConn === "offline" ?
+      "Built‑in coach"
+    : "Checking";
+  const badgeTone =
+    context.examAiLocked ? "warn" : aiConn === "live" ? "accent" : aiConn === "checking" ? "neutral" : "neutral";
 
   return (
     <aside
       className={`rounded-2xl border border-violet-900/45 bg-violet-950/20 overflow-hidden flex flex-col ${
         expanded ? "max-h-[min(70vh,560px)] lg:max-h-[min(80vh,640px)]" : "max-lg:max-h-[132px] max-h-[min(70vh,560px)] lg:max-h-[min(80vh,640px)]"
       } ${className ?? ""}`}
-      aria-label="AI tutor panel"
+      aria-label="Study tutor"
     >
       <div className="px-3 py-2.5 border-b border-violet-900/40 bg-violet-950/40 shrink-0">
         <div className="flex flex-wrap items-center gap-2 justify-between">
@@ -358,13 +415,8 @@ export default function AITutorPanel({ context, variant = "full", className }: P
         <p className="text-[11px] text-slate-400 mt-1 leading-snug">{sub}</p>
         {context.pdfGuide && context.pdfGuide.pdfFileAvailable === false && (
           <p className="text-[11px] text-amber-200/90 mt-2 leading-snug">
-            PDF not stored in this browser yet — open <strong className="text-amber-100">PDF setup</strong> to add your file; highlights here still
-            save to progress.
-          </p>
-        )}
-        {(aiConn === "guided" || aiConn === "offline") && !context.examAiLocked && (
-          <p className="text-[11px] text-teal-200/85 mt-2 leading-snug border-t border-violet-900/35 pt-2">
-            You&apos;re still learning correctly — AI is optional. Lessons, quizzes, and Smart Coach don&apos;t depend on a live model.
+            This PDF isn&apos;t on this device yet — use <strong className="text-amber-100">Add PDF files</strong> in the menu. What you type here still
+            saves in the app.
           </p>
         )}
       </div>
@@ -407,7 +459,7 @@ export default function AITutorPanel({ context, variant = "full", className }: P
         <div className="flex gap-2">
           <input
             className="flex-1 min-w-0 rounded-lg bg-slate-900 border border-slate-700 px-2 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-xs text-slate-100 placeholder:text-slate-600"
-            placeholder="Ask the tutor…"
+            placeholder="Ask in plain English…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

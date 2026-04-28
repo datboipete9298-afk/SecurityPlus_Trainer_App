@@ -29,7 +29,7 @@ export default function StartHere() {
         <PageHeader
           eyebrow="Start here · Beginner-friendly"
           title="You don’t need any security background"
-          purpose="Security+ (SY0-701) practice in Professor Messer’s order: lessons, quizzes, flashcards, and safe labs. Tap the big green button below to begin — the menu (☰) has everything else."
+          purpose="Security+ (SY0-701) in Professor Messer’s lesson order: videos, quizzes, flashcards, and safe labs. Tap the big green button below — the ☰ menu has the rest."
           badge={<StatusBadge tone="ok">No login</StatusBadge>}
         />
 
@@ -67,7 +67,7 @@ export default function StartHere() {
                 nav("/");
               }}
             >
-              Open dashboard
+              Open Home
             </button>
           </div>
         </NextActionCard>
@@ -119,10 +119,10 @@ export default function StartHere() {
                 </p>
               </SectionCard>
 
-              <SectionCard title="Optional AI tutor" subtitle="Smart Coach always works without it">
+              <SectionCard title="Optional study tutor (AI)" subtitle="Smart Coach always works without it">
                 <ul className="text-sm text-slate-300 space-y-2 list-disc pl-5 leading-relaxed">
                   <li>
-                    You can ask questions from the <strong className="text-white">AI panel</strong> on the dashboard, lessons, and quizzes. If your study setup uses AI, the key stays on a server — never in your browser.
+                    You can ask questions from the <strong className="text-white">study tutor panel</strong> on Home, lessons, and quizzes. If you use live AI, the key stays on your server — not in the browser.
                   </li>
                   <li>
                     If AI is unavailable, you still get <strong className="text-white">Smart Coach</strong>, quiz explanations, and labs.

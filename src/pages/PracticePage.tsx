@@ -31,7 +31,7 @@ export default function PracticePage() {
 
           <NextActionCard
             label="Smart Coach pick"
-            description="Pick one block below. If you are unsure, use Continue — same next step as the dashboard green bar."
+            description="Pick one block below. If you are unsure, use Continue — same next step as the green bar on Home."
           >
             <Link to={nextStep.href} className="btn w-full text-center">
               {nextStep.buttonLabel} →
@@ -67,7 +67,7 @@ export default function PracticePage() {
             </p>
           </SectionCard>
 
-          <NextActionCard label="When you are done" description="Return to the dashboard or open the lesson path for the next section.">
+          <NextActionCard label="When you are done" description="Return to Home or open the lesson path for the next section.">
             <div className="flex flex-col sm:flex-row gap-2">
               <Link to="/" className="btn-ghost w-full sm:w-auto text-center">
                 Dashboard

@@ -214,7 +214,7 @@ export default function Session30() {
           <div className="rounded-2xl border border-violet-800/45 bg-violet-950/25 px-4 py-4">
             <p className="text-xs font-bold text-violet-200 uppercase tracking-wide">Next time, start here</p>
             <p className="text-sm text-slate-300 mt-2 leading-relaxed">
-              When you come back, use <strong className="text-white">{nextStep.buttonLabel}</strong> — it matches the dashboard and your phone&apos;s green Continue bar.
+              When you come back, use <strong className="text-white">{nextStep.buttonLabel}</strong> — it matches Home and your phone&apos;s green Continue bar.
             </p>
             <Link to={nextStep.href} className="btn w-full sm:w-auto text-center mt-3 inline-block min-h-[44px] touch-manipulation">
               {nextStep.buttonLabel} →

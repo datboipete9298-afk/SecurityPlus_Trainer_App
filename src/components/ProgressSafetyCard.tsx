@@ -11,8 +11,8 @@ export default function ProgressSafetyCard() {
         Your progress is yours — keep a copy
       </h2>
       <p className="text-sm text-slate-300 leading-relaxed">
-        Everything saves in <strong className="text-slate-100">this browser only</strong>. Clearing site data, another device, or another browser starts fresh — use{" "}
-        <strong className="text-slate-100">Progress → Backup &amp; export</strong> (not the Import menu item, which is for lesson authors).
+        Your study data lives in <strong className="text-slate-100">this browser only</strong>. Another device, another browser, or cleared site data means a fresh start — unless you use{" "}
+        <strong className="text-slate-100">Progress → Backup &amp; export</strong> to keep a file.
       </p>
       <div className="flex flex-col sm:flex-row gap-2 pt-1">
         <Link to="/progress#backup" className="btn w-full sm:w-auto text-center text-sm min-h-[44px] touch-manipulation">

@@ -16,10 +16,9 @@ export default function HighlightPanel({ mustList, shouldList, doNotList, highli
 
   return (
     <section className="rounded-xl border border-amber-800/40 bg-amber-950/15 p-4 space-y-3">
-      <h3 className="text-xs font-bold text-amber-200 uppercase tracking-wide">Live highlight coach</h3>
+      <h3 className="text-xs font-bold text-amber-200 uppercase tracking-wide">What to highlight</h3>
       <p className="text-xs text-slate-400 leading-relaxed">
-        In your PDF: mark <span className="text-amber-100/90">definitions, lists, comparisons, exam triggers</span> — not whole
-        paragraphs. Add a short phrase here to mirror what you marked (builds your trail + flashcards).
+        In your PDF, mark <span className="text-amber-100/90">short definitions, lists, and “exam trigger” words</span> — not whole paragraphs. Type the same short phrase here so the app can track it (and help with flashcards later).
       </p>
       {overWarn && (
         <p className="text-xs text-amber-200/95 rounded-lg border border-amber-600/40 bg-amber-950/40 px-2 py-2">
@@ -28,7 +27,7 @@ export default function HighlightPanel({ mustList, shouldList, doNotList, highli
         </p>
       )}
       <div>
-        <p className="text-[10px] text-slate-500 uppercase mb-1">Must mirror (from guide)</p>
+        <p className="text-[10px] text-slate-500 uppercase mb-1">Start with these (from the guide)</p>
         <ul className="text-xs text-slate-200 space-y-1 list-disc pl-4">
           {mustList.slice(0, 10).map((x, i) => (
             <li key={i}>{x}</li>

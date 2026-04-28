@@ -1,5 +1,5 @@
 import { useSearchParams, Link } from "react-router-dom";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { cardsForLesson, flashcards } from "../data/flashcards";
 import { lessons } from "../data/lessons";
 import { useProgress } from "../context/ProgressContext";
@@ -7,9 +7,10 @@ import type { Flashcard } from "../types";
 import FeedbackPanel from "../components/FeedbackPanel";
 import { buildFlashcardTutorFeedback } from "../core/feedbackEngine";
 import AppShell from "../components/AppShell";
+import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
+import ContinueButton from "../components/ContinueButton";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
-import NextActionCard from "../components/NextActionCard";
 import AITutorPanel from "../components/AITutorPanel";
 import StatusBadge from "../components/StatusBadge";
 import { buildFlashcardStreakIdentityLine, buildWeakCardRepairIdentityLine } from "../utils/identityPersonalization";
@@ -45,6 +46,10 @@ export default function FlashcardsPage() {
     });
   }, [lesson, state.userFlashcards, state.cardWrongStreak]);
 
+  useEffect(() => {
+    bumpStudyResume({ flashcardsLesson: lesson });
+  }, [lesson, bumpStudyResume]);
+
   const [i, setI] = useState(0);
   const [flip, setFlip] = useState(false);
   const [grade, setGrade] = useState<{ card: Flashcard; gotRight: boolean } | null>(null);
@@ -63,22 +68,29 @@ export default function FlashcardsPage() {
       <AppShell>
         <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
           <div className="min-w-0 space-y-6 max-w-xl">
+            <FlowPrimaryStrip>
+              <Link to="/weak" className="btn w-full text-center min-h-[48px] touch-manipulation justify-center">
+                Continue improving (weak areas)
+              </Link>
+            </FlowPrimaryStrip>
             <PageHeader
               title="Flashcards"
               purpose="No cards in this deck yet. Add content in data files, convert quiz misses, or open flashcards from a lesson that has cards."
             />
-            <SectionCard title="Empty deck" subtitle="Try one of these">
-              <div className="flex flex-col gap-2">
-                <Link to="/weak" className="btn w-full text-center">
-                  Weak areas → flashcards from misses
-                </Link>
-                <Link to="/practice-exams" className="btn-ghost w-full text-center">
-                  Practice exams
-                </Link>
-                <Link to="/roadmap" className="btn-ghost w-full text-center">
-                  Lesson path
-                </Link>
-              </div>
+            <SectionCard title="Empty deck" subtitle="Secondary paths">
+              <details className="group">
+                <summary className="cursor-pointer text-sm text-slate-400 touch-manipulation min-h-[44px] list-none [&::-webkit-details-marker]:hidden">
+                  ▸ Other ways to get cards
+                </summary>
+                <div className="flex flex-col gap-2 mt-3">
+                  <Link to="/practice-exams" className="btn-ghost w-full text-center">
+                    Practice exams
+                  </Link>
+                  <Link to="/roadmap" className="btn-ghost w-full text-center">
+                    Lesson path
+                  </Link>
+                </div>
+              </details>
             </SectionCard>
           </div>
         <AITutorPanel
@@ -116,9 +128,12 @@ export default function FlashcardsPage() {
     <AppShell>
       <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
         <div className="min-w-0 space-y-6 max-w-xl">
+          <FlowPrimaryStrip>
+            <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation justify-center" coachHint="" />
+          </FlowPrimaryStrip>
           <PageHeader
             title="Flashcards"
-            purpose="Spaced repetition in the browser: harder cards surface more often. Flip, recall, then grade yourself honestly — the schedule updates automatically."
+            purpose={lesson ? `Session started — Lesson ${lesson}. Flip the card when you're ready.` : "Deck ready — flip the card when you're ready."}
             badge={
               <div className="flex flex-wrap gap-1 justify-end">
                 {dueNow > 0 && <StatusBadge tone="warn">{dueNow} due</StatusBadge>}
@@ -127,30 +142,34 @@ export default function FlashcardsPage() {
             }
           />
 
-          <SectionCard
-            title="How this deck works"
-            subtitle="Spaced repetition + mistake heat"
-          >
-            <ul className="text-sm text-slate-300 space-y-2 list-disc pl-5 leading-relaxed">
-              <li>
-                <strong className="text-white">Due:</strong> {dueNow} card{dueNow === 1 ? "" : "s"} past their review time (of {state.spaced.length} scheduled).
-              </li>
-              <li>
-                <strong className="text-white">Order:</strong> cards with more wrong streaks float up so you repair weak hooks first.
-              </li>
-              <li>
-                <strong className="text-white">Got it vs Again:</strong> like <em>Good</em> vs <em>Again</em> in other apps — &quot;Got it&quot; pushes the card out; &quot;Again&quot; brings it back sooner.
-              </li>
-              <li>
-                <strong className="text-white">Mistake cards:</strong> {state.userFlashcards.length} from your missed-question journal and quizzes.
-              </li>
-            </ul>
-            {lesson && <p className="text-xs text-cyan-200/80 mt-2">Filtered to: {lessonTitle}</p>}
-          </SectionCard>
+          <details className="rounded-2xl border border-slate-700 bg-slate-900/30 group overflow-hidden">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-300 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="text-slate-500 mr-2 group-open:text-emerald-400">▸</span>
+              How this deck works
+            </summary>
+            <div className="px-4 pb-4 border-t border-slate-800/80 pt-3">
+              <ul className="text-sm text-slate-300 space-y-2 list-disc pl-5 leading-relaxed">
+                <li>
+                  <strong className="text-white">Due:</strong> {dueNow} card{dueNow === 1 ? "" : "s"} past their review time (of {state.spaced.length} scheduled).
+                </li>
+                <li>
+                  <strong className="text-white">Order:</strong> cards with more wrong streaks float up so you repair weak hooks first.
+                </li>
+                <li>
+                  <strong className="text-white">Got it vs Again:</strong> like <em>Good</em> vs <em>Again</em> in other apps — &quot;Got it&quot; pushes the card out; &quot;Again&quot; brings it back sooner.
+                </li>
+                <li>
+                  <strong className="text-white">Mistake cards:</strong> {state.userFlashcards.length} from your missed-question journal and quizzes.
+                </li>
+              </ul>
+              {lesson && <p className="text-xs text-cyan-200/80 mt-2">Filtered to: {lessonTitle}</p>}
+            </div>
+          </details>
 
           {!grade && (
             <>
               <button
+                id="flashcards-card"
                 type="button"
                 onClick={() => setFlip(!flip)}
                 className="card w-full min-h-[200px] flex flex-col justify-center text-center cursor-pointer hover:border-emerald-700 transition-transform active:scale-[0.99] touch-manipulation"
@@ -240,16 +259,20 @@ export default function FlashcardsPage() {
             </div>
           )}
 
-          <NextActionCard label="Next step" description="Pair cards with a quiz or weak-area pass for the same topic.">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Link to="/" className="btn-ghost w-full sm:w-auto text-center">
-                Dashboard
+          <details className="rounded-xl border border-slate-700 bg-slate-900/30 group mt-6">
+            <summary className="cursor-pointer list-none px-4 py-3 text-xs text-slate-500 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+              Leave flashcards · other paths
+            </summary>
+            <div className="px-4 pb-4 pt-1 border-t border-slate-800 space-y-2">
+              <Link to="/" className="btn-ghost w-full text-center text-sm min-h-[44px] justify-center inline-flex items-center touch-manipulation">
+                Home
               </Link>
-              <Link to={nextStep.href} className="btn w-full sm:w-auto text-center">
-                {nextStep.buttonLabel} →
+              <Link to={nextStep.href} className="btn-ghost w-full text-center text-sm min-h-[44px] justify-center inline-flex items-center touch-manipulation">
+                {nextStep.buttonLabel} (coach queue)
               </Link>
             </div>
-          </NextActionCard>
+          </details>
         </div>
 
         <AITutorPanel

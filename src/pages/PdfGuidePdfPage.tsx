@@ -24,14 +24,14 @@ export default function PdfGuidePdfPage() {
             purpose={entry.description}
             actions={
               <Link to="/pdf-setup" className="btn-ghost text-sm min-h-[44px] border border-slate-600">
-                PDF setup →
+                Add PDF files →
               </Link>
             }
           />
           {!pdfAdded ?
             <div className="rounded-xl border border-amber-700/45 bg-amber-950/20 p-4 text-sm text-amber-100">
               <p className="font-medium">PDF not added yet</p>
-              <p className="text-xs text-amber-200/80 mt-1">Add your practice exams PDF under PDF setup to open it locally.</p>
+              <p className="text-xs text-amber-200/80 mt-1">Add your practice exams PDF under Add PDF files to open it on this device.</p>
               <Link to={`/pdf-setup?need=${encodeURIComponent(pdfId)}`} className="btn mt-3 inline-block text-center min-h-[44px]">
                 Add this PDF →
               </Link>
@@ -95,14 +95,14 @@ export default function PdfGuidePdfPage() {
           purpose={entry.description}
           actions={
             <Link to="/pdf-setup" className="btn-ghost text-sm min-h-[44px] border border-slate-600">
-              PDF setup →
+              Add PDF files →
             </Link>
           }
         />
         {!pdfAdded ?
           <div className="rounded-xl border border-amber-700/45 bg-amber-950/20 p-4 text-sm text-amber-100">
             <p className="font-medium">PDF not added yet</p>
-            <p className="text-xs text-amber-200/80 mt-1">Add this book or notes PDF once — it stays in your browser only.</p>
+            <p className="text-xs text-amber-200/80 mt-1">Add this book or notes PDF once — it stays on this device only.</p>
             <Link to={`/pdf-setup?need=${encodeURIComponent(pdfId)}`} className="btn mt-3 inline-block text-center min-h-[44px]">
               Add this PDF →
             </Link>

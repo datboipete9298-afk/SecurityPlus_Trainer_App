@@ -13,11 +13,11 @@ export default function OnboardingHintBanner({ onDismiss }: Props) {
       aria-label="Getting started"
     >
       <p className="text-sm text-amber-100/95 leading-relaxed">
-        <span className="font-semibold text-amber-50">First time?</span> Optional{" "}
+        <span className="font-semibold text-amber-50">New?</span>{" "}
         <Link to="/start-here" className="text-amber-200 underline font-medium">
-          2-minute orientation
+          Quick tour
         </Link>{" "}
-        — or keep studying. Nothing here blocks your dashboard.
+        — or tap Continue.
       </p>
       <button type="button" className="btn-ghost text-sm shrink-0 min-h-[44px] touch-manipulation" onClick={onDismiss}>
         Dismiss

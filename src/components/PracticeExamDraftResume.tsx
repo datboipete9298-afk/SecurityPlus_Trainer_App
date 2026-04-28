@@ -29,7 +29,7 @@ export default function PracticeExamDraftResume({ className = "" }: { className?
         Resume practice exam
       </h2>
       <p className="text-xs text-amber-200/85 leading-relaxed">
-        <strong className="text-amber-50">Session-only:</strong> unfinished <strong className="text-amber-50">exam-mode</strong> answers live in this browser&apos;s storage only — not in your progress backup, not synced to other devices. They disappear if you clear site data or sometimes when the tab closes. Finish or retake when you can.
+        Finish this run soon — it lives in this tab only, not in your backup.
       </p>
       <ul className="space-y-2 list-none">
         {ids.map((examId) => (

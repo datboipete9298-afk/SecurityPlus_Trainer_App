@@ -6,9 +6,20 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
-body {
-  @apply bg-slate-950 text-slate-100 min-h-screen text-base;
+@layer base {
+  /* Keyboard / TV remote focus — consistent with emerald accent buttons */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible:not([type="radio"]):not([hidden]),
+  textarea:focus-visible,
+  select:focus-visible,
+  summary:focus-visible {
+    outline: 2px solid rgb(52 211 153 / 0.85);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
 }
+
 
 @layer components {
   .card {

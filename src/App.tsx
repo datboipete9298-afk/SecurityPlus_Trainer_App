@@ -26,6 +26,7 @@ const PdfGuideHubPage = lazy(() => import("./pages/PdfGuideHubPage"));
 const PdfGuidePdfPage = lazy(() => import("./pages/PdfGuidePdfPage"));
 const PdfLessonGuidePage = lazy(() => import("./pages/PdfLessonGuidePage"));
 const PdfSetupPage = lazy(() => import("./pages/PdfSetupPage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 
 export default function App() {
   return (
@@ -56,7 +57,7 @@ export default function App() {
           <Route path="/pdf-setup" element={<PdfSetupPage />} />
           <Route path="/pdf-guides/:pdfId" element={<PdfGuidePdfPage />} />
           <Route path="/pdf-guides/:pdfId/:lessonId" element={<PdfLessonGuidePage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </Layout>

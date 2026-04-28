@@ -15,6 +15,8 @@ import { getPdfPageMapEntry } from "../data/pdfGuides/pdfPageMap";
 import { lessons } from "../data/lessons";
 import { flashcards } from "../data/flashcards";
 import { useProgress } from "../context/ProgressContext";
+import ContinueButton from "../components/ContinueButton";
+import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
 import { examReadiness } from "../utils/adaptive";
 
 export default function PdfLessonGuidePage() {
@@ -23,6 +25,7 @@ export default function PdfLessonGuidePage() {
   const guide = getPdfGuideSection(pdfId, lessonId);
   const {
     state,
+    nextStep,
     touchPdfGuideSession,
     addPdfHighlight,
     removePdfHighlight,
@@ -35,7 +38,8 @@ export default function PdfLessonGuidePage() {
 
   const sectionKey = pdfGuideSectionKey(pdfId, lessonId);
   const prog = state.pdfLibrary?.bySection[sectionKey];
-  const pdfAdded = !!state.pdfLibrary?.localFileMeta?.[pdfId];
+  const pdfMetaForId = pdfId ? state.pdfLibrary?.localFileMeta?.[pdfId] : undefined;
+  const pdfAdded = !!pdfMetaForId;
   const pageMap = useMemo(() => getPdfPageMapEntry(pdfId, lessonId), [pdfId, lessonId]);
   const searchPhrase = pageMap?.searchPhrase ?? guide?.sectionTitle ?? "";
 
@@ -92,40 +96,63 @@ export default function PdfLessonGuidePage() {
 
   return (
     <AppShell>
-      <p className="text-xs text-cyan-100/90 max-w-6xl mb-3 md:hidden rounded-lg border border-cyan-800/40 bg-cyan-950/25 px-3 py-2 leading-relaxed">
-        <strong className="text-cyan-50">Phone flow:</strong> tap <strong>Open PDF</strong> (new tab) → use the <strong>sticky bar</strong> below to jump to Hooks / Mini-check →
-        switch back to this tab after marking ideas (don’t close it).
+      <div className="max-w-6xl mx-auto space-y-4 pb-32 lg:pb-6">
+      <FlowPrimaryStrip>
+        {!pdfAdded ? (
+          <Link
+            to={`/pdf-setup?need=${encodeURIComponent(pdfId)}`}
+            className="btn w-full text-center min-h-[48px] touch-manipulation inline-block"
+          >
+            Add PDF first →
+          </Link>
+        ) : (
+          <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />
+        )}
+      </FlowPrimaryStrip>
+      {pdfAdded && pdfMetaForId ?
+        <p className="text-xs text-emerald-100/95 rounded-lg border border-emerald-800/45 bg-emerald-950/30 px-3 py-2.5 leading-relaxed" role="status">
+          <strong className="text-emerald-200">This guide matches your uploaded PDF:</strong>{" "}
+          <span className="text-white/95 font-medium">{pdfMetaForId.name}</span>
+          <span className="text-emerald-200/90"> — search and highlights target this file.</span>
+        </p>
+      : !pdfAdded ?
+        <p className="text-xs text-amber-100/95 rounded-lg border border-amber-800/45 bg-amber-950/25 px-3 py-2.5 leading-relaxed">
+          <strong className="text-amber-200">No matching PDF on device yet:</strong> add the right Messer/Publisher file in PDF setup —
+          searches feel wrong when the booklet doesn&apos;t match.
+        </p>
+      : null}
+      <p className="text-xs text-cyan-100/90 md:hidden rounded-lg border border-cyan-800/40 bg-cyan-950/25 px-3 py-2 leading-relaxed">
+        <strong className="text-cyan-50">Phone:</strong> Open PDF → Highlights bar below → back here.
       </p>
-      <div className="max-w-6xl grid lg:grid-cols-2 gap-6 items-start pb-32 lg:pb-6">
+      <div className="grid lg:grid-cols-2 gap-6 items-start">
         <div className="min-w-0 space-y-4 order-2 lg:order-1">
           <PageHeader
             title={guide.sectionTitle}
-            purpose={`${entry.title} · Domain ${guide.domain} · Open your PDF in another tab, then use this page as your coach — left: map & summary, right: highlights, notes, AI, checkpoints.`}
+            purpose={`${entry.title} · Domain ${guide.domain} · Copy the phrase below into your PDF search.`}
             actions={
               <div className="flex flex-col gap-2 items-stretch sm:items-end">
                 <LocalPdfOpenButton pdfId={pdfId} page={pageMap?.startPage} className="w-full sm:w-auto">
-                  Open local PDF
+                  Open PDF
                 </LocalPdfOpenButton>
-                {!pdfAdded && (
-                  <Link to={`/pdf-setup?need=${encodeURIComponent(pdfId)}`} className="btn-ghost text-xs text-center border border-amber-700/50 min-h-[40px]">
-                    Add this PDF first →
-                  </Link>
-                )}
               </div>
             }
           />
 
           <section className="rounded-xl border border-cyan-800/35 bg-cyan-950/15 p-4 space-y-2">
-            <h2 className="text-xs font-bold text-cyan-200 uppercase tracking-wide">Find this in your PDF</h2>
+            <h2 className="text-xs font-bold text-cyan-200 uppercase tracking-wide">Search in your PDF</h2>
             <p className="text-sm text-slate-200">
-              Search this phrase in your PDF:{" "}
               <span className="font-medium text-white">&quot;{searchPhrase}&quot;</span>
             </p>
-            {pageMap ?
-              <p className="text-xs text-slate-400">
-                Optional page map: pp. {pageMap.startPage}–{pageMap.endPage} (your edition may differ — use search if off).
-              </p>
-            : <p className="text-xs text-slate-500">{guide.locatorHint}</p>}
+            <details className="text-xs text-slate-500">
+              <summary className="cursor-pointer text-slate-400 touch-manipulation py-1 [&::-webkit-details-marker]:hidden list-none">
+                ▸ Page hint
+              </summary>
+              {pageMap ?
+                <p className="mt-1 text-slate-400">
+                  About pp. {pageMap.startPage}–{pageMap.endPage} (editions vary).
+                </p>
+              : <p className="mt-1">{guide.locatorHint}</p>}
+            </details>
           </section>
 
           <div className="flex flex-wrap gap-2">
@@ -294,79 +321,100 @@ export default function PdfLessonGuidePage() {
 
           <VoiceExplainPanel guide={guide} />
 
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn text-sm min-h-[44px] touch-manipulation" onClick={() => completePdfGuideSection(pdfId, lessonId)}>
-              Mark section complete
-            </button>
-            <Link to={`/pdf-guides/${pdfId}`} className="btn-ghost text-sm min-h-[44px] border border-slate-600 touch-manipulation">
-              All sections
-            </Link>
-          </div>
+          <details className="rounded-2xl border border-violet-900/45 bg-violet-950/15 group">
+            <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium text-violet-100 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="text-violet-400/90 mr-2 group-open:rotate-90 transition-transform inline-block">▸</span>
+              Ask something (optional)
+            </summary>
+            <div className="p-2 pt-0">
+              <AITutorPanel
+                className="!border-0 rounded-xl bg-violet-950/20"
+                context={{
+                  surface: "lesson",
+                  lesson: L
+                    ? {
+                        id: L.id,
+                        title: L.title,
+                        sectionNumber: L.sectionNumber,
+                        domain: L.domain,
+                        mustHighlights: guide.mustHighlight,
+                        examTraps: L.examTraps?.map((t) => ({ a: t.a, b: t.b })),
+                        instantRecognition: L.instantRecognition,
+                        noteIntelLines: guide.keyConcepts,
+                        simpleExplanation: guide.explainLikeImDumb,
+                      }
+                    : undefined,
+                  userProgress: {
+                    readiness: readiness.score,
+                    pdfGuideKey: sectionKey,
+                    pdfFileAddedForGuide: pdfAdded,
+                  },
+                  weakAreas: [],
+                  coachLines: [guide.quickCheck, guide.examTrap],
+                  pdfGuide: {
+                    pdfId,
+                    lessonId,
+                    sectionTitle: guide.sectionTitle,
+                    summary: guide.summary,
+                    mustHighlight: guide.mustHighlight,
+                    userHighlights: prog?.highlights ?? [],
+                    pdfFileAvailable: pdfAdded,
+                  },
+                }}
+              />
+            </div>
+          </details>
 
-          <AITutorPanel
-            context={{
-              surface: "lesson",
-              lesson: L
-                ? {
-                    id: L.id,
-                    title: L.title,
-                    sectionNumber: L.sectionNumber,
-                    domain: L.domain,
-                    mustHighlights: guide.mustHighlight,
-                    examTraps: L.examTraps?.map((t) => ({ a: t.a, b: t.b })),
-                    instantRecognition: L.instantRecognition,
-                    noteIntelLines: guide.keyConcepts,
-                    simpleExplanation: guide.explainLikeImDumb,
-                  }
-                : undefined,
-              userProgress: {
-                readiness: readiness.score,
-                pdfGuideKey: sectionKey,
-                pdfFileAddedForGuide: pdfAdded,
-              },
-              weakAreas: [],
-              coachLines: [guide.quickCheck, guide.examTrap],
-              pdfGuide: {
-                pdfId,
-                lessonId,
-                sectionTitle: guide.sectionTitle,
-                summary: guide.summary,
-                mustHighlight: guide.mustHighlight,
-                userHighlights: prog?.highlights ?? [],
-                pdfFileAvailable: pdfAdded,
-              },
-            }}
-          />
+          <details className="rounded-xl border border-slate-700 bg-slate-900/30 group">
+            <summary className="cursor-pointer list-none px-3 py-2 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+              Section done / other links
+            </summary>
+            <div className="px-3 pb-3 border-t border-slate-800 pt-3 flex flex-wrap gap-2">
+              <button type="button" className="btn text-sm min-h-[44px] touch-manipulation" onClick={() => completePdfGuideSection(pdfId, lessonId)}>
+                Mark section complete
+              </button>
+              <Link to={`/pdf-guides/${pdfId}`} className="btn-ghost text-sm min-h-[44px] border border-slate-600 touch-manipulation inline-flex items-center justify-center">
+                All sections
+              </Link>
+            </div>
+          </details>
         </div>
+      </div>
       </div>
 
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-slate-700/90 bg-slate-950/95 backdrop-blur-md px-3 py-2.5 shadow-[0_-8px_24px_rgba(0,0,0,0.4)]">
-        <p className="text-[10px] text-cyan-200/95 font-semibold uppercase tracking-wide mb-1.5">
-          PDF + guide: open file → return here
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <LocalPdfOpenButton pdfId={pdfId} page={pageMap?.startPage} className="flex-1 min-w-[130px] text-xs">
-            Open PDF (new tab)
+        <p className="text-[10px] text-cyan-200/95 font-semibold uppercase tracking-wide mb-1.5">PDF study flow</p>
+        <div className="flex gap-2">
+          <LocalPdfOpenButton pdfId={pdfId} page={pageMap?.startPage} className="flex-1 min-w-[120px] text-xs justify-center touch-manipulation min-h-[48px]">
+            Open PDF
           </LocalPdfOpenButton>
           <a
             href="#highlight-coach"
-            className="btn-ghost text-xs min-h-[44px] border border-slate-600 inline-flex items-center justify-center px-2.5"
+            className="btn flex-1 min-w-[120px] text-xs min-h-[48px] inline-flex items-center justify-center touch-manipulation px-2.5 text-center leading-tight"
           >
-            Hooks
+            Continue here
           </a>
-          <a
-            href="#pdf-mini-check"
-            className="btn-ghost text-xs min-h-[44px] border border-slate-600 inline-flex items-center justify-center px-2.5"
-          >
-            Check
-          </a>
-          <Link
-            to={`/pdf-setup?need=${encodeURIComponent(pdfId)}`}
-            className="btn-ghost text-xs min-h-[44px] border border-amber-700/45 inline-flex items-center justify-center px-2.5"
-          >
-            Setup
-          </Link>
         </div>
+        <details className="mt-2 rounded-lg border border-slate-800 bg-slate-900/60 text-[11px] text-slate-400 overflow-hidden">
+          <summary className="cursor-pointer list-none px-2 py-2 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden font-medium">
+            ▸ Highlights · check · PDF setup
+          </summary>
+          <div className="px-2 pb-2 flex flex-wrap gap-2 border-t border-slate-800/90 pt-2">
+            <a
+              href="#pdf-mini-check"
+              className="btn-ghost text-[11px] min-h-[40px] border border-slate-600 inline-flex flex-1 min-w-[100px] items-center justify-center touch-manipulation"
+            >
+              Mini-check
+            </a>
+            <Link
+              to={`/pdf-setup?need=${encodeURIComponent(pdfId)}`}
+              className="btn-ghost text-[11px] min-h-[40px] border border-amber-700/45 inline-flex flex-1 min-w-[100px] items-center justify-center touch-manipulation"
+            >
+              Add PDF
+            </Link>
+          </div>
+        </details>
       </div>
     </AppShell>
   );

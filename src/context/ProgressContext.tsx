@@ -12,6 +12,7 @@ import {
   type TrainingRunsState,
   type UserConfidenceLevel,
   emptyFeedbackLoop,
+  type EliteLabPortfolioEntry,
 } from "../utils/storage";
 import { ensureDomainDayBaseline } from "../utils/identityReinforcement";
 import {
@@ -88,6 +89,8 @@ type Ctx = {
   /** First-time pass: domain nudge up, clears PBQ miss from journal, tracks for readiness */
   recordPbqPass: (domain: DomainId, pbqId: string) => void;
   recordTrainingLab: (lessonId: string, labId: string, pass: boolean) => void;
+  /** Elite Lab Factory structured run — merged into `eliteLabPortfolio` */
+  recordEliteLabPortfolio: (lessonId: string, entry: EliteLabPortfolioEntry) => void;
   recordTrainingSim: (lessonId: string, simId: string, score: number, pass: boolean) => void;
   recordTrainingDecision: (lessonId: string, scenarioId: string, correct: boolean) => void;
   recordQuizConfidence: (qid: string, level: UserConfidenceLevel, wasCorrect: boolean) => void;
@@ -544,6 +547,34 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const recordEliteLabPortfolio = useCallback((lessonId: string, entry: EliteLabPortfolioEntry) => {
+    const at = entry.at || Date.now();
+    setState((s) => {
+      const key = trainingLabRunKey(lessonId, entry.labId);
+      const prev = s.eliteLabPortfolio?.[key];
+      const attempts = (prev?.attempts ?? 0) + 1;
+      const prevBest = prev?.bestScore;
+      const bestScore =
+        prevBest !== undefined ? Math.max(prevBest, entry.score) : entry.score;
+
+      const nextRow: EliteLabPortfolioEntry = {
+        ...entry,
+        lessonId,
+        at,
+        attempts,
+        bestScore,
+      };
+
+      return {
+        ...s,
+        eliteLabPortfolio: {
+          ...(s.eliteLabPortfolio ?? {}),
+          [key]: nextRow,
+        },
+      };
+    });
+  }, []);
+
   const recordTrainingSim = useCallback((lessonId: string, simId: string, score: number, pass: boolean) => {
     setState((s) => {
       const tr: TrainingRunsState = s.trainingRuns ?? { labs: {}, sims: {}, decisions: {} };
@@ -845,6 +876,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       recordPbqMiss,
       recordPbqPass,
       recordTrainingLab,
+      recordEliteLabPortfolio,
       recordTrainingSim,
       recordTrainingDecision,
       recordQuizConfidence,
@@ -896,6 +928,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       recordPbqMiss,
       recordPbqPass,
       recordTrainingLab,
+      recordEliteLabPortfolio,
       recordTrainingSim,
       recordTrainingDecision,
       recordQuizConfidence,

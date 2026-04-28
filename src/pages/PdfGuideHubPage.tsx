@@ -12,22 +12,19 @@ export default function PdfGuideHubPage() {
     <AppShell>
       <div className="max-w-3xl space-y-6">
         <PageHeader
-          title="PDF guided study"
-          purpose="Open your licensed PDF beside this app. Guides tell you what to highlight, what to write, and when to pause — synced to each lesson and Messer video."
+          title="PDF study guides"
+          purpose="Tap your book, then follow the screen."
           actions={
             <Link to="/pdf-setup" className="btn text-sm min-h-[44px] text-center">
-              PDF setup →
+              Add PDF files →
             </Link>
           }
         />
         <p className="text-xs text-slate-500 leading-relaxed">
-          This trainer does not embed third-party book or course-note text. Summaries come from this app’s own lesson curriculum; your PDF is the
-          source you read and mark. Add PDF files under <strong className="text-slate-300">PDF setup</strong> — they stay in this browser (IndexedDB),
-          not on a server.
+          Your PDF stays on this device. Add it once under <strong className="text-slate-300">Add PDF files</strong> if you haven’t.
         </p>
         <p className="text-xs text-cyan-200/85 rounded-lg border border-cyan-800/35 bg-cyan-950/20 px-3 py-2 leading-relaxed">
-          <strong className="text-cyan-100">Flow:</strong> PDF setup (once) → pick a track below → open a lesson section → use highlights + notes + mini-check
-          beside your file.
+          <strong className="text-cyan-100">Do this:</strong> open PDF → find the section → highlight what we list → write one note → tap Continue on Home.
         </p>
         <ul className="space-y-3 list-none">
           {PDF_REGISTRY.map((p) => {

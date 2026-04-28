@@ -5,9 +5,11 @@ import { lessons } from "../data/lessons";
 import { useProgress } from "../context/ProgressContext";
 import { gradeQuestion, isMultiSelect, correctAnswerLabel } from "../utils/quizHelpers";
 import ContinueButton from "../components/ContinueButton";
+import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
 import FeedbackPanel from "../components/FeedbackPanel";
 import ConfidenceSelector from "../components/ConfidenceSelector";
 import MicroTeachBack from "../components/MicroTeachBack";
+import TrustReminderStrip from "../components/TrustReminderStrip";
 import SessionSummary, { type SessionEntry } from "../components/SessionSummary";
 import ExamReport from "../components/ExamReport";
 import { buildQuizTutorFeedback } from "../core/feedbackEngine";
@@ -18,7 +20,6 @@ import { smartQuizPraise } from "../utils/stickinessCopy";
 import { pickQuizIdentityLine } from "../utils/identityReinforcement";
 import AITutorPanel from "../components/AITutorPanel";
 import SessionMomentumCard from "../components/SessionMomentumCard";
-import FailureRecoveryPanel from "../components/FailureRecoveryPanel";
 import {
   clearPracticeExamDraft,
   practiceExamDisplayLabel,
@@ -409,6 +410,9 @@ export default function QuizPage() {
     return (
       <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
         <div className="max-w-2xl space-y-6 min-w-0">
+        <FlowPrimaryStrip>
+          <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />
+        </FlowPrimaryStrip>
         <h1 className="h1">Exam review</h1>
         <p className="text-slate-400 text-sm">
           {last ? (
@@ -448,41 +452,37 @@ export default function QuizPage() {
           />
         )}
         {last && pct < 65 && id && (
-          <FailureRecoveryPanel
-            tone="amber"
-            title="Tough run — turn this into progress"
-            whatHappened={`You scored ${pct}% on ${practiceExamDisplayLabel(id)}.`}
-            whyItMatters="A low timed score is data, not a verdict. Security+ rewards fixing patterns you miss under pressure — short targeted repairs beat another full exam right away."
-            nextStep="Choose one repair below, then come back with study mode or a quick pass."
-            ariaLabel="Recovery after a low exam score"
-            actions={
-              <>
-                {last.wrongIds.length > 0 && (
-                  <Link className="btn text-sm min-h-[44px] justify-center touch-manipulation" to={`/quiz/${id}?mode=study&wrongOnly=1`}>
-                    Study only misses ({last.wrongIds.length})
-                  </Link>
-                )}
-                <Link className="btn text-sm min-h-[44px] justify-center touch-manipulation" to={`/quiz/${id}?mode=study&quick=5`}>
-                  Quick practice (5)
+          <div className="rounded-xl border border-amber-800/45 bg-amber-950/25 p-4 space-y-3">
+            <p className="text-sm text-amber-100/95">
+              Score <strong className="text-white">{pct}%</strong> on {practiceExamDisplayLabel(id)} — fix misses first.
+            </p>
+            {last.wrongIds.length > 0 ?
+              <Link className="btn w-full text-center text-sm min-h-[48px] touch-manipulation inline-flex items-center justify-center" to={`/quiz/${id}?mode=study&wrongOnly=1`}>
+                Study your misses ({last.wrongIds.length}) →
+              </Link>
+            : <Link className="btn w-full text-center text-sm min-h-[48px] touch-manipulation inline-flex items-center justify-center" to={`/quiz/${id}?mode=study&quick=5`}>
+                Quick practice (5) →
+              </Link>}
+            <details className="text-xs">
+              <summary className="cursor-pointer text-slate-500 touch-manipulation py-1 [&::-webkit-details-marker]:hidden list-none">
+                ▸ More repair links
+              </summary>
+              <div className="mt-2 flex flex-col gap-2">
+                <Link className="btn-ghost text-sm min-h-[44px] justify-center border border-slate-600 text-center" to="/weak">
+                  Weak areas
                 </Link>
-                <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/weak">
-                  Weak area repair
-                </Link>
-                <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/flashcards">
+                <Link className="btn-ghost text-sm min-h-[44px] justify-center border border-slate-600 text-center" to="/flashcards">
                   Flashcards
                 </Link>
-                <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/practice-exams">
-                  Exam hub
+                <Link className="btn-ghost text-sm min-h-[44px] justify-center border border-slate-600 text-center" to="/pdf-guides/messer-practice-exams-v18">
+                  PDF guide
                 </Link>
-                <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/pdf-guides/messer-practice-exams-v18">
-                  PDF guide (exams)
+                <Link className="btn-ghost text-sm min-h-[44px] justify-center border border-slate-600 text-center" to="/pdf-setup">
+                  Add PDF files
                 </Link>
-                <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/pdf-setup">
-                  PDF setup
-                </Link>
-              </>
-            }
-          />
+              </div>
+            </details>
+          </div>
         )}
         <div className="space-y-4">
           {qs.map((qq) => {
@@ -507,36 +507,50 @@ export default function QuizPage() {
             );
           })}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to={`/quiz/${id}?mode=exam`} className="btn">
-            Retake full exam
-          </Link>
-          {last && last.wrongIds.length > 0 && (
-            <Link to={`/quiz/${id}?mode=study&wrongOnly=1`} className="btn-ghost">
-              Study only misses ({last.wrongIds.length})
+        <details className="rounded-xl border border-slate-700 bg-slate-900/30 group">
+          <summary className="cursor-pointer list-none px-3 py-2.5 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+            <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+            Retake or other links
+          </summary>
+          <div className="px-3 pb-3 flex flex-wrap gap-2 border-t border-slate-800 pt-3">
+            <Link to={`/quiz/${id}?mode=exam`} className="btn text-sm min-h-[44px]">
+              Retake full exam
             </Link>
-          )}
-          <Link to="/practice-exams" className="btn-ghost">
-            Hub
-          </Link>
-        </div>
+            {last && last.wrongIds.length > 0 && (
+              <Link to={`/quiz/${id}?mode=study&wrongOnly=1`} className="btn-ghost text-sm min-h-[44px]">
+                Study misses ({last.wrongIds.length})
+              </Link>
+            )}
+            <Link to="/practice-exams" className="btn-ghost text-sm min-h-[44px]">
+              Hub
+            </Link>
+          </div>
+        </details>
         <SessionMomentumCard hasTodayActivity compact />
         </div>
-        <AITutorPanel
-          className="lg:sticky lg:top-4 order-first lg:order-none"
-          context={{
-            surface: "quiz",
-            weakAreas: weakAreasQuiz,
-            quiz: {
-              stem: "Exam review — ask about any question above, domain gaps, or how to retake misses.",
-              options: [],
-              explanation: last
-                ? `Score ${last.correct} / ${last.total} (${pct}%). Missed ${last.wrongIds.length}.`
-                : undefined,
-            },
-            coachLines: last ? [`Score ${pct}%`, `${last.wrongIds.length} missed`] : undefined,
-          }}
-        />
+        <details className="rounded-2xl border border-violet-900/45 bg-violet-950/15 lg:sticky lg:top-4 group">
+          <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium text-violet-100 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+            <span className="text-violet-400/90 mr-2 group-open:rotate-90 transition-transform inline-block">▸</span>
+            Ask something (optional)
+          </summary>
+          <div className="p-2 pt-0">
+            <AITutorPanel
+              className="!border-0 rounded-xl bg-violet-950/20"
+              context={{
+                surface: "quiz",
+                weakAreas: weakAreasQuiz,
+                quiz: {
+                  stem: "Exam review — ask about any question above, domain gaps, or how to retake misses.",
+                  options: [],
+                  explanation: last
+                    ? `Score ${last.correct} / ${last.total} (${pct}%). Missed ${last.wrongIds.length}.`
+                    : undefined,
+                },
+                coachLines: last ? [`Score ${pct}%`, `${last.wrongIds.length} missed`] : undefined,
+              }}
+            />
+          </div>
+        </details>
       </div>
     );
   }
@@ -558,16 +572,107 @@ export default function QuizPage() {
 
   const examAiLocked = isMesser && mode === "exam" && examPhase === "taking";
 
+  const primaryStripEl = (() => {
+    if (isMesser && mode === "exam" && examPhase === "taking") {
+      const dis = multi ? picked.length === 0 : sel == null;
+      return (
+        <button type="button" className="btn w-full text-center min-h-[48px] touch-manipulation" onClick={goNext} disabled={dis}>
+          {i >= qs.length - 1 ? "Finish exam" : "Next"}
+        </button>
+      );
+    }
+    if (!show && !(isMesser && mode === "exam")) {
+      if (multi) {
+        return (
+          <button
+            type="button"
+            className="btn w-full text-center min-h-[48px] touch-manipulation"
+            onClick={submitMultiStudy}
+            disabled={picked.length === 0}
+          >
+            Check my answer
+          </button>
+        );
+      }
+      return (
+        <button
+          type="button"
+          className="btn w-full text-center min-h-[48px] touch-manipulation"
+          onClick={confirmSingleAnswer}
+          disabled={sel == null}
+        >
+          Check my answer
+        </button>
+      );
+    }
+    if (show && !(isMesser && mode === "exam")) {
+      if (i === qs.length - 1 && quizWrapUp) {
+        return <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />;
+      }
+      const nextDisabled = confidenceGate == null || progressionBlocked || !teachOk;
+      if (i < qs.length - 1) {
+        return (
+          <button
+            type="button"
+            className="btn w-full text-center min-h-[48px] touch-manipulation"
+            disabled={nextDisabled}
+            onClick={() =>
+              flushConfidenceAnd(() => {
+                resetQuestionUi();
+                setI(i + 1);
+              })
+            }
+          >
+            Next question
+          </button>
+        );
+      }
+      return (
+        <button
+          type="button"
+          className="btn w-full text-center min-h-[48px] touch-manipulation"
+          disabled={nextDisabled}
+          onClick={() => flushConfidenceAnd(() => setQuizWrapUp(true))}
+        >
+          Finish quiz
+        </button>
+      );
+    }
+    return null;
+  })();
+
   return (
     <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
       <div className="max-w-2xl space-y-4 min-w-0">
+      {primaryStripEl ? <FlowPrimaryStrip>{primaryStripEl}</FlowPrimaryStrip> : null}
+      <aside
+        className="rounded-xl border border-sky-800/40 bg-sky-950/25 px-4 py-3"
+        aria-labelledby="quiz-do-this-now-heading"
+      >
+        <h2 id="quiz-do-this-now-heading" className="text-[11px] font-bold uppercase tracking-wide text-sky-200/95 mb-2">
+          Do this now
+        </h2>
+        <p className="text-sm text-slate-300 leading-relaxed">
+          {isMesser && mode === "exam" && examPhase === "taking" ?
+            "Answer each stem in order. Every explanation unlocks at the end — elimination beats overthinking on the clock."
+          : isMesser && mode === "exam" && examPhase === "review" ?
+            "Scan wrong rows first, then reread the rationales. Every miss is data, not a verdict about you."
+          : "Pick your best answer, read the explanation whether you were right or wrong, then move on. Misses power your journal and optional flashcards automatically."}
+        </p>
+      </aside>
+      <TrustReminderStrip dense />
       <div>
         <h1 className="h1">{isMesser ? "Practice exam" : "Quiz"}</h1>
         {quickCap && baseQs.length > 0 && (
-          <p className="text-sm text-sky-100/95 mt-2 rounded-xl border border-sky-700/45 bg-sky-950/35 px-3 py-2.5 leading-snug">
-            <strong className="text-white">Quick practice</strong> — {quickCap} question{quickCap === 1 ? "" : "s"}. This bank has{" "}
-            <strong className="text-slate-200">{fullQs.length}</strong> total — remove <code className="text-slate-400">?quick=</code> from the URL for the full set.
-          </p>
+          <details className="mt-2 rounded-xl border border-sky-700/45 bg-sky-950/35 text-sm group">
+            <summary className="cursor-pointer list-none px-3 py-2.5 text-sky-100/95 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="mr-2 text-sky-500 group-open:text-sky-300">▸</span>
+              Quick practice ({quickCap} of {fullQs.length} questions)
+            </summary>
+            <p className="px-3 pb-2.5 text-xs text-slate-400 border-t border-sky-900/40 pt-2">
+              Remove <code className="text-slate-400">?quick=</code> from the URL for the full bank.
+            </p>
+          </details>
         )}
         <p className="text-slate-500 text-sm">
           {i + 1} / {qs.length} · {qq.type} · diff {qq.difficulty} · {qq.examKeyword}
@@ -580,10 +685,7 @@ export default function QuizPage() {
           )}
         </p>
         {isMesser && mode === "exam" && examPhase === "taking" && (
-          <p className="text-xs text-slate-500 mt-1">
-            Answer each question, then <strong className="text-slate-300">Next</strong>. No grading until you finish the last
-            question.
-          </p>
+          <p className="text-xs text-slate-500 mt-1">Pick an answer, then use <strong className="text-slate-300">Next step</strong> above.</p>
         )}
       </div>
       <div className="card mt-2">
@@ -602,30 +704,8 @@ export default function QuizPage() {
             </li>
           ))}
         </ul>
-        {multi && !show && !(isMesser && mode === "exam") && (
-          <button type="button" className="btn mt-4" onClick={submitMultiStudy} disabled={picked.length === 0}>
-            Check my answer
-          </button>
-        )}
         {!multi && !show && !(isMesser && mode === "exam" && examPhase === "taking") && (
-          <p className="text-xs text-slate-500 mt-3">
-            Tap an option to choose, then <strong className="text-slate-300">Check my answer</strong>. Take your time — the next question only appears when you continue.
-          </p>
-        )}
-        {!multi && !show && !(isMesser && mode === "exam" && examPhase === "taking") && sel != null && (
-          <button type="button" className="btn mt-3" onClick={confirmSingleAnswer}>
-            Check my answer
-          </button>
-        )}
-        {isMesser && mode === "exam" && examPhase === "taking" && multi && (
-          <button type="button" className="btn mt-4" onClick={goNext} disabled={picked.length === 0}>
-            {i >= qs.length - 1 ? "Finish exam" : "Next"}
-          </button>
-        )}
-        {isMesser && mode === "exam" && examPhase === "taking" && !multi && (
-          <button type="button" className="btn mt-4" onClick={goNext} disabled={sel == null}>
-            {i >= qs.length - 1 ? "Finish exam" : "Next"}
-          </button>
+          <p className="text-xs text-slate-500 mt-3">Tap a choice, then <strong className="text-slate-300">Next step</strong> above.</p>
         )}
         {show && !(isMesser && mode === "exam") && tutorFeedback && (
           <>
@@ -640,28 +720,28 @@ export default function QuizPage() {
             />
             {!correctNow && (
               <div className="rounded-xl border border-cyan-800/45 bg-cyan-950/25 p-3 mt-3 text-sm space-y-2" role="region" aria-label="PDF recall repair">
-                <p className="text-cyan-100/95 font-medium text-xs uppercase tracking-wide">Active recall — same lesson in your PDF</p>
+                <p className="text-cyan-100/95 font-medium text-xs uppercase tracking-wide">Guided repair</p>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Open the exact guide section, search for <span className="text-slate-200 font-medium">{qq.examKeyword.split(",")[0]?.trim() ?? "the keyword above"}</span> in your notes PDF, then say the correct rule in one sentence without looking at the quiz.
+                  Search <span className="text-slate-200 font-medium">{qq.examKeyword.split(",")[0]?.trim() ?? "the keyword"}</span> in your PDF guide, read it once, then Retry below — same pacing the exam rewards.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {String(qq.lessonId).startsWith("messer-exam") ?
-                    <Link
-                      className="btn-ghost text-xs min-h-[44px] border border-cyan-700/50 inline-flex items-center justify-center px-3"
-                      to="/pdf-guides/messer-practice-exams-v18"
-                    >
-                      PDF guide (exams) →
-                    </Link>
-                  : <Link
-                      className="btn text-xs min-h-[44px] inline-flex items-center justify-center px-3"
-                      to={`/pdf-guides/messer-course-notes-v107/${qq.lessonId}`}
-                    >
-                      PDF guide (this lesson) →
-                    </Link>}
-                  <Link className="btn-ghost text-xs min-h-[44px] border border-slate-600 inline-flex items-center justify-center px-3" to="/pdf-setup">
-                    PDF setup
+                {String(qq.lessonId).startsWith("messer-exam") ?
+                  <Link className="btn w-full text-center text-sm min-h-[44px] touch-manipulation" to="/pdf-guides/messer-practice-exams-v18">
+                    Open PDF guide →
                   </Link>
-                </div>
+                : <Link
+                    className="btn w-full text-center text-sm min-h-[44px] touch-manipulation"
+                    to={`/pdf-guides/messer-course-notes-v107/${qq.lessonId}`}
+                  >
+                    Open PDF guide (this lesson) →
+                  </Link>}
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-slate-500 touch-manipulation py-1 [&::-webkit-details-marker]:hidden list-none">
+                    ▸ Add PDF files
+                  </summary>
+                  <Link className="block mt-2 text-emerald-400 underline" to="/pdf-setup">
+                    Add PDF files →
+                  </Link>
+                </details>
               </div>
             )}
             {missFlashcardCue === "new" && (
@@ -701,75 +781,61 @@ export default function QuizPage() {
               />
             )}
             {progressionBlocked && (
-              <FailureRecoveryPanel
-                title="Paused so you don’t burn in the wrong pattern"
-                whatHappened="You missed this same item three times. Continuing would mostly reinforce confusion."
-                whyItMatters="CompTIA questions repeat objective families. A short repair break now saves you from repeating the same trap on exam day."
-                nextStep="Use one action, then tap Retry this question below."
-                ariaLabel="Repair before continuing quiz"
-                actions={
-                  <>
-                    <Link className="btn text-sm min-h-[44px] justify-center touch-manipulation" to={isMesser ? "/flashcards" : `/flashcards?lesson=${qq.lessonId}`}>
+              <div
+                className="rounded-xl border border-emerald-900/55 bg-emerald-950/20 p-4 mt-3 space-y-3"
+                role="region"
+                aria-label="Coach pause before next quiz step"
+              >
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200/90">Coaching moment</p>
+                <p className="text-sm text-slate-200 leading-relaxed">
+                  Let&apos;s fix this together — seeing the same miss three times usually means we need clearer wording in your notes, not more panic-clicking. This short pause is what improves your score.
+                </p>
+                {String(qq.lessonId).startsWith("messer-exam") ?
+                  <Link
+                    className="btn w-full text-center min-h-[48px] touch-manipulation justify-center"
+                    to="/pdf-guides/messer-practice-exams-v18"
+                  >
+                    Open guided repair (PDF)
+                  </Link>
+                : <Link
+                    className="btn w-full text-center min-h-[48px] touch-manipulation justify-center"
+                    to={`/pdf-guides/messer-course-notes-v107/${qq.lessonId}`}
+                  >
+                    Open guided repair (PDF notes)
+                  </Link>}
+                <details className="group">
+                  <summary className="cursor-pointer list-none text-xs text-slate-500 touch-manipulation py-2 min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+                    <span className="text-slate-600 group-open:text-emerald-400 mr-1.5">▸</span>
+                    More ways to reset the pattern
+                  </summary>
+                  <div className="flex flex-col gap-2 pt-1 pb-1">
+                    <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to={isMesser ? "/flashcards" : `/flashcards?lesson=${qq.lessonId}`}>
                       Flashcards
                     </Link>
-                    <Link className="btn text-sm min-h-[44px] justify-center touch-manipulation" to="/weak">
-                      Weak area repair
+                    <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/weak">
+                      Weak area hub
                     </Link>
                     <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to={isMesser ? "/practice-exams" : `/lesson/${qq.lessonId}`}>
-                      {isMesser ? "Exam hub" : "Reopen lesson"}
+                      {isMesser ? "Practice exam hub" : "Reopen lesson"}
                     </Link>
                     <Link className="btn-ghost text-sm min-h-[44px] justify-center touch-manipulation" to="/sim">
                       Labs / sims
                     </Link>
-                    {String(qq.lessonId).startsWith("messer-exam") ?
-                      <Link className="btn text-sm min-h-[44px] justify-center touch-manipulation" to="/pdf-guides/messer-practice-exams-v18">
-                        PDF guide (exams)
-                      </Link>
-                    : <Link
-                        className="btn text-sm min-h-[44px] justify-center touch-manipulation"
-                        to={`/pdf-guides/messer-course-notes-v107/${qq.lessonId}`}
-                      >
-                        PDF guide (this lesson)
-                      </Link>}
-                  </>
-                }
-              />
+                  </div>
+                </details>
+              </div>
             )}
             <ConfidenceSelector value={confidenceGate} onChange={setConfidenceGate} />
-            <p className="text-xs text-slate-500 mt-2">
-              You choose what happens next — no auto-advance. Pick how confident you felt, then use the actions below.
-            </p>
-            <div className="mt-4 flex flex-col gap-2">
-              <div className="flex flex-wrap gap-2">
-                {i < qs.length - 1 ? (
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={confidenceGate == null || progressionBlocked || !teachOk}
-                    onClick={() => {
-                      flushConfidenceAnd(() => {
-                        resetQuestionUi();
-                        setI(i + 1);
-                      });
-                    }}
-                  >
-                    Continue to next question
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn"
-                    disabled={confidenceGate == null || progressionBlocked || !teachOk}
-                    onClick={() => {
-                      flushConfidenceAnd(() => setQuizWrapUp(true));
-                    }}
-                  >
-                    Finish quiz &amp; wrap up
-                  </button>
-                )}
+            <p className="text-xs text-slate-500 mt-2">Pick how sure you felt, then use <strong className="text-slate-300">Next step</strong> above.</p>
+            <details className="mt-3 rounded-lg border border-slate-700 bg-slate-900/40 group">
+              <summary className="cursor-pointer list-none px-3 py-2 text-xs text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+                <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+                More (retry, flashcard, flag)
+              </summary>
+              <div className="px-3 pb-3 flex flex-col gap-2 border-t border-slate-800 pt-2">
                 <button
                   type="button"
-                  className="btn-ghost text-sm"
+                  className="btn-ghost text-sm w-full min-h-[44px]"
                   onClick={() => {
                     bumpQuizRetryCount(qq.id);
                     setQuizWrapUp(false);
@@ -783,46 +849,57 @@ export default function QuizPage() {
                 >
                   Retry this question
                 </button>
-                <button
-                  type="button"
-                  className="btn-ghost text-sm"
-                  onClick={() => addFlashcardFromQuizQuestion(qq)}
-                >
+                <button type="button" className="btn-ghost text-sm w-full min-h-[44px]" onClick={() => addFlashcardFromQuizQuestion(qq)}>
                   Add to flashcards
                 </button>
-                <button type="button" className="btn-ghost text-sm" onClick={() => markQuestionConfusing(qq.id)}>
+                <button type="button" className="btn-ghost text-sm w-full min-h-[44px]" onClick={() => markQuestionConfusing(qq.id)}>
                   Mark as confusing
                 </button>
               </div>
-            </div>
+            </details>
           </>
         )}
         {show && !(isMesser && mode === "exam") && i === qs.length - 1 && quizWrapUp && (
           <div className="mt-6 space-y-3 border-t border-slate-800 pt-4">
-            <SessionMomentumCard hasTodayActivity />
-            {!isMesser && <SessionSummary entries={sessionLog} lessonId={id} title="Session summary" />}
-            <p className="text-sm text-slate-400">Wrap up when you&apos;re ready — links stay here until you leave.</p>
-            {isMesser ? (
-              <Link to="/practice-exams" className="btn inline-block">
-                Back to practice hub
-              </Link>
-            ) : (
-              <Link to={`/lesson/${id}`} className="btn inline-block">
-                Back to lesson
-              </Link>
-            )}
-            {!isMesser && (
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Or follow the system next step:</p>
-                <ContinueButton step={nextStep} />
+            <details className="rounded-xl border border-slate-700 bg-slate-900/30 group">
+              <summary className="cursor-pointer list-none px-3 py-2.5 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+                <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+                Session summary
+              </summary>
+              <div className="px-3 pb-3 border-t border-slate-800 pt-3 space-y-3">
+                <SessionMomentumCard hasTodayActivity />
+                {!isMesser && <SessionSummary entries={sessionLog} lessonId={id} title="Summary" />}
               </div>
-            )}
+            </details>
+            <details className="rounded-xl border border-slate-700 bg-slate-900/30 group">
+              <summary className="cursor-pointer list-none px-3 py-2.5 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+                <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+                Back to lesson or hub
+              </summary>
+              <div className="px-3 pb-3 border-t border-slate-800 pt-3 flex flex-col gap-2">
+                {isMesser ? (
+                  <Link to="/practice-exams" className="btn text-center text-sm min-h-[44px] inline-flex items-center justify-center">
+                    Practice hub
+                  </Link>
+                ) : (
+                  <Link to={`/lesson/${id}`} className="btn text-center text-sm min-h-[44px] inline-flex items-center justify-center">
+                    Back to lesson
+                  </Link>
+                )}
+              </div>
+            </details>
           </div>
         )}
       </div>
       </div>
+      <details className="rounded-2xl border border-violet-900/45 bg-violet-950/15 lg:sticky lg:top-4 group">
+        <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium text-violet-100 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden border-b border-transparent group-open:border-violet-900/40">
+          <span className="text-violet-400/90 mr-2 group-open:rotate-90 transition-transform inline-block">▸</span>
+          Ask something (optional)
+        </summary>
+        <div className="p-2 pt-0">
       <AITutorPanel
-        className="lg:sticky lg:top-4 order-first lg:order-none"
+        className="lg:sticky lg:top-4 order-first lg:order-none !border-0 rounded-xl bg-violet-950/20"
         context={{
           surface: "quiz",
           examAiLocked,
@@ -848,6 +925,8 @@ export default function QuizPage() {
             : undefined,
         }}
       />
+        </div>
+      </details>
     </div>
   );
 }

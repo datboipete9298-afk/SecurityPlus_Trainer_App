@@ -2,6 +2,7 @@ import { ORDERED_LESSON_IDS, lessons } from "../data/lessons";
 import type { LessonProgress } from "../types/beginner";
 import type { PersistedState } from "./storage";
 import { nextLessonId } from "./lessonOrder";
+import { buildResumeLinkList, formatResumeTimestamp, resumeKindTier } from "./studyResume";
 
 function hasAnyProgress(p: Partial<LessonProgress> | undefined): boolean {
   if (!p) return false;
@@ -29,6 +30,31 @@ export function getResumeLabel(s: PersistedState): { href: string; text: string;
     text: `Resume: ${t}`,
     sub: "You already started this lesson — pick up where you left off.",
   };
+}
+
+/** One line under Home Continue: bookmarked activity or partially started lesson. */
+export function getDashboardResumeCue(s: PersistedState): { href: string; line: string; sub?: string } | null {
+  const sorted = buildResumeLinkList(s.studyResume, lessons);
+  const studyFirst = sorted.filter((i) => resumeKindTier(i.kind) === 0);
+  if (studyFirst.length > 0) {
+    const top = studyFirst[0]!;
+    return {
+      href: top.to,
+      line: `Resume · ${top.typeLabel} · ${top.label}`,
+      sub: `Last touched ${formatResumeTimestamp(top.at)}`,
+    };
+  }
+  const lr = getResumeLabel(s);
+  if (lr) {
+    const lid = lr.href.replace(/^\/lesson\//, "");
+    const title = lessons[lid]?.title ?? lid;
+    return {
+      href: lr.href,
+      line: `Resume · Lesson · ${title}`,
+      sub: lr.sub,
+    };
+  }
+  return null;
 }
 
 /** Index (1-based) in Messer list for current focus — first incomplete with full content. */

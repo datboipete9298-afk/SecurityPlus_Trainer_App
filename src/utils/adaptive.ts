@@ -188,7 +188,7 @@ export function smartCoach(s: PersistedState): CoachRecommendation[] {
     out.push({
       title: "Revisit questions you marked confusing",
       reason: `${confusingN} flagged — short targeted review beats rereading whole chapters.`,
-      why: "Open the matching PDF guide section, hit MUST-highlight targets, then retry the same quiz stem without peeking.",
+      why: "Open the matching PDF study guide section, mark the “must highlight” ideas, then retry the same question without peeking.",
       type: "quiz",
       href: confusingHref,
     });
@@ -218,7 +218,7 @@ export function smartCoach(s: PersistedState): CoachRecommendation[] {
     out.push({
       title: "Add your course notes PDF",
       reason: "The guided layer can open your licensed Messer notes beside each lesson.",
-      why: "PDF setup keeps files in this browser only — drag them in once, then use Open local PDF from any guide.",
+      why: "Add PDF files keeps books on this device only — add once, then use Open local PDF from any guide.",
       type: "teach",
       href: "/pdf-setup",
     });
@@ -232,7 +232,7 @@ export function smartCoach(s: PersistedState): CoachRecommendation[] {
         out.push({
           title: `PDF guide: ${lessons[lid]?.title ?? lid}`,
           reason: "You saved the notes PDF — finish guided checkpoints for this section when you can.",
-          why: "Highlight coach + Brain Book row beats passive re-reading.",
+          why: "Guided highlights + one short Brain Book note beat passive re-reading.",
           type: "teach",
           href: `/pdf-guides/messer-course-notes-v107/${lid}`,
         });

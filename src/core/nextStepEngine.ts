@@ -1,6 +1,7 @@
 import { BOSS_FIGHTS } from "../data/bossFights";
 import { lessons, ORDERED_LESSON_IDS } from "../data/lessons";
 import type { PersistedState } from "../utils/storage";
+import { computeExamReadiness } from "../utils/examReadinessScore";
 import { isLessonHandsOnComplete } from "./trainingProgress";
 import { buildLearningProfile, findLessonNeedingNotes } from "./learningObserver";
 
@@ -19,6 +20,44 @@ export type NextStep = {
  * Priority: incomplete lesson → weak domain → last quiz miss → spaced cards due → boss.
  */
 export function getNextStep(s: PersistedState): NextStep {
+  const step = computeNextStep(s);
+  return applyExamRealismAccent(s, step);
+}
+
+function applyExamRealismAccent(s: PersistedState, step: NextStep): NextStep {
+  const readiness = computeExamReadiness(s);
+  const qa = Object.values(s.questionStats).reduce((a, st) => a + st.c + st.w, 0);
+  if (readiness.score < 50 || qa < 10) return step;
+
+  const prefix =
+    readiness.score >= 68
+      ? "You’re edging toward passing-level performance — mix domains soon so timing feels familiar."
+      : "You’re gaining ground — weave in mixed practice when linear study stalls.";
+
+  if (step.href === "/roadmap") {
+    return {
+      ...step,
+      why: `${prefix} ${step.why}`,
+      steps: [step.steps[0], step.steps[1], `Mix it up: open **Practice exams** from the menu, then hit your weakest domain quizzes.`],
+    };
+  }
+
+  if (step.href.startsWith("/lesson/")) {
+    return {
+      ...step,
+      why: `${prefix} ${step.why}`,
+      steps: [
+        step.steps[0],
+        step.steps[1],
+        `When drills feel repetitive, run a timed **Practice exam** from the menu before another long lesson block.`,
+      ],
+    };
+  }
+
+  return step;
+}
+
+function computeNextStep(s: PersistedState): NextStep {
   const firstIncomplete = ORDERED_LESSON_IDS.find((id) => lessons[id]?.hasFullContent && !s.completedLessons.includes(id));
   if (firstIncomplete) {
     const t = lessons[firstIncomplete]?.title ?? firstIncomplete;
@@ -32,7 +71,7 @@ export function getNextStep(s: PersistedState): NextStep {
         steps: [
           `Open **${t}** and scroll to **Hands-on labs** (two labs, two sims, one decision).`,
           `Complete checkpoints honestly — mock terminal is safe; real commands only on your own machine per instructions.`,
-          `Then quiz + flashcards; the stepper stays tied to the same lesson id.`,
+          `Then take the lesson quiz and flashcards for the same lesson (from the lesson page).`,
         ],
       };
     }
@@ -44,8 +83,8 @@ export function getNextStep(s: PersistedState): NextStep {
       buttonLabel: "Continue",
       steps: [
         `Go to the lesson: **${t}** (video first).`,
-        `Complete highlight → quick action → hands-on blocks → quiz → flashcards.`,
-        `Check off the stepper, then return here for the next **Continue** destination.`,
+        `Work through highlight → quick action → hands-on blocks → quiz → flashcards in order.`,
+        `Check off the stepper on that lesson, then return here — **Continue** will update automatically.`,
       ],
     };
   }
@@ -89,16 +128,17 @@ export function getNextStep(s: PersistedState): NextStep {
 
   const lastMiss = s.missedJournal[s.missedJournal.length - 1];
   if (lastMiss) {
+    const missLessonTitle = lessons[lastMiss.lessonId]?.title ?? lastMiss.lessonId;
     return {
       priority: 3,
-      nextAction: `Repair last miss (${lastMiss.lessonId})`,
+      nextAction: `Repair last miss (${missLessonTitle})`,
       why: "Your journal logged a wrong pattern — same stems come back on the exam.",
       href: `/quiz/${lastMiss.lessonId}`,
       buttonLabel: "Retake quiz",
       steps: [
-        `Re-quiz **/quiz/${lastMiss.lessonId}** and read *every* wrong-answer line.`,
-        `Add the mistake card in Flashcards and say the rule in one breath.`,
-        `If green, the coach will reprioritize automatically.`,
+        `Re-open the quiz for **${missLessonTitle}** (from the lesson page or quizzes list) and read every wrong-answer line.`,
+        `Add the miss to Flashcards if prompted and say the rule once out loud.`,
+        `Return Home — **Continue** refreshes when your journal looks cleaner.`,
       ],
     };
   }
@@ -130,9 +170,9 @@ export function getNextStep(s: PersistedState): NextStep {
       href: "/flashcards",
       buttonLabel: "Review flashcards",
       steps: [
-        `Open **Flashcards** and clear due cards (Again / Got it).`,
-        `If a lesson is weak, add **?lesson=** in the query for focus.`,
-        `After the stack, return to the dashboard for the next **Continue** target.`,
+        `Open **Flashcards** from the menu and clear due cards.`,
+        `If you want fewer cards, narrow to one lesson via the Flashcards lesson filter.`,
+        `After the stack feels lighter, tap **Continue** again on Home.`,
       ],
     };
   }
@@ -146,9 +186,9 @@ export function getNextStep(s: PersistedState): NextStep {
       href: `/boss/${nextBoss.id}`,
       buttonLabel: "Start boss",
       steps: [
-        `Start **${nextBoss.name}** when you have a focused block.`,
-        `Read every explanation — bosses train speed + trap recognition.`,
-        `Pass or re-run; coach updates weak areas from results.`,
+        `Start **${nextBoss.name}** when you have energy for a focused drill.`,
+        `Read each explanation — bosses train speed plus trap recognition.`,
+        `Pass or rerun; your weak-area list updates from the scorecard.`,
       ],
     };
   }

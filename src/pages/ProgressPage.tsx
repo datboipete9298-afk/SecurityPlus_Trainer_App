@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useProgress } from "../context/ProgressContext";
-import { ORDERED_LESSON_IDS } from "../data/lessons";
+import { ORDERED_LESSON_IDS, lessons } from "../data/lessons";
 import { PBQ_SCENARIOS } from "../data/pbqCatalog";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
@@ -10,8 +10,9 @@ import NextActionCard from "../components/NextActionCard";
 import AITutorPanel from "../components/AITutorPanel";
 import StatusBadge from "../components/StatusBadge";
 import DailyMinimumCard from "../components/DailyMinimumCard";
-import { readinessTrack } from "../utils/readinessBand";
+import { readinessTrack, weakestDomainHintFromScores } from "../utils/readinessBand";
 import { PDF_REGISTRY } from "../data/pdfRegistry";
+import { flashcards as builtInFlashcards } from "../data/flashcards";
 
 export default function ProgressPage() {
   const { state, readiness, levelInfo, nextStep, nextLesson, importProgress, exportProgress, resetAllProgress, bumpStudyResume } =
@@ -70,6 +71,27 @@ export default function ProgressPage() {
     return entries.slice(0, 5);
   }, [state.cardWrongStreak]);
 
+  const flashFrontById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of [...builtInFlashcards, ...state.userFlashcards]) {
+      if (!m.has(c.id)) m.set(c.id, c.front.replace(/\*\*/g, "").trim());
+    }
+    return m;
+  }, [state.userFlashcards]);
+
+  const elitePortfolioRows = useMemo(() => {
+    const m = state.eliteLabPortfolio ?? {};
+    return Object.entries(m)
+      .map(([compositeKey, row]) => ({
+        compositeKey,
+        ...row,
+        lessonIdResolved:
+          row.lessonId ?? (compositeKey.includes("::") ? compositeKey.split("::").slice(0, -1).join("::") : undefined),
+      }))
+      .sort((a, b) => (b.at ?? 0) - (a.at ?? 0))
+      .slice(0, 30);
+  }, [state.eliteLabPortfolio]);
+
   const onDownload = () => {
     const j = exportProgress();
     const a = document.createElement("a");
@@ -90,7 +112,11 @@ export default function ProgressPage() {
   };
 
   const pbqTitle = (qid: string) => PBQ_SCENARIOS.find((p) => `pbq-${p.id}` === qid)?.title ?? qid;
-  const track = useMemo(() => readinessTrack(r.score, r.label), [r.score, r.label]);
+  const weakestHint = useMemo(() => weakestDomainHintFromScores(state.domainScore), [state.domainScore]);
+  const track = useMemo(
+    () => readinessTrack(r.score, r.label, { weakestDomainHint: weakestHint }),
+    [r.score, r.label, weakestHint],
+  );
 
   return (
     <AppShell>
@@ -132,7 +158,7 @@ export default function ProgressPage() {
             </div>
             <div className="card">
               <h2 className="font-semibold text-white">Exam readiness</h2>
-              <p className="text-xs text-emerald-300/90 font-medium mt-2 uppercase tracking-wide">You&apos;re on track</p>
+              <p className="text-xs text-emerald-300/90 font-medium mt-2 uppercase tracking-wide">Momentum</p>
               <p className="text-xl font-semibold text-white mt-1">{track.headline}</p>
               <p className="text-sm text-slate-400 mt-1 leading-relaxed">{track.sub}</p>
               <p className="text-2xl font-bold mt-3 text-white">{r.score}</p>
@@ -155,6 +181,61 @@ export default function ProgressPage() {
             <Link to="/weak" className="btn mt-4 w-full text-center">
               Open weak areas
             </Link>
+          </SectionCard>
+
+          <SectionCard title="Elite SOC lab portfolio" subtitle="Generated triage runs — shareable evidence of hands-on practice">
+            {elitePortfolioRows.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                Complete an Elite alert triage block inside any lesson’s training labs — your alignment scores anchor here automatically.
+              </p>
+            ) : (
+              <ul className="space-y-3 text-sm">
+                {elitePortfolioRows.map((row) => {
+                  const lid = row.lessonIdResolved;
+                  const lt = lid ? lessons[lid]?.title : undefined;
+                  return (
+                    <li key={row.compositeKey} className="border border-slate-800 rounded-xl p-3 bg-slate-950/50">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <p className="text-slate-200 font-semibold">{row.templateId.replace(/_/g, " ")}</p>
+                        <span className="text-[10px] text-slate-500">{new Date(row.at).toLocaleString()}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Best score <span className="text-emerald-300 font-semibold">{row.bestScore ?? row.score}</span> · Attempts{" "}
+                        <span className="text-slate-200">{row.attempts ?? 1}</span> · Last submission {row.score}/100 ({row.pass ? "pass" : "practice"})
+                      </p>
+                      {lid && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          Lesson:&nbsp;
+                          <Link to={`/lesson/${lid}`} className="text-emerald-400 hover:underline">
+                            {lt ?? lid}
+                          </Link>
+                          {" · "}
+                          <Link to={`/quiz/${lid}`} className="text-cyan-300/90 hover:underline">
+                            quiz
+                          </Link>
+                          {" · "}
+                          <Link to={`/pdf-guides/messer-course-notes-v107/${lid}`} className="text-amber-200/85 hover:underline">
+                            PDF slice
+                          </Link>
+                        </p>
+                      )}
+                      {row.artifacts?.length ? (
+                        <p className="text-[11px] text-slate-500 mt-2">
+                          Evidence snippets:{" "}
+                          <span className="text-slate-300">{row.artifacts.slice(0, 3).join(" · ")}</span>
+                        </p>
+                      ) : null}
+                      {row.skills?.length ? (
+                        <p className="text-[11px] text-slate-500 mt-1">Skills keyed: {row.skills.join(", ")}</p>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <p className="text-xs text-slate-500 mt-3">
+              These rows export with your backup JSON — treat them as resume bullets describing structured SOC-style practice.
+            </p>
           </SectionCard>
 
           <SectionCard title="Practice exam history" subtitle="Most recent attempts on this device">
@@ -217,7 +298,18 @@ export default function ProgressPage() {
             </ul>
             {hotCards.length > 0 && (
               <p className="text-xs text-amber-200/80 mt-2">
-                Hottest streaks: {hotCards.map(([id, n]) => `${id.slice(0, 8)}…(${n})`).join(", ")}
+                Cards you tapped Again most:{" "}
+                {hotCards
+                  .map(([id, n]) => {
+                    const front = flashFrontById.get(id);
+                    const label = front
+                      ? front.length > 52
+                        ? `${front.slice(0, 52)}…`
+                        : front
+                      : "study card";
+                    return `"${label}" (${n}×)`;
+                  })
+                  .join(" · ")}
               </p>
             )}
             <Link to="/flashcards" className="btn mt-3 w-full text-center inline-block">
@@ -225,10 +317,10 @@ export default function ProgressPage() {
             </Link>
           </SectionCard>
 
-          <SectionCard title="PDF guides (this device)" subtitle="Bring your own PDFs — IndexedDB">
+          <SectionCard title="PDF guides (this device)" subtitle="Your PDF copies stay in this browser only">
             <ul className="text-sm text-slate-300 space-y-2">
               <li>
-                <strong className="text-white">PDF files saved:</strong> {pdfStats.fileN} / {PDF_REGISTRY.length} registry slots
+                <strong className="text-white">PDF files saved:</strong> {pdfStats.fileN} / {PDF_REGISTRY.length} listed guides
               </li>
               <li>
                 <strong className="text-white">Guide sections completed:</strong> {pdfStats.sectionsDone}
@@ -242,7 +334,7 @@ export default function ProgressPage() {
             </ul>
             <div className="mt-3 flex flex-col sm:flex-row gap-2">
               <Link to="/pdf-setup" className="btn w-full sm:w-auto text-center">
-                PDF setup →
+                Add PDF files →
               </Link>
               <Link to="/pdf-guides" className="btn-ghost w-full sm:w-auto text-center border border-slate-600">
                 PDF guides →
@@ -250,7 +342,7 @@ export default function ProgressPage() {
             </div>
             <p className="text-xs text-amber-200/85 mt-3 leading-relaxed border-t border-slate-800 pt-3">
               Your PDF files stay in this browser. <strong className="text-amber-100">Export backup below does not include PDF binaries</strong> — only
-              progress JSON. After a new device or if you clear site data, <strong>re-add PDFs</strong> under PDF setup.
+              progress JSON. After a new device or if you clear site data, <strong>re-add PDFs</strong> under Add PDF files.
             </p>
           </SectionCard>
 
@@ -261,7 +353,7 @@ export default function ProgressPage() {
           >
             <p className="text-slate-500 text-sm max-w-lg leading-relaxed">
               <strong className="text-amber-200/90">Import replaces</strong> progress on this device after confirmation in the importer. Keep a dated export before importing someone else&apos;s file.{" "}
-              <strong className="text-slate-400">PDF files are not inside this JSON</strong> — use PDF setup again after restore if needed.
+              <strong className="text-slate-400">PDF files are not inside this JSON</strong> — use Add PDF files again after restore if needed.
             </p>
             <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-2">
               <button type="button" className="btn w-full sm:w-auto text-center" onClick={onDownload}>
@@ -328,7 +420,7 @@ export default function ProgressPage() {
             </Link>
           </SectionCard>
 
-          <NextActionCard label="Next system action" description="Same Continue target as the dashboard — one queue everywhere.">
+          <NextActionCard label="Next system action" description="Same Continue target as Home — one queue everywhere.">
             <Link to={nextStep.href} className="btn w-full text-center">
               {nextStep.buttonLabel} →
             </Link>

@@ -15,12 +15,14 @@ import LessonStepper from "../components/LessonStepper";
 import ExplainSimplerModal from "../components/ExplainSimplerModal";
 import GlossaryChips from "../components/GlossaryChips";
 import ContinueButton from "../components/ContinueButton";
+import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
+import CurrentStepView from "../components/CurrentStepView";
 import { getVideoForLesson } from "../data/videoMap";
 import { PROFESSOR_MESSER_COURSE_INDEX, PROFESSOR_MESSER_YOUTUBE_PLAYLIST } from "../data/videoConstants";
 import { getBeginnerContent } from "../utils/beginnerLayer";
 import { getHighlightBuckets } from "../utils/highlightBuckets";
 import { getExamIntelligence } from "../utils/examIntelFromLesson";
-import { LESSON_BLOCK_ORDER, LESSON_STEP_FOCUS } from "../core/learningFlow";
+import { LESSON_BLOCK_ORDER, LESSON_STEP_FOCUS, getLessonDoNowHint } from "../core/learningFlow";
 import { emptyLessonNoteIntelligence, getLessonNoteIntelligence } from "../utils/lessonNoteIntelligence";
 import { analyzeDraftNote, overNotingMessage } from "../core/noteAnalyzer";
 import { buildLearningProfile, getAntiPassiveWarnings } from "../core/learningObserver";
@@ -30,6 +32,7 @@ import AITutorPanel from "../components/AITutorPanel";
 import DailyMinimumCard from "../components/DailyMinimumCard";
 import { flashExtensionIdentityForDashboard } from "../utils/outsideQuizIdentity";
 import { buildLessonCompleteIdentityLine } from "../utils/identityPersonalization";
+import TrustReminderStrip from "../components/TrustReminderStrip";
 
 export default function LessonPage() {
   const { id } = useParams();
@@ -68,6 +71,8 @@ export default function LessonPage() {
   const [teach, setTeach] = useState("");
   const [explainOpen, setExplainOpen] = useState(false);
   const [flowStep, setFlowStep] = useState(1);
+  /** Full lesson pacing: single visible step unless user disables (beginner mode always paces). */
+  const [lessonOneStepUi, setLessonOneStepUi] = useState(true);
   const [encourageMsg, setEncourageMsg] = useState<string | null>(null);
   const [showFullDetail, setShowFullDetail] = useState(false);
   const [noteAiMsg, setNoteAiMsg] = useState<string | null>(null);
@@ -210,12 +215,18 @@ export default function LessonPage() {
 
   const nxt = getNextSectionId(id) ?? null;
   const vMeta = getVideoForLesson(id);
+  const hasMesserNotesPdf = !!state.pdfLibrary?.localFileMeta?.["messer-course-notes-v107"];
+  const messerPdfGuideHref = `/pdf-guides/messer-course-notes-v107/${id}`;
   const beg = getBeginnerContent(L);
   const examI = getExamIntelligence(L);
   const lp = state.lessonProgress[id] ?? {};
   const teachOk = teach.trim().length >= 20 || (state.teachBack[id]?.trim().length ?? 0) >= 20;
   const handsOnOk = isLessonHandsOnComplete(id, state);
   const canMark = isLessonProgressComplete({ ...lp, teachBackDone: teachOk }, { hasLab: labs.length > 0, handsOnComplete: handsOnOk });
+  const doNowHint = useMemo(
+    () => getLessonDoNowHint(lp, { hasLab: labs.length > 0, handsOnComplete: handsOnOk }),
+    [lp, labs.length, handsOnOk],
+  );
   const glossarySource = `${L.title} ${L.simpleExplanation} ${beg.plainEnglish}`;
 
   const runComplete = (force: boolean) => {
@@ -282,29 +293,51 @@ export default function LessonPage() {
   const StepSection = ({ stepIndex, k, className, children }: { stepIndex: number; k: (typeof LESSON_BLOCK_ORDER)[number]["key"]; className?: string; children: React.ReactNode }) => {
     const t = titleOf(k);
     const phase = LESSON_STEP_FOCUS[stepIndex] ?? "This step";
-    const locked = state.beginnerMode && stepIndex > flowStep;
+    const strict = lessonOneStepUi || state.beginnerMode;
     const unlockPhase = LESSON_STEP_FOCUS[flowStep] ?? `step ${flowStep}`;
-    if (locked) {
-      return (
-        <div className="card border-slate-700 border-dashed">
-          <p className="text-slate-500 text-sm font-medium">
-            Step {stepIndex}: {phase}
-          </p>
-          <p className="text-xs text-slate-500 mt-0.5">{t}</p>
-          <p className="text-amber-200/90 text-sm mt-2">
-            Finish <strong className="text-amber-100">step {flowStep}: {unlockPhase}</strong> to unlock this.
-          </p>
-          <p className="text-[11px] text-slate-500 mt-1">Just focus on the step above — beginner mode shows one layer at a time so you do not get lost.</p>
-        </div>
-      );
-    }
-    return (
-      <section className={className ?? "card border-slate-800"} data-step={stepIndex}>
-        <h2 className="text-cyan-300 font-bold text-sm uppercase">
+    const lockedCard = (
+      <div className="card border-slate-700 border-dashed">
+        <p className="text-slate-500 text-sm font-medium">
           Step {stepIndex}: {phase}
-        </h2>
+        </p>
         <p className="text-xs text-slate-500 mt-0.5">{t}</p>
-        <p className="text-[11px] text-slate-400 mt-2 italic">Just focus on this step — scroll only when you are ready.</p>
+        <p className="text-amber-200/90 text-sm mt-2">
+          Finish <strong className="text-amber-100">step {flowStep}: {unlockPhase}</strong> to unlock this.
+        </p>
+        <p className="text-[11px] text-slate-500 mt-1">
+          {state.beginnerMode
+            ? "Beginner mode shows one layer at a time so you do not get lost."
+            : "One step at a time is on — finish the current step above first."}
+        </p>
+      </div>
+    );
+    const doneFooter =
+      strict && stepIndex < 10 && stepIndex === flowStep ? (
+        <button
+          type="button"
+          className="btn mt-4 w-full touch-manipulation min-h-[48px]"
+          onClick={() => {
+            setFlowStep((s) => Math.max(s, stepIndex + 1));
+            setEncourageMsg("You're doing good — one step at a time.");
+            window.setTimeout(() => setEncourageMsg(null), 4500);
+          }}
+        >
+          Done with this step — show next
+        </button>
+      ) : null;
+
+    return (
+      <CurrentStepView
+        stepIndex={stepIndex}
+        flowStep={flowStep}
+        oneStepAtATime={lessonOneStepUi}
+        beginnerMode={state.beginnerMode}
+        phaseLabel={phase}
+        stepTitleLine={t}
+        className={className}
+        lockedContent={lockedCard}
+        doneFooter={doneFooter}
+      >
         {state.beginnerMode && stepIndex === 1 && <p className="text-[10px] text-amber-200/80 mt-2">Do this first — the rest of the page builds on the video.</p>}
         {state.beginnerMode && stepIndex === 2 && <p className="text-[10px] text-amber-200/80 mt-2">Three to eight exam hooks, not whole paragraphs — recognition beats highlighting everything.</p>}
         {state.beginnerMode && (stepIndex === 7 || stepIndex === 8) && (
@@ -312,20 +345,7 @@ export default function LessonPage() {
         )}
         {state.beginnerMode && stepIndex === 9 && <p className="text-[10px] text-amber-200/80 mt-2">How CompTIA likes to phrase traps and best answers.</p>}
         {children}
-        {state.beginnerMode && stepIndex < 10 && stepIndex === flowStep && (
-          <button
-            type="button"
-            className="btn mt-4 w-full touch-manipulation min-h-[48px]"
-            onClick={() => {
-              setFlowStep((s) => Math.max(s, stepIndex + 1));
-              setEncourageMsg("You're doing good — one step at a time.");
-              window.setTimeout(() => setEncourageMsg(null), 4500);
-            }}
-          >
-            Done with this step — show next
-          </button>
-        )}
-      </section>
+      </CurrentStepView>
     );
   };
 
@@ -334,18 +354,22 @@ export default function LessonPage() {
       <AppShell>
         <div className="lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-8 items-start">
           <div className="space-y-10 min-w-0 pb-8">
+            <FlowPrimaryStrip>
+              <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />
+            </FlowPrimaryStrip>
             <DailyMinimumCard lessonId={id} />
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-emerald-800/45 bg-emerald-950/25 px-4 py-4">
-              <div>
-                <p className="text-xs uppercase text-emerald-300/90 font-bold tracking-wide">Simple lesson mode</p>
-                <p className="text-sm text-slate-300 mt-1 max-w-prose">
-                  Essentials only — same Messer content, less scrolling. Labs, flashcards, and exam intelligence are one tap away in the full lesson.
-                </p>
-              </div>
-              <button type="button" className="btn w-full sm:w-auto shrink-0 touch-manipulation min-h-[48px]" onClick={() => setSimpleLessonMode(false)}>
+            <details className="rounded-2xl border border-emerald-800/45 bg-emerald-950/25 px-4 py-2 group">
+              <summary className="cursor-pointer list-none text-sm text-emerald-200 font-medium touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+                <span className="mr-2 text-emerald-400/80 group-open:rotate-90 transition-transform inline-block">▸</span>
+                Simple mode — switch to full lesson
+              </summary>
+              <p className="text-sm text-slate-300 mt-2 pl-1">
+                Full lesson adds labs, exam intel, and more blocks.
+              </p>
+              <button type="button" className="btn w-full sm:w-auto mt-3 touch-manipulation min-h-[48px]" onClick={() => setSimpleLessonMode(false)}>
                 Show full lesson
               </button>
-            </div>
+            </details>
             <nav className="text-xs text-slate-500 flex flex-wrap items-center gap-x-1.5 gap-y-1" aria-label="Breadcrumb">
               <Link to="/roadmap" className="text-emerald-400 hover:underline">
                 Lesson path
@@ -358,12 +382,7 @@ export default function LessonPage() {
             <PageHeader
               eyebrow={`Domain ${L.domain}${L.sectionNumber ? ` · Section ${L.sectionNumber}` : ""}`}
               title={L.title}
-              purpose="Short path: watch a few minutes → copy two hooks → one note → the action → a tiny quiz. Switch to the full lesson anytime for depth."
-              actions={
-                <div className="flex flex-wrap gap-2 justify-end">
-                  <ContinueButton step={nextStep} />
-                </div>
-              }
+              purpose="Watch → two hooks → one note → quick quiz."
             />
             <section className="card border-cyan-800/35 space-y-4">
               <h2 className="text-cyan-300 font-bold text-sm uppercase">Watch</h2>
@@ -481,18 +500,26 @@ export default function LessonPage() {
               )}
             </div>
           </div>
-          <AITutorPanel
-            className="lg:sticky lg:top-4 lg:self-start order-first lg:order-none mb-4 lg:mb-0"
-            context={{
-              surface: "lesson",
-              lesson: aiLessonCtx,
-              userProgress: { lessonProgress: lp, simpleLesson: true },
-              weakAreas,
-              noteDraft: note,
-              noteHeuristic: draftAnalysis.messages,
-              coachLines: ["Simple mode: video → two hooks → one note → action → 3-question quiz."],
-            }}
-          />
+          <details className="rounded-2xl border border-violet-900/45 bg-violet-950/15 lg:sticky lg:top-4 lg:self-start order-first lg:order-none mb-4 lg:mb-0 group">
+            <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium text-violet-100 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="text-violet-400/90 mr-2 group-open:rotate-90 transition-transform inline-block">▸</span>
+              Ask something (optional)
+            </summary>
+            <div className="p-2 pt-0">
+              <AITutorPanel
+                className="!border-0 rounded-xl bg-violet-950/20"
+                context={{
+                  surface: "lesson",
+                  lesson: aiLessonCtx,
+                  userProgress: { lessonProgress: lp, simpleLesson: true },
+                  weakAreas,
+                  noteDraft: note,
+                  noteHeuristic: draftAnalysis.messages,
+                  coachLines: ["Simple mode: video → two hooks → one note → action → 3-question quiz."],
+                }}
+              />
+            </div>
+          </details>
         </div>
       </AppShell>
     );
@@ -502,101 +529,135 @@ export default function LessonPage() {
     <AppShell>
       <div className="lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-8 items-start">
         <div className="space-y-10 min-w-0">
-          <nav className="text-xs text-slate-500 flex flex-wrap items-center gap-x-1.5 gap-y-1" aria-label="Breadcrumb">
-            <Link to="/roadmap" className="text-emerald-400 hover:underline">
-              Lesson path
-            </Link>
-            <span aria-hidden>/</span>
-            <span className="text-slate-400">Domain {L.domain}</span>
-            <span aria-hidden>/</span>
-            <span className="text-slate-300 truncate max-w-[min(100%,14rem)] sm:max-w-md">{L.title}</span>
-          </nav>
+          <FlowPrimaryStrip>
+            <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />
+          </FlowPrimaryStrip>
+          <section
+            className="rounded-2xl border border-emerald-800/55 bg-gradient-to-br from-emerald-950/50 to-slate-950/40 px-4 py-4 space-y-2 shadow-lg shadow-emerald-950/20"
+            aria-labelledby="lesson-do-now-heading"
+          >
+            <h2 id="lesson-do-now-heading" className="text-[11px] font-bold uppercase tracking-wider text-emerald-300/95">
+              Do this now
+            </h2>
+            <p className="text-lg font-semibold text-white leading-snug">{doNowHint.headline}</p>
+            <p className="text-sm text-slate-300 leading-relaxed">{doNowHint.detail}</p>
+            <p className="text-xs text-slate-500 border-t border-emerald-900/40 pt-2">{doNowHint.then}</p>
+          </section>
+
+          <TrustReminderStrip dense />
+
           <PageHeader
             eyebrow={`Domain ${L.domain}${L.sectionNumber ? ` · Section ${L.sectionNumber}` : ""}`}
             title={L.title}
-            purpose="Follow the numbered blocks in order. One path: video → notes → understand → test → remember."
-            actions={
-              <div className="flex flex-wrap gap-2 justify-end items-start">
-                <button type="button" className="btn-ghost text-sm min-h-[48px] touch-manipulation" onClick={() => setSimpleLessonMode(true)}>
-                  Simple lesson view
-                </button>
-                <ContinueButton step={nextStep} />
-              </div>
-            }
-          >
-            {antiPassive.length > 0 && (
-              <div className="mt-3 rounded-xl border border-amber-800/50 bg-amber-950/25 p-3 text-sm text-amber-100/95">
-                <p className="text-[10px] uppercase text-amber-200/90 font-semibold">Smart Coach — engagement</p>
-                <ul className="list-disc pl-4 mt-1 space-y-1">
-                  {antiPassive.map((a, i) => (
-                    <li key={i}>{a}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {!state.beginnerMode ? (
-              <details className="mt-2 text-[10px] text-slate-500">
-                <summary className="cursor-pointer text-slate-400 hover:text-slate-300 select-none [&::-webkit-details-marker]:hidden list-none">
-                  Coach metrics (optional)
-                </summary>
-                <p className="mt-1 pl-1 border-l border-slate-700">
-                  Observer: recall {observer.recallStrength}/100 · note quality {observer.noteQualityScore}/100 · readiness{" "}
-                  {observer.examReadiness}/100
-                </p>
-              </details>
-            ) : (
-              <p className="text-[10px] text-slate-500 mt-2">
-                Observer: recall {observer.recallStrength}/100 · note quality {observer.noteQualityScore}/100 · readiness{" "}
-                {observer.examReadiness}/100
-              </p>
-            )}
-          </PageHeader>
+            purpose="Work the green “Do this now” line first — then the step blocks below scroll in order. Open “More” only for shortcuts or coach stats."
+          />
 
-      <div className="card border-slate-700 text-sm text-slate-300">
-        <h2 className="text-xs text-slate-500 uppercase tracking-wide">This lesson, in six answers</h2>
+          <details className="rounded-xl border border-slate-700 bg-slate-900/40 group">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-300 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="mr-2 text-slate-500 group-open:text-emerald-400">▸</span>
+              More — path, lesson display, coach
+            </summary>
+            <div className="px-4 pb-4 pt-0 border-t border-slate-800 space-y-4">
+              {!state.beginnerMode && (
+                <label className="flex flex-wrap items-center gap-3 text-sm text-slate-300 touch-manipulation cursor-pointer min-h-[44px]">
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="h-11 w-11 sm:h-5 sm:w-5 rounded border-slate-600 shrink-0"
+                      checked={lessonOneStepUi}
+                      onChange={(e) => setLessonOneStepUi(e.target.checked)}
+                      aria-label="Show one lesson step at a time"
+                    />
+                    One step at a time
+                  </span>
+                  <span className="text-[11px] text-slate-500">Off = preview the whole lesson (more scrolling).</span>
+                </label>
+              )}
+              <nav className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-500" aria-label="Breadcrumb">
+                <Link to="/roadmap" className="text-emerald-400 hover:underline">
+                  Lesson path
+                </Link>
+                <span aria-hidden>/</span>
+                <span className="text-slate-400">Domain {L.domain}</span>
+                <span aria-hidden>/</span>
+                <span className="text-slate-300 truncate max-w-[min(100%,14rem)] sm:max-w-md">{L.title}</span>
+              </nav>
+              <button type="button" className="btn-ghost text-sm w-full min-h-[44px] touch-manipulation" onClick={() => setSimpleLessonMode(true)}>
+                Simple lesson view (shorter pass)
+              </button>
+              {antiPassive.length > 0 && (
+                <div className="rounded-xl border border-amber-800/50 bg-amber-950/25 p-3 text-sm text-amber-100/95">
+                  <p className="text-[10px] uppercase text-amber-200/90 font-semibold">Coach</p>
+                  <ul className="list-disc pl-4 mt-1 space-y-1">
+                    {antiPassive.map((a, i) => (
+                      <li key={i}>{a}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <p className="text-[10px] text-slate-500">
+                Recall {observer.recallStrength} · Notes {observer.noteQualityScore} · Readiness {observer.examReadiness}
+              </p>
+            </div>
+          </details>
+
+      <details className="rounded-xl border border-slate-700 bg-slate-900/30 group">
+        <summary className="cursor-pointer list-none px-3 py-2.5 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+          <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+          FAQ: how blocks fit together
+        </summary>
+        <div className="px-3 pb-3 border-t border-slate-800 pt-3 card border-0 bg-transparent text-sm text-slate-300 !p-0 space-y-2">
         {!state.simpleLessonMode && (
-          <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+          <p className="text-xs text-slate-500 leading-relaxed">
             <span className="text-emerald-200/90 font-medium">Fast path: </span>
-            step 1 video → step 7 three-question quiz (~2 min) → flashcards → complete. Optional &quot;Show more&quot; blocks are for depth, not required
-            first.
+            video → mini-quiz → flashcards → complete.
           </p>
         )}
-        <ul className="mt-2 space-y-1.5 list-none text-slate-200">
+        <ul className="space-y-1.5 list-none text-slate-200">
           <li>
-            <span className="text-emerald-300 font-medium">What do I watch? </span>
-            The Messer video in step 1 (pause when you add highlights in step 2).
+            <span className="text-emerald-300 font-medium">Watch: </span>
+            Step 1 video.
           </li>
           <li>
-            <span className="text-emerald-300 font-medium">What do I highlight? </span>
-            3–8 short hooks from the MUST/GOOD/SKIP list — not paragraphs.
+            <span className="text-emerald-300 font-medium">Highlight: </span>
+            Short hooks in step 2 — not paragraphs.
           </li>
           <li>
-            <span className="text-emerald-300 font-medium">What do I write? </span>
-            At least one Brain Book row in the last block; optional extra fields in full mode.
+            <span className="text-emerald-300 font-medium">Write: </span>
+            One Brain Book row.
           </li>
           <li>
-            <span className="text-emerald-300 font-medium">What do I do? </span>
+            <span className="text-emerald-300 font-medium">Do: </span>
             {L.quickAction}
           </li>
           <li>
-            <span className="text-emerald-300 font-medium">What do I quiz? </span>
-            {quizCount} mini-quiz questions tagged to this section ({id}).
+            <span className="text-emerald-300 font-medium">Quiz: </span>
+            {quizCount} questions · same topic as this section.
           </li>
           <li>
-            <span className="text-emerald-300 font-medium">What do I review next? </span>
-            Flashcards for this lesson, then mark complete — the home screen Continue picks your next best move.
+            <span className="text-emerald-300 font-medium">Next: </span>
+            Flashcards, then complete — Continue on Home picks what&apos;s next.
           </li>
         </ul>
-      </div>
+        </div>
+      </details>
 
-      <LessonStepper
-        lessonId={id}
-        p={lp}
-        hasLab={labs.length > 0}
-        labDone={lp.labDone}
-        handsOnComplete={handsOnOk}
-        nextHref={nxt && lessons[nxt!] ? `/lesson/${nxt}` : undefined}
-      />
+      <details className="rounded-2xl border border-slate-700 bg-slate-900/30 group mb-8">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm text-slate-400 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden font-medium">
+          <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+          Pipeline checklist (same as coach)
+        </summary>
+        <div className="px-4 pb-4 pt-2 border-t border-slate-800">
+          <LessonStepper
+            lessonId={id}
+            p={lp}
+            hasLab={labs.length > 0}
+            labDone={lp.labDone}
+            handsOnComplete={handsOnOk}
+            nextHref={nxt && lessons[nxt!] ? `/lesson/${nxt}` : undefined}
+          />
+        </div>
+      </details>
 
       {encourageMsg && (
         <p className="text-sm text-emerald-300/95 text-center rounded-xl border border-emerald-800/35 bg-emerald-950/20 px-3 py-2" role="status">
@@ -619,7 +680,36 @@ export default function LessonPage() {
           )}
         </div>
         {vMeta.estimatedWatchTimeMin != null && <p className="text-xs text-slate-500 mt-1">~{vMeta.estimatedWatchTimeMin} min (estimate)</p>}
-        <VideoEmbed embedUrl={vMeta.embedUrl} title={vMeta.videoTitle} />
+
+        <div className="mt-3 space-y-2">
+          {hasMesserNotesPdf ?
+            <Link
+              to={messerPdfGuideHref}
+              className="btn w-full text-center min-h-[52px] touch-manipulation text-base inline-flex items-center justify-center"
+            >
+              Start with your PDF + video
+            </Link>
+          : <button
+              type="button"
+              className="btn w-full min-h-[52px] touch-manipulation text-base"
+              onClick={() => {
+                document.getElementById("lesson-step1-video")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                setEncourageMsg("Press play on the embed — pauses are fine.");
+                window.setTimeout(() => setEncourageMsg(null), 5000);
+              }}
+            >
+              Start this lesson
+            </button>}
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            {hasMesserNotesPdf
+              ? "Default path: guided PDF for this section (your file, highlights, checkpoints). The video embed stays on this page if you prefer it first."
+              : "Default path: jumps to the embed below. Add your Messer notes PDF in PDF setup to unlock the combined PDF + guide flow."}
+          </p>
+        </div>
+
+        <div id="lesson-step1-video" className="scroll-mt-28 mt-4">
+          <VideoEmbed embedUrl={vMeta.embedUrl} title={vMeta.videoTitle} />
+        </div>
         <ul className="mt-3 space-y-1 text-sm text-slate-300 list-disc pl-4">
           <li>Skim the first 2 minutes, then watch with pauses for highlights in step 2.</li>
           {!state.beginnerMode && (
@@ -629,57 +719,103 @@ export default function LessonPage() {
             </>
           )}
         </ul>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link to={`/pdf-guides/messer-course-notes-v107/${id}`} className="btn-ghost text-sm min-h-[44px] touch-manipulation">
-            PDF guide (Messer notes)
-          </Link>
-          <Link to={`/pdf-guides/sy0-701-study-guide/${id}`} className="btn-ghost text-sm min-h-[44px] touch-manipulation">
-            PDF guide (Study guide)
-          </Link>
-          <Link to="/session" className="btn-ghost text-sm">
-            30-min session
-          </Link>
-          <button
-            type="button"
-            className="btn text-sm"
-            onClick={() => {
-              patchLessonProgress(id, { videoWatched: true, videoWatchedAt: Date.now() });
-              setEncourageMsg("You're doing good — short wins add up.");
-              window.setTimeout(() => setEncourageMsg(null), 4000);
-            }}
-          >
-            Mark video watched
-          </button>
-          {vMeta.youtubeUrl && (
-            <a href={vMeta.youtubeUrl} className="btn-ghost text-sm" target="_blank" rel="noreferrer">
-              YouTube
-            </a>
-          )}
-          {vMeta.professorMesserPageUrl && (
-            <a href={vMeta.professorMesserPageUrl} className="btn-ghost text-sm" target="_blank" rel="noreferrer">
-              Messer page
-            </a>
-          )}
-          <a href={PROFESSOR_MESSER_COURSE_INDEX} className="btn-ghost text-sm" target="_blank" rel="noreferrer">
-            Course index
-          </a>
-          <a href={PROFESSOR_MESSER_YOUTUBE_PLAYLIST} className="btn-ghost text-sm" target="_blank" rel="noreferrer">
-            Playlist
-          </a>
-          <Link to={`/watch/${id}`} className="btn-ghost text-sm">
-            Guided watch
-          </Link>
-          <button
-            type="button"
-            className="btn-ghost text-sm"
-            onClick={() => {
-              setBeginnerMode(true);
-              setExplainOpen(true);
-            }}
-          >
-            Need simpler explanation
-          </button>
-        </div>
+
+        <details className="mt-4 rounded-xl border border-slate-700 bg-slate-900/35 group">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-300 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+            <span className="text-slate-500 mr-2 group-open:text-emerald-400">▸</span>
+            More ways to learn
+          </summary>
+          <div className="px-4 pb-4 pt-0 border-t border-slate-800/90 space-y-4 text-sm">
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">PDFs &amp; guides</p>
+              <div className="flex flex-col gap-2">
+                <Link to={messerPdfGuideHref} className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm">
+                  Open PDF guide (Messer notes)
+                </Link>
+                <Link
+                  to={`/pdf-guides/sy0-701-study-guide/${id}`}
+                  className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm"
+                >
+                  Open PDF guide (Study guide)
+                </Link>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">Video &amp; session</p>
+              <div className="flex flex-col gap-2">
+                {vMeta.youtubeUrl && (
+                  <a href={vMeta.youtubeUrl} className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm" target="_blank" rel="noreferrer">
+                    Watch on YouTube
+                  </a>
+                )}
+                <a
+                  href={PROFESSOR_MESSER_YOUTUBE_PLAYLIST}
+                  className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open playlist
+                </a>
+                <Link to="/session" className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm">
+                  Start 30-min session
+                </Link>
+                <Link to={`/watch/${id}`} className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm">
+                  Guided watch
+                </Link>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">Reference</p>
+              <div className="flex flex-col gap-2">
+                {vMeta.professorMesserPageUrl && (
+                  <a
+                    href={vMeta.professorMesserPageUrl}
+                    className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Messer course page
+                  </a>
+                )}
+                <a
+                  href={PROFESSOR_MESSER_COURSE_INDEX}
+                  className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Course index
+                </a>
+              </div>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">Stuck?</p>
+              <button
+                type="button"
+                className="btn-ghost w-full text-sm min-h-[44px] touch-manipulation"
+                onClick={() => {
+                  setBeginnerMode(true);
+                  setExplainOpen(true);
+                }}
+              >
+                Need a simpler explanation
+              </button>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">Progress</p>
+              <button
+                type="button"
+                className="btn w-full text-sm min-h-[44px] touch-manipulation"
+                onClick={() => {
+                  patchLessonProgress(id, { videoWatched: true, videoWatchedAt: Date.now() });
+                  setEncourageMsg("You're doing good — short wins add up.");
+                  window.setTimeout(() => setEncourageMsg(null), 4000);
+                }}
+              >
+                Mark video watched
+              </button>
+            </div>
+          </div>
+        </details>
         <GlossaryChips textSource={glossarySource} />
       </StepSection>
 
@@ -1286,25 +1422,29 @@ export default function LessonPage() {
             </Link>
           )}
         </div>
-        <div className="mt-4">
-          <p className="text-xs text-slate-500 mb-2">System pick (same as Smart Coach + Continue everywhere):</p>
-          <ContinueButton step={nextStep} />
-        </div>
       </StepSection>
         </div>
 
-        <AITutorPanel
-          className="lg:sticky lg:top-4 lg:self-start order-first lg:order-none mb-4 lg:mb-0"
-          context={{
-            surface: "lesson",
-            lesson: aiLessonCtx,
-            userProgress: { lessonProgress: lp, teachBackLen: teach.length },
-            weakAreas,
-            noteDraft: note,
-            noteHeuristic: draftAnalysis.messages,
-            coachLines: [...antiPassive, ...draftAnalysis.messages].slice(0, 6),
-          }}
-        />
+        <details className="rounded-2xl border border-violet-900/45 bg-violet-950/15 lg:sticky lg:top-4 lg:self-start order-first lg:order-none mb-4 lg:mb-0 group">
+          <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium text-violet-100 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+            <span className="text-violet-400/90 mr-2 group-open:rotate-90 transition-transform inline-block">▸</span>
+            Ask something (optional)
+          </summary>
+          <div className="p-2 pt-0">
+            <AITutorPanel
+              className="!border-0 rounded-xl bg-violet-950/20"
+              context={{
+                surface: "lesson",
+                lesson: aiLessonCtx,
+                userProgress: { lessonProgress: lp, teachBackLen: teach.length },
+                weakAreas,
+                noteDraft: note,
+                noteHeuristic: draftAnalysis.messages,
+                coachLines: [...antiPassive, ...draftAnalysis.messages].slice(0, 6),
+              }}
+            />
+          </div>
+        </details>
       </div>
     </AppShell>
   );

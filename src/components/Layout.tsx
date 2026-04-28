@@ -5,7 +5,7 @@ import MobileStickyContinue from "./MobileStickyContinue";
 import BackupNudgeBanner from "./BackupNudgeBanner";
 
 const mainNav = [
-  { to: "/", label: "Dashboard" },
+  { to: "/", label: "Home" },
   { to: "/roadmap", label: "Lesson path" },
   { to: "/practice", label: "Practice" },
   { to: "/sim", label: "Labs" },
@@ -14,14 +14,14 @@ const mainNav = [
 
 const moreNav = [
   { to: "/start-here", label: "Start here" },
-  { to: "/pdf-guides", label: "PDF guides" },
-  { to: "/pdf-setup", label: "PDF setup" },
+  { to: "/pdf-setup", label: "Add PDF files" },
+  { to: "/pdf-guides", label: "PDF study guides" },
   { to: "/practice-exams", label: "Practice exams" },
   { to: "/session", label: "30-min session" },
   { to: "/flashcards", label: "Flashcards" },
   { to: "/weak", label: "Weak areas" },
   { to: "/search", label: "Search" },
-  { to: "/import", label: "Import lesson (authors)" },
+  { to: "/import", label: "Author import (JSON)" },
   { to: "/boss", label: "Boss fights" },
 ];
 

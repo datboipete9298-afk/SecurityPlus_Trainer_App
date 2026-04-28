@@ -3,10 +3,11 @@ import { Link, useSearchParams } from "react-router-dom";
 import { simulations } from "../data/simulations";
 import { getLabsForLesson } from "../data/labs";
 import { useProgress } from "../context/ProgressContext";
+import ContinueButton from "../components/ContinueButton";
+import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
-import NextActionCard from "../components/NextActionCard";
 import StatusBadge from "../components/StatusBadge";
 
 export default function SimPage() {
@@ -28,11 +29,23 @@ export default function SimPage() {
   return (
     <AppShell>
       <div className="max-w-2xl space-y-6">
+        <FlowPrimaryStrip>
+          <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />
+        </FlowPrimaryStrip>
         <PageHeader
           title="Labs & simulations"
-          purpose="Optional practice to help you understand how security decisions play out — safe, local, and read-only. Open a lesson first, then use Labs from the menu with your section link to see that lesson’s hands-on checklist. The scenario below is a short branching drill with instant feedback."
+          purpose="Tap a choice below, or follow Next step above."
           badge={<StatusBadge tone="accent">Local only</StatusBadge>}
         />
+        <details className="rounded-xl border border-slate-700 bg-slate-900/35 text-sm text-slate-400 group">
+          <summary className="cursor-pointer list-none px-3 py-2.5 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+            <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+            What this page is
+          </summary>
+          <p className="px-3 pb-3 border-t border-slate-800 pt-3 leading-relaxed">
+            Optional local drill. Link a lesson from the menu to see that section&apos;s hands-on checklist.
+          </p>
+        </details>
 
         {lesson && lessonLabs.length > 0 && (
           <SectionCard
@@ -97,29 +110,23 @@ export default function SimPage() {
           )}
         </SectionCard>
 
-        <NextActionCard
-          label="Recommended next"
-          description={
-            lesson
-              ? "Return to the lesson for quizzes, training platform labs, or mark progress."
-              : "Open a lesson from the path, or follow Smart Coach for the next best move."
-          }
-        >
-          <div className="flex flex-col gap-2">
+        <details className="rounded-xl border border-slate-700 bg-slate-900/35 group">
+          <summary className="cursor-pointer list-none px-3 py-2.5 text-sm text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
+            <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+            Other links
+          </summary>
+          <div className="px-3 pb-3 border-t border-slate-800 pt-3 flex flex-col gap-2">
             {lesson ? (
-              <Link to={`/lesson/${lesson}`} className="btn w-full text-center min-h-[48px] touch-manipulation">
-                Continue lesson →
+              <Link to={`/lesson/${lesson}`} className="btn-ghost w-full text-center min-h-[44px] touch-manipulation border border-slate-600">
+                Continue lesson
               </Link>
             ) : (
-              <Link to="/roadmap" className="btn w-full text-center min-h-[48px] touch-manipulation">
-                Lesson path →
+              <Link to="/roadmap" className="btn-ghost w-full text-center min-h-[44px] touch-manipulation border border-slate-600">
+                Lesson path
               </Link>
             )}
-            <Link to={nextStep.href} className="btn-ghost w-full text-center min-h-[48px] touch-manipulation">
-              {nextStep.buttonLabel} →
-            </Link>
           </div>
-        </NextActionCard>
+        </details>
       </div>
     </AppShell>
   );

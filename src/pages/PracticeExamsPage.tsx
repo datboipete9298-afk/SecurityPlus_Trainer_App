@@ -2,14 +2,16 @@ import { Link } from "react-router-dom";
 import { useMemo, useEffect } from "react";
 import { questionsByLesson } from "../data/quizzes";
 import { useProgress } from "../context/ProgressContext";
+import ContinueButton from "../components/ContinueButton";
+import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
-import NextActionCard from "../components/NextActionCard";
 import AITutorPanel from "../components/AITutorPanel";
 import StatusBadge from "../components/StatusBadge";
-import { readinessTrack } from "../utils/readinessBand";
+import { readinessTrack, weakestDomainHintFromScores } from "../utils/readinessBand";
 import PracticeExamDraftResume from "../components/PracticeExamDraftResume";
+import TrustReminderStrip from "../components/TrustReminderStrip";
 import { readPracticeExamDraft } from "../utils/practiceExamDraft";
 
 const EXAMS = [
@@ -26,9 +28,13 @@ function fmtMin(n: number) {
 }
 
 export default function PracticeExamsPage() {
-  const { state, readiness, addMistakeFlashcards, bumpStudyResume } = useProgress();
+  const { state, readiness, addMistakeFlashcards, bumpStudyResume, nextStep } = useProgress();
   const attempts = state.practiceExamAttempts ?? [];
-  const track = useMemo(() => readinessTrack(readiness.score, readiness.label), [readiness.score, readiness.label]);
+  const weakestHint = useMemo(() => weakestDomainHintFromScores(state.domainScore), [state.domainScore]);
+  const track = useMemo(
+    () => readinessTrack(readiness.score, readiness.label, { weakestDomainHint: weakestHint }),
+    [readiness.score, readiness.label, weakestHint],
+  );
 
   useEffect(() => {
     bumpStudyResume({ practiceExamsHub: true });
@@ -47,31 +53,38 @@ export default function PracticeExamsPage() {
       <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
         <div className="min-w-0 space-y-8 max-w-2xl">
           <PracticeExamDraftResume />
+          <FlowPrimaryStrip>
+            <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />
+          </FlowPrimaryStrip>
           <PageHeader
             title="Practice exam hub"
-            purpose="Train like test day: Exam mode hides explanations until the end; Study mode gives feedback after each question. Misses feed weak domains and can become flashcards."
+            purpose="Pick an exam below — Exam mode saves grading for the end; Study mode checks each question."
             badge={<StatusBadge tone="accent">A · B · C</StatusBadge>}
           />
+          <TrustReminderStrip dense />
 
-          <SectionCard
-            title="Exam mode vs study mode"
-            subtitle="Pick the discipline you need today"
-          >
-            <ul className="text-sm text-slate-300 space-y-2 list-disc pl-5 leading-relaxed">
-              <li>
-                <strong className="text-white">Exam mode:</strong> no per-question grading until you finish — AI help stays off until the review screen (same discipline as the real exam).
-              </li>
-              <li>
-                <strong className="text-white">Study mode:</strong> check each answer, read the explanation, then use AI for traps and keywords.
-              </li>
-              <li>
-                <strong className="text-white">Review mistakes:</strong> after an exam attempt, open &quot;Review misses&quot; to study only what you missed.
-              </li>
-              <li>
-                <strong className="text-white">Readiness:</strong> completing exams and fixing weak domains nudges your readiness score — it is a heuristic from local progress, not a guarantee.
-              </li>
-            </ul>
-          </SectionCard>
+          <details className="rounded-2xl border border-slate-700 bg-slate-900/35 group">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-bold text-slate-100 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+              Exam vs study mode (read if unsure)
+            </summary>
+            <div className="px-4 pb-4 border-t border-slate-800 pt-3">
+              <ul className="text-sm text-slate-300 space-y-2 list-disc pl-5 leading-relaxed">
+                <li>
+                  <strong className="text-white">Exam mode:</strong> grading at the end; no AI until review.
+                </li>
+                <li>
+                  <strong className="text-white">Study mode:</strong> check each answer as you go.
+                </li>
+                <li>
+                  <strong className="text-white">Review misses:</strong> after a run, study only wrong items.
+                </li>
+                <li>
+                  <strong className="text-white">Readiness:</strong> from your practice here only — not a pass promise.
+                </li>
+              </ul>
+            </div>
+          </details>
 
           <div className="card border-slate-700 space-y-2">
             <p className="text-xs uppercase text-slate-500">Exam readiness (local)</p>
@@ -172,47 +185,56 @@ export default function PracticeExamsPage() {
             </ul>
           </div>
 
-          <SectionCard title="After a miss" subtitle="Flashcards + weak areas">
-            <p className="text-sm text-slate-400">
-              Wrong answers already nudge domain scores. Batch-create flashcards from your missed-question journal:
-            </p>
-            <button type="button" className="btn-ghost w-full sm:w-auto mt-3 text-sm" onClick={() => addMistakeFlashcards()}>
-              Convert recent misses to flashcards
-            </button>
-            <p className="text-xs text-slate-500 mt-3">
-              Playlist:{" "}
-              <a
-                href="https://www.youtube.com/playlist?list=PLG49S3nxzAnl4QDVqK-hOnoqcSKEIDDuv"
-                target="_blank"
-                rel="noreferrer"
-                className="text-emerald-400 underline"
-              >
-                Professor Messer SY0-701
-              </a>
-            </p>
-          </SectionCard>
-
-          <NextActionCard label="Next step" description="Run one exam in exam mode, then review every miss in study mode or flashcards.">
-            <Link to="/flashcards" className="btn-ghost w-full sm:w-auto text-center inline-block">
-              Open flashcards →
-            </Link>
-          </NextActionCard>
+          <details className="rounded-2xl border border-slate-700 bg-slate-900/35 group">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm text-slate-400 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+              After a miss · flashcards · playlist
+            </summary>
+            <div className="px-4 pb-4 border-t border-slate-800 pt-3 space-y-3">
+              <p className="text-sm text-slate-400">Turn recent misses into cards:</p>
+              <button type="button" className="btn-ghost w-full text-sm min-h-[44px]" onClick={() => addMistakeFlashcards()}>
+                Convert misses to flashcards
+              </button>
+              <p className="text-xs text-slate-500">
+                Playlist:{" "}
+                <a
+                  href="https://www.youtube.com/playlist?list=PLG49S3nxzAnl4QDVqK-hOnoqcSKEIDDuv"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-emerald-400 underline"
+                >
+                  Professor Messer SY0-701
+                </a>
+              </p>
+              <Link to="/flashcards" className="btn-ghost w-full text-center inline-block min-h-[44px] border border-slate-600 leading-[44px]">
+                Open flashcards
+              </Link>
+            </div>
+          </details>
         </div>
 
-        <AITutorPanel
-          className="lg:sticky lg:top-4 order-first lg:order-none"
-          context={{
-            surface: "quiz",
-            weakAreas,
-            userProgress: { readiness: readiness.score, attempts: attempts.length },
-            quiz: {
-              stem: "Practice exams hub — ask about exam strategy, timing, or how to review misses.",
-              options: [],
-              explanation: `Readiness about ${readiness.score}% (${readiness.label.replace("_", " ")}).`,
-            },
-            coachLines: [`Last attempts stored: ${attempts.length}`],
-          }}
-        />
+        <details className="rounded-2xl border border-violet-900/45 bg-violet-950/15 lg:sticky lg:top-4 group">
+          <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium text-violet-100 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+            <span className="text-violet-400/90 mr-2 group-open:rotate-90 transition-transform inline-block">▸</span>
+            Ask something (optional)
+          </summary>
+          <div className="p-2 pt-0">
+            <AITutorPanel
+              className="!border-0 rounded-xl bg-violet-950/20"
+              context={{
+                surface: "quiz",
+                weakAreas,
+                userProgress: { readiness: readiness.score, attempts: attempts.length },
+                quiz: {
+                  stem: "Practice exams hub — ask about exam strategy, timing, or how to review misses.",
+                  options: [],
+                  explanation: `Readiness about ${readiness.score}% (${readiness.label.replace("_", " ")}).`,
+                },
+                coachLines: [`Last attempts stored: ${attempts.length}`],
+              }}
+            />
+          </div>
+        </details>
       </div>
     </AppShell>
   );

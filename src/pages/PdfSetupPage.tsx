@@ -15,6 +15,10 @@ import {
 import { verifyPdfFile, type PdfVerifyResult } from "../utils/pdfFileVerifier";
 import type { PdfLocalFileMeta } from "../types/pdfLibrary";
 
+function pdfRegistryTitle(pdfId: string): string {
+  return PDF_REGISTRY.find((p) => p.id === pdfId)?.title ?? pdfId;
+}
+
 type RowState = { status: "empty" } | { status: "ok"; meta: PdfLocalFileMeta };
 type BatchRow = { kind: "ok" | "err" | "info"; text: string };
 
@@ -84,7 +88,8 @@ export default function PdfSetupPage() {
             meta: { addedAt: Date.now(), name: file.name, size: file.size },
           },
         }));
-        return `Saved: ${pdfId} (${v.confidence} confidence)`;
+        const matchedAs = pdfRegistryTitle(pdfId);
+        return `Saved "${matchedAs}" — filename match: ${v.confidence}.`;
       } catch (e) {
         const msg = e instanceof Error ? e.message : "";
         if (msg === "quota_exceeded") {
@@ -146,7 +151,7 @@ export default function PdfSetupPage() {
       await deletePdfFile(pdfId);
       await removeLocalPdfFile(pdfId);
       await refreshRows();
-      setBatchRows([{ kind: "info", text: `Removed ${pdfId} from this browser.` }]);
+      setBatchRows([{ kind: "info", text: `Removed "${pdfRegistryTitle(pdfId)}" from this browser.` }]);
     } catch {
       setBatchRows([{ kind: "err", text: "Could not remove — try again." }]);
     }
@@ -159,19 +164,19 @@ export default function PdfSetupPage() {
     <AppShell>
       <div className="max-w-3xl space-y-6">
         <PageHeader
-          title="Bring your own PDFs"
-          purpose="Add the PDFs you legally own. Files stay in this browser (IndexedDB) — never uploaded. Then open them from PDF guides beside each lesson."
+          title="Add your PDF files"
+          purpose="Drop each file in its row. Stays on this device — never uploaded."
           actions={
             <Link to="/pdf-guides" className="btn-ghost text-sm min-h-[44px] border border-slate-600">
-              PDF guides →
+              PDF study guides →
             </Link>
           }
         />
 
         {!idbOk && (
           <div className="rounded-xl border border-rose-700/50 bg-rose-950/30 p-4 text-sm text-rose-100">
-            IndexedDB is not available (common in some private modes or locked-down browsers). Use a normal window in Chrome, Edge, or Firefox,
-            or try “Choose files” after allowing site storage.
+            This browser won’t let the app save files (common in private mode or strict settings). Try a normal window in Chrome, Edge, or Firefox, or
+            allow site storage, then use “Choose files”.
           </div>
         )}
 
@@ -188,7 +193,7 @@ export default function PdfSetupPage() {
 
         {needId && (
           <p className="text-sm text-cyan-200/90 rounded-lg border border-cyan-800/40 bg-cyan-950/25 px-3 py-2">
-            Add the PDF for <span className="font-mono">{needId}</span> first, then return to the guide.
+            Add this file first — <strong className="text-cyan-100">{pdfRegistryTitle(needId)}</strong> — then go back to the guide.
           </p>
         )}
 

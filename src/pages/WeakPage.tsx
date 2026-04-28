@@ -7,6 +7,8 @@ import { getPbqTitleFromJournalQid } from "../data/pbqCatalog";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
+import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
+import ContinueButton from "../components/ContinueButton";
 import { examDomainShortTitle } from "../utils/identityPersonalization";
 
 function missLabel(m: { qid: string; lessonId: string }) {
@@ -42,37 +44,64 @@ export default function WeakPage() {
 
   const topMiss = missed[0] ? missLabel(missed[0]) : null;
 
+  const primaryRepair = useMemo(() => {
+    const m = missed[0];
+    if (!m) return null;
+    const row = missLabel(m);
+    if (row.kind === "quiz") {
+      return { href: `/pdf-guides/messer-course-notes-v107/${m.lessonId}`, label: "Fix this mistake" };
+    }
+    return { href: row.href, label: "Fix this mistake" };
+  }, [missed]);
+
   return (
     <AppShell>
       <div className="max-w-3xl space-y-6">
         <PageHeader
           title="Weak area repair"
-          purpose="Your personal fix list: turn misses into flashcards, retry the item, then follow Smart Coach — fixing patterns beats cramming."
+          purpose="One repair path at a time — start with the button below, then come back to your queue when you are ready."
         />
 
-        <SectionCard title="Pick one action now" subtitle="Three clear moves — any one moves you forward.">
+        <FlowPrimaryStrip>
+          {primaryRepair ?
+            <Link to={primaryRepair.href} className="btn w-full text-center min-h-[48px] touch-manipulation justify-center">
+              {primaryRepair.label}
+            </Link>
+          : <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />}
+        </FlowPrimaryStrip>
+
+        <SectionCard title="Other ways to repair" subtitle="Optional — the strip above is enough.">
           <div className="flex flex-col gap-2">
-            <button type="button" className="btn w-full min-h-[48px] touch-manipulation" onClick={() => addMistakeFlashcards()}>
-              1 · Turn recent quiz misses into flashcards
+            <button type="button" className="btn-ghost w-full min-h-[48px] touch-manipulation" onClick={() => addMistakeFlashcards()}>
+              Turn recent misses into flashcards
             </button>
-            {topMiss ? (
+            {topMiss ?
               <Link to={topMiss.href} className="btn-ghost w-full text-center min-h-[48px] flex items-center justify-center touch-manipulation">
-                2 · Retry your newest miss ({topMiss.kind === "quiz" ? "quiz" : topMiss.kind === "pbq" ? "PBQ" : "other"})
+                Retry your newest miss ({topMiss.kind === "quiz" ? "quiz" : topMiss.kind === "pbq" ? "PBQ" : "other"})
               </Link>
-            ) : (
-              <Link
+            : <Link
                 to="/practice-exams"
                 className="btn-ghost w-full text-center min-h-[48px] flex items-center justify-center touch-manipulation"
               >
-                2 · Run targeted practice (practice exams)
+                Run targeted practice (practice exams)
               </Link>
-            )}
+            }
             <Link to={nextStep.href} className="btn-ghost w-full text-center min-h-[48px] flex items-center justify-center touch-manipulation">
-              3 · {nextStep.buttonLabel} (Smart Coach queue)
+              {nextStep.buttonLabel} (coach queue)
             </Link>
           </div>
           <p className="text-xs text-slate-500 mt-3">You have {state.userFlashcards.length} user flashcards · {missed.length} recent miss rows shown below.</p>
         </SectionCard>
+
+        <details className="rounded-xl border border-slate-700 bg-slate-900/35 group mb-6">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-300 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+            <span className="mr-2 text-slate-500 group-open:text-emerald-400">▸</span>
+            Explain this page (optional)
+          </summary>
+          <p className="px-4 pb-4 pt-1 text-xs text-slate-500 leading-relaxed border-t border-slate-800">
+            misses → flashcards, retry same item, then follow Smart Coach — fixing patterns beats cramming.
+          </p>
+        </details>
 
         <SectionCard title="Recent misses" subtitle="Newest first — tap retry on any row">
           <ul className="text-sm space-y-3">

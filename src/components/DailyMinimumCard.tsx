@@ -33,7 +33,7 @@ export default function DailyMinimumCard({ lessonId, className = "" }: Props) {
         <li className="flex gap-2">
           <span className="text-sky-400 shrink-0">2.</span>
           <span>
-            Write <strong className="text-white">one</strong> Brain Book row (topic + what it means + one keyword).
+            Write <strong className="text-white">one</strong> short note in Brain Book (topic + what it means + one exam keyword).
           </span>
         </li>
         <li className="flex gap-2">

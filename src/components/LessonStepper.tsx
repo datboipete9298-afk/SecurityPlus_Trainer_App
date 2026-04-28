@@ -25,7 +25,7 @@ type Props = {
 export default function LessonStepper({ lessonId, p, hasLab, labDone, handsOnComplete, nextHref }: Props) {
   const done = (k: keyof LessonProgress) => !!p[k];
   return (
-    <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
+    <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4" aria-label={`Lesson checklist for section ${lessonId}`}>
       <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-2">Checklist (ties to the same 8-step pipeline as the coach)</p>
       <p className="text-xs text-slate-500 mb-3">Watch → highlight → understand → apply → test → recall → track → next lesson</p>
       <ol className="flex flex-wrap gap-2 text-xs">
@@ -62,7 +62,6 @@ export default function LessonStepper({ lessonId, p, hasLab, labDone, handsOnCom
           </li>
         )}
       </ol>
-      <p className="text-[10px] text-slate-600 mt-2">Lesson: {lessonId}</p>
     </div>
   );
 }
