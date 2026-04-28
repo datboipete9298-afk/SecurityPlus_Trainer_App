@@ -71,6 +71,12 @@ export type AITutorPanelContext = {
       };
   sim?: { title: string; narrative?: string; lastChoice?: string; wasGood?: boolean };
   coachLines?: string[];
+  /** Video + note fusion — Professor Messer pause loop + hooks */
+  videoFusion?: {
+    pausePrompt: string;
+    sectionLabel: string;
+    highlightTargets: string[];
+  };
   /** When set (PDF guided lesson view), tutor prompts include section + user highlights */
   pdfGuide?: {
     pdfId: string;
@@ -314,6 +320,36 @@ export default function AITutorPanel({ context, variant = "full", className }: P
       sim: new Set(["I’m stuck (lab)", "Explain step", "Why it matters", "What to notice", "On the exam"]),
       dashboard: new Set(["Explain simpler", "Real-world example", "Quiz me", "Summarize lesson", "Exam will ask…"]),
     };
+    const videoExtras =
+      context.videoFusion ?
+        [
+          {
+            label: "Explain what Messer just said" as const,
+            mode: "explain" as const,
+            q: `I'm on pause: "${context.videoFusion.pausePrompt}" for ${context.videoFusion.sectionLabel}. Explain the main idea in plain words (Security+ exam angle).`,
+          },
+          {
+            label: "What should I write down?" as const,
+            mode: "tutor" as const,
+            q: `At this pause "${context.videoFusion.pausePrompt}", what is the single best Brain Book line (keyword + tight meaning)? Targets: ${context.videoFusion.highlightTargets.slice(0, 4).join(", ")}.`,
+          },
+          {
+            label: "Make this note better" as const,
+            mode: "note-feedback" as const,
+            q: "Improve my video-study draft: remove copy-paste tone, add exam keyword, shorten to one retrieval line.",
+          },
+          {
+            label: "Quiz me from this part" as const,
+            mode: "tutor" as const,
+            q: `One SY0-701 style MCQ from this pause context and highlights: ${context.videoFusion.highlightTargets.slice(0, 4).join("; ")} — then give answer + one-line why.`,
+          },
+          {
+            label: "What will the exam ask?" as const,
+            mode: "tutor" as const,
+            q: `For "${context.videoFusion.sectionLabel}", what stem pattern and trap is most likely?`,
+          },
+        ]
+      : [];
     const pdfExtras =
       context.pdfGuide ?
         [
@@ -348,8 +384,8 @@ export default function AITutorPanel({ context, variant = "full", className }: P
         ]
       : [];
     const set = labelsBySurface[context.surface];
-    return [...quick.filter((x) => set.has(x.label)), ...pdfExtras];
-  }, [context.surface, context.pdfGuide, quick]);
+    return [...videoExtras, ...quick.filter((x) => set.has(x.label)), ...pdfExtras];
+  }, [context.surface, context.pdfGuide, context.videoFusion, quick]);
 
   const title = variant === "compact" ? "Study tutor" : "Study tutor (optional AI)";
   const expanded = isLg || mobileCoachOpen;

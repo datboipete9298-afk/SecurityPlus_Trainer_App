@@ -9,6 +9,8 @@ import CheckpointPanel from "../components/pdfGuide/CheckpointPanel";
 import PdfCoachPanel from "../components/pdfGuide/PdfCoachPanel";
 import VoiceExplainPanel from "../components/pdfGuide/VoiceExplainPanel";
 import LocalPdfOpenButton from "../components/pdfGuide/LocalPdfOpenButton";
+import { getVideoForLesson } from "../data/videoMap";
+import VideoStudyMode from "../components/video/VideoStudyMode";
 import { getPdfRegistryEntry } from "../data/pdfRegistry";
 import { getPdfGuideSection, pdfGuideSectionKey } from "../data/pdfGuides";
 import { getPdfPageMapEntry } from "../data/pdfGuides/pdfPageMap";
@@ -47,6 +49,7 @@ export default function PdfLessonGuidePage() {
   const [quizReveal, setQuizReveal] = useState(false);
   const [flashFront, setFlashFront] = useState("");
   const [flashBack, setFlashBack] = useState("");
+  const vid = useMemo(() => getVideoForLesson(lessonId), [lessonId]);
   const mq = guide?.miniQuiz?.[quizI];
 
   useEffect(() => {
@@ -154,6 +157,30 @@ export default function PdfLessonGuidePage() {
               : <p className="mt-1">{guide.locatorHint}</p>}
             </details>
           </section>
+
+          {L?.hasFullContent && vid.embedUrl ?
+            <div className="rounded-2xl border border-emerald-800/35 bg-emerald-950/10 p-2 sm:p-3">
+              <VideoStudyMode
+                dense
+                showTutorPanel={false}
+                lessonId={lessonId}
+                lesson={L}
+                variant="pdf-guide"
+                embedUrl={vid.embedUrl}
+                videoTitle={vid.videoTitle}
+                youtubeUrl={vid.youtubeUrl}
+                professorMesserPageUrl={vid.professorMesserPageUrl}
+                estimatedWatchTimeMin={vid.estimatedWatchTimeMin ?? null}
+                needsVideoUrl={!!vid.needsVideoUrl}
+                pdfGuideHref={`/watch/${lessonId}`}
+                pdfGuideButtonLabel="Open guided watch (fusion layout)"
+                pdfSearchPhrase={searchPhrase}
+                pdfGuideEyebrow="Same section — hear it, pause, jot one hook, then match it in PDF."
+                continueHref={`/quiz/${lessonId}`}
+                continueLabel="Lesson quiz → verify recall"
+              />
+            </div>
+          : null}
 
           <div className="flex flex-wrap gap-2">
             <Link to={`/lesson/${lessonId}`} className="btn-ghost text-sm min-h-[44px]">

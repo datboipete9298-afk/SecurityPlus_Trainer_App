@@ -13,6 +13,7 @@ import {
   type UserConfidenceLevel,
   emptyFeedbackLoop,
   type EliteLabPortfolioEntry,
+  type VideoStudyStats,
 } from "../utils/storage";
 import { ensureDomainDayBaseline } from "../utils/identityReinforcement";
 import {
@@ -109,6 +110,17 @@ type Ctx = {
   takeExtensionIdentity: (bucket: OutsideIdentityBucket) => boolean;
   /** Update global “resume” pointers (flashcards lesson filter, etc.) */
   bumpStudyResume: (patch: StudyResumePatch) => void;
+  /** Video + note fusion telemetry (Progress page + resume pointers) */
+  recordVideoFusionActivity: (
+    lessonId: string,
+    kind:
+      | "note_saved"
+      | "fusion_loop_complete"
+      | "quick_check_pass"
+      | "quick_check_wrong"
+      | "flashcard_from_note",
+    meta?: { notePreview?: string; qid?: string },
+  ) => void;
   /** PDF guided study (per section key pdfId::lessonId) */
   touchPdfGuideSession: (pdfId: string, lessonId: string) => void;
   addPdfHighlight: (pdfId: string, lessonId: string, snippet: string) => void;
@@ -202,6 +214,74 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       lastAcknowledgedStreakMilestone: Math.max(s.lastAcknowledgedStreakMilestone ?? 0, m),
     }));
   }, []);
+
+  const recordVideoFusionActivity = useCallback(
+    (
+      lessonId: string,
+      kind:
+        | "note_saved"
+        | "fusion_loop_complete"
+        | "quick_check_pass"
+        | "quick_check_wrong"
+        | "flashcard_from_note",
+      meta?: { notePreview?: string; qid?: string },
+    ) => {
+      const def = defaultState().videoStudyStats!;
+      setState((s) => {
+        const base = s.videoStudyStats ?? { ...def };
+        let nextStats: VideoStudyStats = { ...base };
+        switch (kind) {
+          case "note_saved":
+            nextStats = {
+              ...nextStats,
+              notesFromVideoFusion: nextStats.notesFromVideoFusion + 1,
+              lastFusionLessonId: lessonId,
+              lastFusionNotePreview: meta?.notePreview?.slice(0, 200),
+            };
+            break;
+          case "fusion_loop_complete":
+            nextStats = {
+              ...nextStats,
+              fusionSessionsCompleted: nextStats.fusionSessionsCompleted + 1,
+              lastFusionLessonId: lessonId,
+            };
+            break;
+          case "quick_check_pass":
+            nextStats = {
+              ...nextStats,
+              videoQuickChecksPassed: nextStats.videoQuickChecksPassed + 1,
+              lastFusionLessonId: lessonId,
+              lastVideoQuickCheckQid: meta?.qid ?? nextStats.lastVideoQuickCheckQid,
+            };
+            break;
+          case "quick_check_wrong":
+            nextStats = {
+              ...nextStats,
+              videoQuickChecksWrong: nextStats.videoQuickChecksWrong + 1,
+              lastFusionLessonId: lessonId,
+              lastVideoQuickCheckQid: meta?.qid ?? nextStats.lastVideoQuickCheckQid,
+            };
+            break;
+          case "flashcard_from_note":
+            nextStats = {
+              ...nextStats,
+              flashcardsFromVideoNotes: nextStats.flashcardsFromVideoNotes + 1,
+              lastFusionLessonId: lessonId,
+            };
+            break;
+          default:
+            break;
+        }
+        const touched = { ...s, videoStudyStats: nextStats };
+        if (kind === "note_saved" || kind === "fusion_loop_complete") {
+          return applyStudyResumeAndEngagement(touched, { videoNotesLessonId: lessonId });
+        }
+        return touched;
+      });
+      if (kind === "fusion_loop_complete") bumpSessionProgressSignals(1);
+    },
+    [bumpSessionProgressSignals],
+  );
 
   const takeExtensionIdentity = useCallback((bucket: OutsideIdentityBucket): boolean => {
     let allowed = false;
@@ -888,6 +968,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       sessionProgressSignals,
       takeExtensionIdentity,
       bumpStudyResume,
+      recordVideoFusionActivity,
       touchPdfGuideSession,
       addPdfHighlight,
       removePdfHighlight,
@@ -940,6 +1021,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       sessionProgressSignals,
       takeExtensionIdentity,
       bumpStudyResume,
+      recordVideoFusionActivity,
       touchPdfGuideSession,
       addPdfHighlight,
       removePdfHighlight,

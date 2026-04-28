@@ -18,7 +18,8 @@
     "validate:pdf-upload": "tsx scripts/validate-pdf-upload-system.ts",
     "validate:ai": "node scripts/validate-ai-system.mjs",
     "validate:ai-integration": "node scripts/validate-ai-integration.mjs",
-    "build": "npm run validate:data && npm run validate:feedback && npm run validate:training && npm run validate:elite-labs && npm run validate:videos && npm run validate:pdf-guides && npm run validate:pdf-upload && tsc -b && vite build",
+    "validate:video-notes": "tsx scripts/validate-video-note-system.ts",
+    "build": "npm run validate:data && npm run validate:feedback && npm run validate:training && npm run validate:elite-labs && npm run validate:videos && npm run validate:pdf-guides && npm run validate:pdf-upload && npm run validate:video-notes && tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },

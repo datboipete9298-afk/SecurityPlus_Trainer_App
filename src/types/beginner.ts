@@ -24,6 +24,16 @@ export interface LessonProgress {
   videoWatchedAt?: number;
   highlightsDone?: boolean;
   notesSaved?: boolean;
+  /** Watch + pause + one note + quick check (VideoStudyMode) */
+  videoFusionChecklist?: {
+    paused?: boolean;
+    wroteOneNote?: boolean;
+    saidAloud?: boolean;
+    /** Submitted a quick-check answer (right or wrong) */
+    quickCheckAttempted?: boolean;
+    /** Selected the correct option */
+    quickCheckPassed?: boolean;
+  };
   /** In-lesson “quick action” (safe, local) acknowledged */
   quickActionDone?: boolean;
   quizCompleted?: boolean;

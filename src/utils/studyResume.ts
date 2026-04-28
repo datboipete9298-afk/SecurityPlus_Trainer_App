@@ -40,11 +40,16 @@ export type StudyResumeState = {
   pdfGuideLessonId?: string;
   pdfGuideSectionTitle?: string;
   pdfGuideAt?: number;
+  /** Video + note fusion — continue at `/watch/:id` */
+  videoNotesLessonId?: string;
+  videoNotesAt?: number;
 };
 
 export type StudyResumePatch = {
   lessonId?: string;
   watchLessonId?: string;
+  /** Sets video-notes resume pointer (watch route, fusion copy) */
+  videoNotesLessonId?: string;
   quizLessonId?: string;
   flashcardsLesson?: string | null;
   pbqId?: string;
@@ -87,7 +92,8 @@ function patchHasResumeFields(patch: StudyResumePatch): boolean {
     patch.progressPage !== undefined ||
     patch.search !== undefined ||
     patch.import !== undefined ||
-    (patch.pdfGuidePdfId !== undefined && patch.pdfGuideLessonId !== undefined)
+    (patch.pdfGuidePdfId !== undefined && patch.pdfGuideLessonId !== undefined) ||
+    patch.videoNotesLessonId !== undefined
   );
 }
 
@@ -159,6 +165,10 @@ export function applyStudyResumeAndEngagement(s: PersistedState, patch: StudyRes
     next.pdfGuideLessonId = patch.pdfGuideLessonId;
     next.pdfGuideSectionTitle = patch.pdfGuideSectionTitle ?? prev.pdfGuideSectionTitle;
     next.pdfGuideAt = now;
+  }
+  if (patch.videoNotesLessonId !== undefined) {
+    next.videoNotesLessonId = patch.videoNotesLessonId;
+    next.videoNotesAt = now;
   }
   return { ...base, studyResume: next };
 }
@@ -250,15 +260,42 @@ export function buildResumeLinkList(
       at: sr.lessonAt,
     });
   }
-  if (sr.watchLessonId && sr.watchAt) {
-    const t = lessons[sr.watchLessonId]?.title ?? sr.watchLessonId;
+  const vnl = sr.videoNotesLessonId;
+  const vna = sr.videoNotesAt;
+  const wId = sr.watchLessonId;
+  const wa = sr.watchAt;
+  const sameVnWatch = vnl && wId && vnl === wId && vna && wa;
+  if (sameVnWatch) {
+    const t = lessons[vnl]?.title ?? vnl;
+    const vnNewer = vna >= wa;
     items.push({
       kind: "watch",
-      typeLabel: "Watch",
-      label: `Continue watching: ${t}`,
-      to: `/watch/${sr.watchLessonId}`,
-      at: sr.watchAt,
+      typeLabel: vnNewer ? "Video notes" : "Watch",
+      label: vnNewer ? `Continue video notes: ${t}` : `Continue watching: ${t}`,
+      to: `/watch/${vnl}`,
+      at: Math.max(vna, wa),
     });
+  } else {
+    if (vnl && vna) {
+      const t = lessons[vnl]?.title ?? vnl;
+      items.push({
+        kind: "watch",
+        typeLabel: "Video notes",
+        label: `Continue video notes: ${t}`,
+        to: `/watch/${vnl}`,
+        at: vna,
+      });
+    }
+    if (wId && wa && !(vnl && vnl === wId)) {
+      const t = lessons[wId]?.title ?? wId;
+      items.push({
+        kind: "watch",
+        typeLabel: "Watch",
+        label: `Continue watching: ${t}`,
+        to: `/watch/${wId}`,
+        at: wa,
+      });
+    }
   }
   if (sr.quizLessonId && sr.quizAt) {
     const t = lessons[sr.quizLessonId]?.title ?? sr.quizLessonId;

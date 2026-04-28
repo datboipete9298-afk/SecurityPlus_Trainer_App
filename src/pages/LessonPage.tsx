@@ -10,7 +10,6 @@ import type { BrainNote } from "../types";
 import { isLessonProgressComplete, isSimpleLessonProgressComplete } from "../types/beginner";
 import { isLessonHandsOnComplete } from "../core/trainingProgress";
 import TrainingPlatformBlock from "../components/training/TrainingPlatformBlock";
-import VideoEmbed from "../components/VideoEmbed";
 import LessonStepper from "../components/LessonStepper";
 import ExplainSimplerModal from "../components/ExplainSimplerModal";
 import GlossaryChips from "../components/GlossaryChips";
@@ -33,6 +32,8 @@ import DailyMinimumCard from "../components/DailyMinimumCard";
 import { flashExtensionIdentityForDashboard } from "../utils/outsideQuizIdentity";
 import { buildLessonCompleteIdentityLine } from "../utils/identityPersonalization";
 import TrustReminderStrip from "../components/TrustReminderStrip";
+import VideoStudyMode, { type PauseContextPayload } from "../components/video/VideoStudyMode";
+import { buildPausePromptPoolFromLesson } from "../utils/pausePrompts";
 
 export default function LessonPage() {
   const { id } = useParams();
@@ -76,6 +77,8 @@ export default function LessonPage() {
   const [encourageMsg, setEncourageMsg] = useState<string | null>(null);
   const [showFullDetail, setShowFullDetail] = useState(false);
   const [noteAiMsg, setNoteAiMsg] = useState<string | null>(null);
+  /** Mirrors VideoStudyMode’s active pause so the sidebar tutor matches the on-page prompt. */
+  const [fusionPauseCtx, setFusionPauseCtx] = useState<PauseContextPayload | null>(null);
 
   useEffect(() => {
     t0.current = Date.now();
@@ -89,6 +92,10 @@ export default function LessonPage() {
   useEffect(() => {
     setFlowStep(1);
   }, [id]);
+
+  useEffect(() => {
+    if (!state.simpleLessonMode && flowStep !== 1) setFusionPauseCtx(null);
+  }, [state.simpleLessonMode, flowStep]);
 
   const noteIntel = useMemo(
     () => (L && L.hasFullContent ? getLessonNoteIntelligence(L) : emptyLessonNoteIntelligence()),
@@ -167,6 +174,17 @@ export default function LessonPage() {
   );
 
   const hb = getHighlightBuckets(L);
+  const lessonPageVideoFusion = useMemo(() => {
+    if (!L.hasFullContent) return undefined;
+    if (!state.simpleLessonMode && flowStep !== 1) return undefined;
+    const first = buildPausePromptPoolFromLesson(L)[0];
+    const live = fusionPauseCtx?.item;
+    return {
+      pausePrompt: live?.prompt ?? first?.prompt ?? "Pause the video once and write what matters most for the exam.",
+      sectionLabel: `${L.title}${L.sectionNumber ? ` (${L.sectionNumber})` : ""}`,
+      highlightTargets: hb.mustHighlight.map((x) => x.replace(/\*\*/g, "")).slice(0, 8),
+    };
+  }, [L, state.simpleLessonMode, flowStep, fusionPauseCtx, hb]);
   const aiLessonCtx = useMemo(
     () => ({
       id,
@@ -282,8 +300,6 @@ export default function LessonPage() {
     nav("/");
   };
 
-  const twoHooks = hb.mustHighlight.slice(0, 2);
-
   const block = (k: (typeof LESSON_BLOCK_ORDER)[number]["key"]) => LESSON_BLOCK_ORDER.find((b) => b.key === k);
   const titleOf = (k: (typeof LESSON_BLOCK_ORDER)[number]["key"]) => {
     const b0 = block(k);
@@ -382,76 +398,36 @@ export default function LessonPage() {
             <PageHeader
               eyebrow={`Domain ${L.domain}${L.sectionNumber ? ` · Section ${L.sectionNumber}` : ""}`}
               title={L.title}
-              purpose="Watch → two hooks → one note → quick quiz."
+              purpose="Fusion watch: video → one pause → one note → quick check — then finish the actions and quiz below."
             />
-            <section className="card border-cyan-800/35 space-y-4">
-              <h2 className="text-cyan-300 font-bold text-sm uppercase">Watch</h2>
-              <VideoEmbed embedUrl={vMeta.embedUrl} title={vMeta.videoTitle} />
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="btn text-sm touch-manipulation"
-                  onClick={() => {
-                    patchLessonProgress(id, { videoWatched: true, videoWatchedAt: Date.now() });
-                    setEncourageMsg("Nice — video step done.");
-                    window.setTimeout(() => setEncourageMsg(null), 3500);
-                  }}
-                >
-                  Mark video watched
-                </button>
-                {vMeta.youtubeUrl && (
-                  <a href={vMeta.youtubeUrl} className="btn-ghost text-sm" target="_blank" rel="noreferrer">
-                    Open on YouTube
-                  </a>
-                )}
-              </div>
-            </section>
-            <section className="card border-amber-800/35 space-y-3">
-              <h2 className="text-amber-200 font-bold text-sm uppercase">Two hooks to remember</h2>
-              <p className="text-xs text-slate-500">Copy these to your notes — that is enough for this pass.</p>
-              <ul className="list-disc pl-5 text-sm text-slate-200 space-y-2">
-                {twoHooks.length ? twoHooks.map((x, i) => <li key={i}>{x.replace(/\*\*/g, "")}</li>) : <li className="text-slate-500">Open the full lesson for the full MUST list.</li>}
-              </ul>
-              <button
-                type="button"
-                className="btn text-sm touch-manipulation"
-                onClick={() => {
-                  patchLessonProgress(id, { highlightsDone: true });
-                  seedHighlightMemory(id);
-                  setEncourageMsg("Great — highlights checked off.");
-                  window.setTimeout(() => setEncourageMsg(null), 3500);
-                }}
-              >
-                I saved these hooks in my notes
-              </button>
-            </section>
-            <section className="card border-violet-800/35 space-y-3">
-              <h2 className="text-violet-200 font-bold text-sm uppercase">One note</h2>
-              <p className="text-xs text-slate-400">{noteIntel.writeThisDown || "One row: topic, plain meaning, one exam keyword."}</p>
-              <div className="grid gap-2 text-sm">
-                <input
-                  className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2"
-                  placeholder="Topic"
-                  value={note.topic}
-                  onChange={(e) => setNote((n) => ({ ...n, topic: e.target.value }))}
-                />
-                <input
-                  className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2"
-                  placeholder="What it means (simple)"
-                  value={note.whatItMeans}
-                  onChange={(e) => setNote((n) => ({ ...n, whatItMeans: e.target.value }))}
-                />
-                <input
-                  className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2"
-                  placeholder="Exam keyword"
-                  value={note.examKeyword}
-                  onChange={(e) => setNote((n) => ({ ...n, examKeyword: e.target.value }))}
-                />
-                <button type="button" className="btn-ghost text-sm touch-manipulation" disabled={notes.length >= 5 || notesToday >= 10} onClick={saveBrain}>
-                  Save note row
-                </button>
-              </div>
-              {noteAiMsg && <p className="text-xs text-cyan-200/90">{noteAiMsg}</p>}
+            <section className="card border-cyan-800/35 space-y-4" id="lesson-simple-fusion">
+              <h2 className="text-cyan-300 font-bold text-sm uppercase">Watch · pause · prove it</h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Same fusion strip as guided watch:{" "}
+                <strong className="text-slate-300">watch first</strong>, pause on the cue, save one retrieval note, then answer the quick check. Expand the tutor below only if you want AI help —
+                it hears the pause line you see on screen.
+              </p>
+              <VideoStudyMode
+                minimal
+                variant="lesson-step"
+                lessonId={id}
+                lesson={L}
+                embedUrl={vMeta.embedUrl}
+                videoTitle={vMeta.videoTitle}
+                youtubeUrl={vMeta.youtubeUrl}
+                professorMesserPageUrl={vMeta.professorMesserPageUrl}
+                estimatedWatchTimeMin={vMeta.estimatedWatchTimeMin ?? null}
+                needsVideoUrl={!!vMeta.needsVideoUrl}
+                continueHref={`/quiz/${id}?quick=3`}
+                continueLabel="Continue to quick quiz →"
+                pdfGuideHref={hasMesserNotesPdf ? messerPdfGuideHref : undefined}
+                pdfSearchPhrase={L.title}
+                pdfGuideEyebrow={
+                  hasMesserNotesPdf ? "Your Messer notes PDF is on file — optional link below." : undefined
+                }
+                showTutorPanel={false}
+                onPauseContextChange={setFusionPauseCtx}
+              />
             </section>
             <section className="card border-slate-700 space-y-3">
               <h2 className="text-slate-200 font-bold text-sm uppercase">Do this once</h2>
@@ -515,7 +491,8 @@ export default function LessonPage() {
                   weakAreas,
                   noteDraft: note,
                   noteHeuristic: draftAnalysis.messages,
-                  coachLines: ["Simple mode: video → two hooks → one note → action → 3-question quiz."],
+                  coachLines: ["Simple fusion: same pause prompt as above — tutor matches what you paused on."],
+                  videoFusion: lessonPageVideoFusion,
                 }}
               />
             </div>
@@ -708,7 +685,25 @@ export default function LessonPage() {
         </div>
 
         <div id="lesson-step1-video" className="scroll-mt-28 mt-4">
-          <VideoEmbed embedUrl={vMeta.embedUrl} title={vMeta.videoTitle} />
+          <VideoStudyMode
+            dense
+            showTutorPanel={false}
+            lessonId={id}
+            lesson={L}
+            variant="lesson-step"
+            embedUrl={vMeta.embedUrl}
+            videoTitle={vMeta.videoTitle}
+            youtubeUrl={vMeta.youtubeUrl}
+            professorMesserPageUrl={vMeta.professorMesserPageUrl}
+            estimatedWatchTimeMin={vMeta.estimatedWatchTimeMin ?? null}
+            needsVideoUrl={!!vMeta.needsVideoUrl}
+            continueHref={`/watch/${id}`}
+            continueLabel="Guided watch · pause + note →"
+            pdfGuideHref={messerPdfGuideHref}
+            pdfSearchPhrase={L.title}
+            pdfGuideEyebrow={hasMesserNotesPdf ? "Your Messer notes PDF is on file — search matches this file." : "Add your PDF in PDF setup to align search + highlights."}
+            onPauseContextChange={setFusionPauseCtx}
+          />
         </div>
         <ul className="mt-3 space-y-1 text-sm text-slate-300 list-disc pl-4">
           <li>Skim the first 2 minutes, then watch with pauses for highlights in step 2.</li>
@@ -1441,6 +1436,7 @@ export default function LessonPage() {
                 noteDraft: note,
                 noteHeuristic: draftAnalysis.messages,
                 coachLines: [...antiPassive, ...draftAnalysis.messages].slice(0, 6),
+                videoFusion: lessonPageVideoFusion,
               }}
             />
           </div>

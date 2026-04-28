@@ -138,6 +138,42 @@ export default function ProgressPage() {
 
           <DailyMinimumCard lessonId={nextLesson ?? undefined} />
 
+          <SectionCard title="Video + note fusion" subtitle="Professor Messer watch column (guided pause → one note → quick check)">
+            <ul className="text-sm text-slate-300 space-y-2">
+              <li>
+                <strong className="text-white">{state.videoStudyStats?.fusionSessionsCompleted ?? 0}</strong> video study loops tied off
+              </li>
+              <li>
+                <strong className="text-white">{state.videoStudyStats?.notesFromVideoFusion ?? 0}</strong> video notes (notes you created while watching in fusion mode)
+              </li>
+              <li>
+                <strong className="text-white">{state.videoStudyStats?.flashcardsFromVideoNotes ?? 0}</strong> user flashcards from video notes
+              </li>
+              <li className="text-slate-400">
+                Quick checks:&nbsp;
+                <strong className="text-emerald-300">{state.videoStudyStats?.videoQuickChecksPassed ?? 0}</strong>
+                {" passed · "}
+                <strong className="text-amber-200/95">{state.videoStudyStats?.videoQuickChecksWrong ?? 0}</strong>
+                {" missed"}
+              </li>
+            </ul>
+            {state.videoStudyStats?.lastFusionLessonId && (
+              <p className="text-xs text-slate-500 mt-2">
+                Last fusion lesson:{" "}
+                <span className="text-slate-300 font-mono">{state.videoStudyStats.lastFusionLessonId}</span>
+                {state.videoStudyStats.lastFusionNotePreview ?
+                  <span className="block mt-1 text-slate-400 break-words">{state.videoStudyStats.lastFusionNotePreview}</span>
+                : null}
+              </p>
+            )}
+            <Link
+              to={`/watch/${state.videoStudyStats?.lastFusionLessonId ?? nextLesson ?? ORDERED_LESSON_IDS[0]!}`}
+              className="btn-ghost mt-4 w-full text-center inline-block text-sm min-h-[44px] touch-manipulation"
+            >
+              Continue video notes →
+            </Link>
+          </SectionCard>
+
           <SectionCard title="Optional cloud sync (design)" subtitle="Not required — local-first stays default">
             <p className="text-sm text-slate-300 leading-relaxed">
               The app is built so <strong className="text-white">no login is required</strong> and everything works offline-capable in the browser. A future optional sync could let you save encrypted progress to your own account or a passkey — with{" "}

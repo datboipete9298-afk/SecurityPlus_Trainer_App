@@ -1,7 +1,19 @@
 import type { DomainId } from "../types";
 
 const KEY = "spt_v1_state";
-const SCHEMA_VERSION = 12 as const;
+const SCHEMA_VERSION = 13 as const;
+
+/** Aggregated video + note fusion activity (local only) */
+export type VideoStudyStats = {
+  fusionSessionsCompleted: number;
+  notesFromVideoFusion: number;
+  flashcardsFromVideoNotes: number;
+  videoQuickChecksPassed: number;
+  videoQuickChecksWrong: number;
+  lastFusionLessonId?: string;
+  lastFusionNotePreview?: string;
+  lastVideoQuickCheckQid?: string;
+};
 
 export type UserConfidenceLevel = "not_sure" | "somewhat_sure" | "very_sure" | "skipped";
 
@@ -125,6 +137,8 @@ export interface PersistedState {
   pdfLibrary?: import("../types/pdfLibrary").PdfLibraryProgress;
   /** Elite Lab Factory — structured portfolio rows (key: `lessonId::labId`) */
   eliteLabPortfolio?: Record<string, EliteLabPortfolioEntry>;
+  /** Video + note fusion — aggregate telemetry (Progress page, local only) */
+  videoStudyStats?: VideoStudyStats;
 }
 
 export type TodayActivity = {
@@ -201,6 +215,13 @@ const defaultState = (): PersistedState => ({
   lastAcknowledgedStreakMilestone: 0,
   pdfLibrary: { bySection: {}, localFileMeta: {} },
   eliteLabPortfolio: {},
+  videoStudyStats: {
+    fusionSessionsCompleted: 0,
+    notesFromVideoFusion: 0,
+    flashcardsFromVideoNotes: 0,
+    videoQuickChecksPassed: 0,
+    videoQuickChecksWrong: 0,
+  },
 });
 
 function migrateAndNormalize(base: PersistedState, raw: unknown): PersistedState {
@@ -323,11 +344,12 @@ function migrateAndNormalize(base: PersistedState, raw: unknown): PersistedState
       "searchAt",
       "importPageAt",
       "pdfGuideAt",
+      "videoNotesAt",
     ] as const;
     for (const k of nums) {
       if (r[k] != null && typeof r[k] !== "number") delete r[k];
     }
-    const strs = ["watchLessonId", "practiceExamId", "bossId", "pdfGuidePdfId", "pdfGuideLessonId", "pdfGuideSectionTitle"] as const;
+    const strs = ["watchLessonId", "practiceExamId", "bossId", "pdfGuidePdfId", "pdfGuideLessonId", "pdfGuideSectionTitle", "videoNotesLessonId"] as const;
     for (const k of strs) {
       if (r[k] != null && typeof r[k] !== "string") delete r[k];
     }
@@ -375,6 +397,23 @@ function migrateAndNormalize(base: PersistedState, raw: unknown): PersistedState
       };
     }
     o.eliteLabPortfolio = cleaned;
+  }
+
+  const defVs = base.videoStudyStats!;
+  if (!o.videoStudyStats || typeof o.videoStudyStats !== "object") {
+    o.videoStudyStats = { ...defVs };
+  } else {
+    const v = o.videoStudyStats as Partial<VideoStudyStats>;
+    o.videoStudyStats = {
+      fusionSessionsCompleted: typeof v.fusionSessionsCompleted === "number" ? v.fusionSessionsCompleted : defVs.fusionSessionsCompleted,
+      notesFromVideoFusion: typeof v.notesFromVideoFusion === "number" ? v.notesFromVideoFusion : defVs.notesFromVideoFusion,
+      flashcardsFromVideoNotes: typeof v.flashcardsFromVideoNotes === "number" ? v.flashcardsFromVideoNotes : defVs.flashcardsFromVideoNotes,
+      videoQuickChecksPassed: typeof v.videoQuickChecksPassed === "number" ? v.videoQuickChecksPassed : defVs.videoQuickChecksPassed,
+      videoQuickChecksWrong: typeof v.videoQuickChecksWrong === "number" ? v.videoQuickChecksWrong : defVs.videoQuickChecksWrong,
+      lastFusionLessonId: typeof v.lastFusionLessonId === "string" ? v.lastFusionLessonId : undefined,
+      lastFusionNotePreview: typeof v.lastFusionNotePreview === "string" ? v.lastFusionNotePreview : undefined,
+      lastVideoQuickCheckQid: typeof v.lastVideoQuickCheckQid === "string" ? v.lastVideoQuickCheckQid : undefined,
+    };
   }
 
   if (!o.pdfLibrary || typeof o.pdfLibrary !== "object") {
