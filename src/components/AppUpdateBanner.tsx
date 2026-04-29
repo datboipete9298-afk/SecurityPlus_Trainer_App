@@ -47,14 +47,14 @@ export default function AppUpdateBanner() {
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          className="btn text-sm min-h-[40px] touch-manipulation"
+          className="btn text-sm min-h-[44px] touch-manipulation"
           onClick={reload}
         >
           Reload now
         </button>
         <button
           type="button"
-          className="btn-ghost text-sm min-h-[40px] touch-manipulation border border-slate-700"
+          className="btn-ghost text-sm min-h-[44px] touch-manipulation border border-slate-700"
           onClick={() => setShow(false)}
         >
           Later

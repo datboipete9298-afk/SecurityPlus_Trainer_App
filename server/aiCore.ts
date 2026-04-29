@@ -51,6 +51,7 @@ export type AskTutorInput = {
   noteContext?: Record<string, unknown> | null;
   labContext?: Record<string, unknown> | null;
   pdfGuideContext?: Record<string, unknown> | null;
+  localPdfSnippets?: { fileName: string; pageIndex: number; excerpt: string }[] | null;
   simpleMode?: boolean;
 };
 
@@ -85,6 +86,7 @@ export async function askTutor(input: AskTutorInput): Promise<AiTutorResponse> {
     noteContext: input.noteContext ?? undefined,
     labContext: input.labContext ?? undefined,
     pdfGuideContext: input.pdfGuideContext ?? undefined,
+    localPdfSnippets: input.localPdfSnippets ?? undefined,
     userQuestion: sq.text || undefined,
   };
 

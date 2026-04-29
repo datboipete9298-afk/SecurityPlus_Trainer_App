@@ -24,7 +24,7 @@ export default function PdfGuideHubPage() {
           Your PDF stays on this device. Add it once under <strong className="text-slate-300">Add PDF files</strong> if you haven’t.
         </p>
         <p className="text-xs text-cyan-200/85 rounded-lg border border-cyan-800/35 bg-cyan-950/20 px-3 py-2 leading-relaxed">
-          <strong className="text-cyan-100">Do this:</strong> open PDF → find the section → highlight what we list → write one note → tap Continue on Home.
+          <strong className="text-cyan-100">Do this:</strong> open PDF → find the section → highlight what we list → write one note → tap <strong className="text-cyan-50">Do this next</strong> on Home.
         </p>
         <ul className="space-y-3 list-none">
           {PDF_REGISTRY.map((p) => {

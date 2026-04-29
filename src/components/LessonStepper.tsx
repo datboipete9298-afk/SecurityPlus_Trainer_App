@@ -57,7 +57,7 @@ export default function LessonStepper({ lessonId, p, hasLab, labDone, handsOnCom
         {nextHref && (
           <li className="rounded-lg px-2 py-1 border border-violet-600/50 text-violet-200">
             <Link to={nextHref} className="hover:underline">
-              7. Next
+              7. Next lesson →
             </Link>
           </li>
         )}

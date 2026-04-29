@@ -98,13 +98,13 @@ export function getLessonDoNowHint(
     return {
       headline: "Say it aloud",
       detail: "One breath summary in the teach-back box locks transfer.",
-      then: "Mark lesson complete → Home refreshes Continue.",
+      then: "Mark lesson complete → Home refreshes your next move.",
     };
   }
   return {
     headline: "Wrap up",
     detail: "You’ve ticked each pipeline step — polish anything that still feels fuzzy.",
-    then: "Tap Complete, then Continue on Home chooses your next Messer-aligned move.",
+    then: "Tap Complete, then Do this next on Home picks your next Messer-aligned move.",
   };
 }
 

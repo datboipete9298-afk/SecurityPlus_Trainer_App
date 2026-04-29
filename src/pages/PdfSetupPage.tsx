@@ -15,6 +15,7 @@ import {
 import { verifyPdfFile, type PdfVerifyResult } from "../utils/pdfFileVerifier";
 import type { PdfLocalFileMeta } from "../types/pdfLibrary";
 import { markUsage } from "../utils/localUsageSignals";
+import { PRIVACY_LINE } from "../context/PdfLibraryContext";
 
 function pdfRegistryTitle(pdfId: string): string {
   return PDF_REGISTRY.find((p) => p.id === pdfId)?.title ?? pdfId;
@@ -174,6 +175,8 @@ export default function PdfSetupPage() {
             </Link>
           }
         />
+
+        <p className="text-sm text-slate-300 rounded-lg border border-emerald-900/35 bg-emerald-950/15 px-3 py-2 leading-relaxed">{PRIVACY_LINE}</p>
 
         {!idbOk && (
           <div className="rounded-xl border border-rose-700/50 bg-rose-950/30 p-4 text-sm text-rose-100">

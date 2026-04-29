@@ -307,7 +307,7 @@ export default function PdfLessonGuidePage() {
                       setQuizReveal(false);
                     }}
                   >
-                    Prev Q
+                    Prev →
                   </button>
                   <button
                     type="button"
@@ -317,7 +317,7 @@ export default function PdfLessonGuidePage() {
                       setQuizReveal(false);
                     }}
                   >
-                    Next Q
+                    Next question →
                   </button>
                 </div>
               </>
@@ -420,7 +420,7 @@ export default function PdfLessonGuidePage() {
             href="#highlight-coach"
             className="btn flex-1 min-w-[120px] text-xs min-h-[48px] inline-flex items-center justify-center touch-manipulation px-2.5 text-center leading-tight"
           >
-            Continue here
+            Jump to highlights →
           </a>
         </div>
         <details className="mt-2 rounded-lg border border-slate-800 bg-slate-900/60 text-[11px] text-slate-400 overflow-hidden">
@@ -430,13 +430,13 @@ export default function PdfLessonGuidePage() {
           <div className="px-2 pb-2 flex flex-wrap gap-2 border-t border-slate-800/90 pt-2">
             <a
               href="#pdf-mini-check"
-              className="btn-ghost text-[11px] min-h-[40px] border border-slate-600 inline-flex flex-1 min-w-[100px] items-center justify-center touch-manipulation"
+              className="btn-ghost text-[11px] min-h-[44px] border border-slate-600 inline-flex flex-1 min-w-[100px] items-center justify-center touch-manipulation"
             >
               Mini-check
             </a>
             <Link
               to={`/pdf-setup?need=${encodeURIComponent(pdfId)}`}
-              className="btn-ghost text-[11px] min-h-[40px] border border-amber-700/45 inline-flex flex-1 min-w-[100px] items-center justify-center touch-manipulation"
+              className="btn-ghost text-[11px] min-h-[44px] border border-amber-700/45 inline-flex flex-1 min-w-[100px] items-center justify-center touch-manipulation"
             >
               Add PDF
             </Link>

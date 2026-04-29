@@ -19,7 +19,7 @@ export default function FirstLoopCard() {
           Start your first 10-minute study loop
         </h2>
         <p className="text-sm text-slate-300 leading-relaxed">
-          This guides you step by step — just follow Continue.
+          This guides you step by step — the green bar on Home always names your next move.
         </p>
       </div>
 
@@ -34,13 +34,19 @@ export default function FirstLoopCard() {
           <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-900/60 text-emerald-200 text-[11px] font-bold">
             2
           </span>
-          <span>Pause and write one note in your own words.</span>
+          <span>Add your course PDF on Import when you can — lessons will show the matching page next to the video.</span>
         </li>
         <li className="flex items-start gap-3">
           <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-900/60 text-emerald-200 text-[11px] font-bold">
             3
           </span>
-          <span>Answer 3 quick questions to lock it in.</span>
+          <span>Pause and write one note in your own words.</span>
+        </li>
+        <li className="flex items-start gap-3">
+          <span aria-hidden className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-900/60 text-emerald-200 text-[11px] font-bold">
+            4
+          </span>
+          <span>Answer a few quick questions to lock it in.</span>
         </li>
       </ol>
 
@@ -52,7 +58,7 @@ export default function FirstLoopCard() {
       </Link>
 
       <p className="text-[11px] text-slate-500 leading-relaxed">
-        Watch → note → quiz → repeat. Everything else (PDFs, labs, practice exams) is in <strong className="text-slate-400">More study tools</strong> below — open it whenever you want.
+        Video + PDF + note + quiz = one study loop. Labs and practice exams are in <strong className="text-slate-400">More study tools</strong> below when you need them.
       </p>
     </section>
   );

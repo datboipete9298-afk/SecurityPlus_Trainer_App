@@ -205,11 +205,11 @@ function synthLab(lessonId: string, category: LabCategory, slot: number): Traini
       stepByStep: [
         "Review the shuffled list in the lab runner.",
         "Move items into exam-logical order (general → specific, or lifecycle order).",
-        "Submit and read why the canonical order matters.",
+        "Lock your order, then read why the canonical sequence matters.",
       ],
       checkpoints: [
         { id: "v1", label: "Reordered items" },
-        { id: "v2", label: "Submitted once" },
+        { id: "v2", label: "Checked order once" },
         { id: "v3", label: "Read explanation" },
       ],
       expectedResult: "You can reproduce the order from memory after one retry.",

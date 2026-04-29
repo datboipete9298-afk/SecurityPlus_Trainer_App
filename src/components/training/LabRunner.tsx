@@ -487,9 +487,9 @@ export default function LabRunner({ lab, onComplete, onElitePortfolio, completed
                       <li>
                         {lessonId ?
                           <>
-                            Continue learning:{" "}
+                            Pick up in this lesson:{" "}
                             <Link to={`/lesson/${lessonId}`} className="text-emerald-400 underline hover:text-emerald-300">
-                              return to lesson
+                              open lesson again
                             </Link>
                             .
                           </>
@@ -533,10 +533,10 @@ export default function LabRunner({ lab, onComplete, onElitePortfolio, completed
               <span className="text-slate-200 flex-1">{canonical[idx]}</span>
               {!completed && (
                 <div className="flex gap-2 w-full sm:w-auto">
-                  <button type="button" className="btn-ghost flex-1 text-xs min-h-[40px]" onClick={() => move(pos, -1)}>
+                  <button type="button" className="btn-ghost flex-1 text-xs min-h-[44px]" onClick={() => move(pos, -1)}>
                     Up
                   </button>
-                  <button type="button" className="btn-ghost flex-1 text-xs min-h-[40px]" onClick={() => move(pos, 1)}>
+                  <button type="button" className="btn-ghost flex-1 text-xs min-h-[44px]" onClick={() => move(pos, 1)}>
                     Down
                   </button>
                 </div>
@@ -621,7 +621,7 @@ export default function LabRunner({ lab, onComplete, onElitePortfolio, completed
       {!canSubmit && !completed && (
         <p className="text-[10px] text-slate-500">
           {triage ?
-            "Submit once for alignment score ≥ threshold, then checkpoints unlock."
+            "Score your triage queue once to see alignment, then checkpoints unlock."
           : lab.category === "VISUAL_INTERACTIVE" ?
             "Reorder to the canonical process, then complete."
           : "Check all boxes"}{" "}

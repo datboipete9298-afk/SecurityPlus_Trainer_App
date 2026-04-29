@@ -10,6 +10,7 @@
  *
  * Privacy:
  *   - User PDFs live in IndexedDB and Cache Storage is never used for them.
+ *   - Extracted PDF text lives in IndexedDB (`spt_pdf_text_library_v1`) — not cached by this SW.
  *   - localStorage / IndexedDB are not touched by this SW.
  *
  * Versioning:

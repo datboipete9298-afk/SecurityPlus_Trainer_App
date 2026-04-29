@@ -271,7 +271,7 @@ export function buildResumeLinkList(
     items.push({
       kind: "watch",
       typeLabel: vnNewer ? "Video notes" : "Watch",
-      label: vnNewer ? `Continue video notes: ${t}` : `Continue watching: ${t}`,
+      label: vnNewer ? `Pick up video notes: ${t}` : `Resume watching: ${t}`,
       to: `/watch/${vnl}`,
       at: Math.max(vna, wa),
     });
@@ -281,7 +281,7 @@ export function buildResumeLinkList(
       items.push({
         kind: "watch",
         typeLabel: "Video notes",
-        label: `Continue video notes: ${t}`,
+        label: `Pick up video notes: ${t}`,
         to: `/watch/${vnl}`,
         at: vna,
       });
@@ -291,7 +291,7 @@ export function buildResumeLinkList(
       items.push({
         kind: "watch",
         typeLabel: "Watch",
-        label: `Continue watching: ${t}`,
+        label: `Resume watching: ${t}`,
         to: `/watch/${wId}`,
         at: wa,
       });
@@ -435,7 +435,7 @@ export function buildResumeLinkList(
     items.push({
       kind: "pdfGuide",
       typeLabel: "PDF guide",
-      label: `Continue PDF guide: ${title}`,
+      label: `Resume PDF guide: ${title}`,
       to: `/pdf-guides/${sr.pdfGuidePdfId}/${sr.pdfGuideLessonId}`,
       at: sr.pdfGuideAt,
     });

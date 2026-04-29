@@ -38,7 +38,7 @@ export default function PracticeExamDraftResume({ className = "" }: { className?
               to={`/quiz/${examId}?mode=exam`}
               className="flex min-h-[44px] items-center justify-center rounded-lg border border-amber-800/60 bg-slate-900/50 px-3 py-2 text-sm font-medium text-amber-50 hover:bg-slate-800/60 touch-manipulation"
             >
-              Continue {practiceExamDisplayLabel(examId)} →
+              Resume {practiceExamDisplayLabel(examId)} →
             </Link>
           </li>
         ))}

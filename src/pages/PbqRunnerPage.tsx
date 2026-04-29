@@ -57,10 +57,15 @@ export default function PbqRunnerPage() {
   if (!def) {
     return (
       <AppShell>
-        <PageHeader title="PBQ lab" purpose="Unknown scenario id." />
-        <Link to="/practice-exams/pbq" className="btn w-full sm:w-auto text-center inline-block">
-          PBQ hub
-        </Link>
+        <div className="max-w-xl space-y-4">
+          <PageHeader
+            title="Lab not found"
+            purpose="That URL doesn’t map to a PBQ lab anymore — pick one from the hub. Your progress is safe."
+          />
+          <Link to="/practice-exams/pbq" className="btn w-full sm:w-auto text-center inline-block min-h-[48px] touch-manipulation">
+            Open PBQ hub →
+          </Link>
+        </div>
       </AppShell>
     );
   }
@@ -115,11 +120,11 @@ export default function PbqRunnerPage() {
           <FlowPrimaryStrip>
             {!submitted ? (
               <button type="button" className="btn w-full text-center min-h-[48px] touch-manipulation" onClick={grade}>
-                Submit order
+                Lock my order & check →
               </button>
             ) : !correct ? (
               <button type="button" className="btn w-full text-center min-h-[48px] touch-manipulation" onClick={reset}>
-                Try again
+                Shuffle & try again →
               </button>
             ) : (
               <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />
@@ -128,7 +133,7 @@ export default function PbqRunnerPage() {
           <PageHeader
             eyebrow={`Domain ${def.domain} · PBQ-style drill`}
             title={def.title}
-            purpose="Use Up / Down, then Submit order above."
+            purpose="Reorder steps with Up / Down, then use Do this next above to lock your answer."
             badge={<StatusBadge tone="accent">Hands-on</StatusBadge>}
           />
 
@@ -136,7 +141,7 @@ export default function PbqRunnerPage() {
             <p className="text-sm text-slate-300 leading-relaxed">{def.scenario}</p>
           </SectionCard>
 
-          <SectionCard title="Task" subtitle="Use Up / Down, then Submit">
+          <SectionCard title="Task" subtitle="Reorder with Up / Down, then lock your answer below.">
             <p className="text-slate-200 font-medium text-sm">{def.task}</p>
             <ol className="space-y-2 mt-4" key={retryKey}>
               {labels.map((text, pos) => (
@@ -214,7 +219,7 @@ export default function PbqRunnerPage() {
                     </div>
                   </details>
                 )}
-                <p className="text-xs text-slate-500 mt-2">Tap <strong className="text-slate-300">Try again</strong> in Next step above.</p>
+                <p className="text-xs text-slate-500 mt-2">Use <strong className="text-slate-300">Shuffle & try again</strong> in <strong className="text-slate-300">Do this next</strong> above.</p>
               </div>
             )}
           </SectionCard>

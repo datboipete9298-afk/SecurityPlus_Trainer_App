@@ -67,7 +67,7 @@ function computeNextStep(s: PersistedState): NextStep {
         nextAction: `Hands-on training: ${t}`,
         why: "Labs, branching simulations, and a decision scenario turn reading into skill — same lesson, deeper layer.",
         href: `/lesson/${firstIncomplete}`,
-        buttonLabel: "Continue",
+        buttonLabel: "Open lesson · labs & sims",
         steps: [
           `Open **${t}** and scroll to **Hands-on labs** (two labs, two sims, one decision).`,
           `Complete checkpoints honestly — mock terminal is safe; real commands only on your own machine per instructions.`,
@@ -80,11 +80,11 @@ function computeNextStep(s: PersistedState): NextStep {
       nextAction: `Finish: ${t}`,
       why: "Next incomplete lesson in Messer order — your chain is the path.",
       href: `/lesson/${firstIncomplete}`,
-      buttonLabel: "Continue",
+      buttonLabel: "Open lesson · finish checklist",
       steps: [
         `Go to the lesson: **${t}** (video first).`,
         `Work through highlight → quick action → hands-on blocks → quiz → flashcards in order.`,
-        `Check off the stepper on that lesson, then return here — **Continue** will update automatically.`,
+        `Check off the stepper on that lesson, then return here — **Home** updates your next move automatically.`,
       ],
     };
   }
@@ -97,14 +97,14 @@ function computeNextStep(s: PersistedState): NextStep {
     const why0 = profile.thinkingAlerts[0]!.replace(/\*\*/g, "");
     return {
       priority: 2,
-      nextAction: "Fix an active misconception",
+      nextAction: "Untangle one sticky concept",
       why: why0,
       href: "/weak",
       buttonLabel: "Repair weak areas",
       steps: [
         "Open the weak list — re-quiz the lesson tied to the alert.",
         "Write a two-column compare (term A vs term B) in Brain Book before the next quiz.",
-        "Return home; Continue refreshes when the pattern stabilizes.",
+        "Return home; your next-step button refreshes when the pattern stabilizes.",
       ],
     };
   }
@@ -138,7 +138,7 @@ function computeNextStep(s: PersistedState): NextStep {
       steps: [
         `Re-open the quiz for **${missLessonTitle}** (from the lesson page or quizzes list) and read every wrong-answer line.`,
         `Add the miss to Flashcards if prompted and say the rule once out loud.`,
-        `Return Home — **Continue** refreshes when your journal looks cleaner.`,
+        `Return Home — your next-step queue refreshes when your journal looks cleaner.`,
       ],
     };
   }
@@ -155,7 +155,7 @@ function computeNextStep(s: PersistedState): NextStep {
       steps: [
         `Open **${t}** → Brain Book (last block).`,
         `Save one row: topic + what it means + exam keyword from MUST highlights.`,
-        `Say it out loud once, then check Continue.`,
+        `Say it out loud once, then check Home for the next move.`,
       ],
     };
   }
@@ -172,7 +172,7 @@ function computeNextStep(s: PersistedState): NextStep {
       steps: [
         `Open **Flashcards** from the menu and clear due cards.`,
         `If you want fewer cards, narrow to one lesson via the Flashcards lesson filter.`,
-        `After the stack feels lighter, tap **Continue** again on Home.`,
+        `After the stack feels lighter, tap your next-step button on Home again.`,
       ],
     };
   }
@@ -184,7 +184,7 @@ function computeNextStep(s: PersistedState): NextStep {
       nextAction: `Boss: ${nextBoss.name}`,
       why: "Mixed, exam-style practice when the linear chain has no open lesson.",
       href: `/boss/${nextBoss.id}`,
-      buttonLabel: "Start boss",
+      buttonLabel: "Begin boss drill",
       steps: [
         `Start **${nextBoss.name}** when you have energy for a focused drill.`,
         `Read each explanation — bosses train speed plus trap recognition.`,

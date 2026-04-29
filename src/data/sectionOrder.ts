@@ -67,3 +67,9 @@ export const SECTION_ORDER: { id: string; label: string; domain: "1" | "2" | "3"
   { id: "5-0", label: "5.0 GRC, policies, risk, compliance", domain: "5" },
   { id: "5-grc", label: "5.x Governance, risk, compliance, privacy", domain: "5" },
 ];
+
+export type SectionOrderEntry = (typeof SECTION_ORDER)[number];
+
+export function getSectionOrderEntry(lessonId: string): SectionOrderEntry | undefined {
+  return SECTION_ORDER.find((s) => s.id === lessonId);
+}

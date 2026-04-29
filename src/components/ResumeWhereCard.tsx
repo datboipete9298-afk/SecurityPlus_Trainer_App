@@ -41,8 +41,9 @@ export default function ResumeWhereCard({ state }: { state: PersistedState }) {
                 <Link
                   to={it.to}
                   className="btn text-sm shrink-0 w-full sm:w-auto text-center min-h-[44px] touch-manipulation py-2.5"
+                  aria-label={`Open: ${it.label}`}
                 >
-                  Continue →
+                  Jump back in →
                 </Link>
               </div>
             </li>

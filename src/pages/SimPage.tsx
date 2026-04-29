@@ -34,7 +34,7 @@ export default function SimPage() {
         </FlowPrimaryStrip>
         <PageHeader
           title="Labs & simulations"
-          purpose="Tap a choice below, or follow Next step above."
+          purpose="Tap a choice below, or follow Do this next above."
           badge={<StatusBadge tone="accent">Local only</StatusBadge>}
         />
         <details className="rounded-xl border border-slate-700 bg-slate-900/35 text-sm text-slate-400 group">
@@ -118,7 +118,7 @@ export default function SimPage() {
           <div className="px-3 pb-3 border-t border-slate-800 pt-3 flex flex-col gap-2">
             {lesson ? (
               <Link to={`/lesson/${lesson}`} className="btn-ghost w-full text-center min-h-[44px] touch-manipulation border border-slate-600">
-                Continue lesson
+                Open full lesson →
               </Link>
             ) : (
               <Link to="/roadmap" className="btn-ghost w-full text-center min-h-[44px] touch-manipulation border border-slate-600">

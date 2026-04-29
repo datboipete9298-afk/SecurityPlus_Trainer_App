@@ -118,7 +118,7 @@ export default function SimulationRunner({ sim, onComplete, completed, lastScore
             <>
               <p className="text-xs text-slate-500">Read the feedback, then continue when you&apos;re ready — no auto-advance.</p>
               <button type="button" className="btn text-sm w-full sm:w-auto" onClick={continueStep}>
-                Continue simulation
+                Next simulation step →
               </button>
             </>
           )}

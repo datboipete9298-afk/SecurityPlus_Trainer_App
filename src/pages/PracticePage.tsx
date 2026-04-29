@@ -31,7 +31,7 @@ export default function PracticePage() {
 
           <NextActionCard
             label="Smart Coach pick"
-            description="Pick one block below. If you are unsure, use Continue — same next step as the green bar on Home."
+            description="Pick one block below. If you are unsure, use Do this next on Home — same green strip everywhere."
           >
             <Link to={nextStep.href} className="btn w-full text-center">
               {nextStep.buttonLabel} →

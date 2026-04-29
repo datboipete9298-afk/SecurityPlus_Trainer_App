@@ -96,10 +96,15 @@ export default function BossFight() {
   if (!boss || !q) {
     return (
       <AppShell>
-        <PageHeader title="Boss fight" purpose="Unknown or empty boss id." />
-        <Link to="/boss" className="btn w-full sm:w-auto text-center inline-block">
-          All bosses
-        </Link>
+        <div className="max-w-xl space-y-4">
+          <PageHeader
+            title="Boss not found"
+            purpose="That URL doesn’t map to a boss fight anymore — pick one from the hub. Your progress is safe."
+          />
+          <Link to="/boss" className="btn w-full sm:w-auto text-center inline-block min-h-[48px] touch-manipulation">
+            All bosses →
+          </Link>
+        </div>
       </AppShell>
     );
   }
@@ -209,7 +214,7 @@ export default function BossFight() {
               </div>
             </SectionCard>
 
-            <NextActionCard label="Next step" description="Continue your path or drill weak areas before another boss.">
+            <NextActionCard label="Suggested next" description="Keep your lesson path, or drill weak areas before another boss.">
               <Link to={nextStep.href} className="btn w-full text-center">
                 {nextStep.buttonLabel} →
               </Link>
@@ -304,7 +309,7 @@ export default function BossFight() {
                 <ConfidenceSelector value={confidenceGate} onChange={setConfidenceGate} />
                 <div className="mt-4 flex flex-col sm:flex-row flex-wrap gap-2">
                   <button type="button" className="btn w-full sm:w-auto" disabled={confidenceGate == null} onClick={goNext}>
-                    {i < qs.length - 1 ? "Continue to next question" : "See score"}
+                    {i < qs.length - 1 ? "Save answer · next question →" : "View score & recap →"}
                   </button>
                   <button type="button" className="btn-ghost text-sm w-full sm:w-auto" onClick={resetQ}>
                     Retry this question

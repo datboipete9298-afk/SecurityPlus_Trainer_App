@@ -57,6 +57,8 @@ export async function handleAiPost(req: ReqLike, res: ResLike, defaultMode: AiRe
       quizContext: (body.quizContext as Record<string, unknown> | null) ?? null,
       noteContext: (body.noteContext as Record<string, unknown> | null) ?? null,
       labContext: (body.labContext as Record<string, unknown> | null) ?? null,
+      pdfGuideContext: (body.pdfGuideContext as Record<string, unknown> | null) ?? null,
+      localPdfSnippets: body.localPdfSnippets ?? null,
       simpleMode: body.simpleMode === true,
     });
     res.status(200).json(out);

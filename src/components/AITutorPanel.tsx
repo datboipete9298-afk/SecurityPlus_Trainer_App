@@ -3,6 +3,7 @@ import type { AiRequestMode, AiTutorResponse } from "../types/aiTutor";
 import { postAi, checkAiHealth, isAiApiBaseConfigured } from "../lib/aiClient";
 import { examModeAiLockedResponse, rateLimitedAiResponse, smartCoachOfflineResponse } from "../lib/aiTutorFallback";
 import { enforceStructuredAiResponse, isWeakAiResponse } from "../lib/aiResponseQuality";
+import { markUsage } from "../utils/localUsageSignals";
 import { useProgress } from "../context/ProgressContext";
 import StatusBadge from "./StatusBadge";
 
@@ -88,6 +89,8 @@ export type AITutorPanelContext = {
     /** True when this pdfId is present in IndexedDB (metadata on persisted state). */
     pdfFileAvailable?: boolean;
   };
+  /** Short excerpts from the local extracted PDF library (device-only). Never full PDFs. */
+  localPdfSnippets?: { fileName: string; pageIndex: number; excerpt: string }[];
 };
 
 type Msg = { role: "user" | "assistant"; text: string; structured?: AiTutorResponse };
@@ -167,12 +170,16 @@ export default function AITutorPanel({ context, variant = "full", className }: P
   }, []);
 
   const coachFallback = useCallback(() => {
+    const s0 = context.localPdfSnippets?.[0];
+    const localPdfSnippetLine =
+      s0 ? `Your saved PDF “${s0.fileName}” (page ${s0.pageIndex}) lines up with this lesson — skim that page and match one heading to what you just heard.` : undefined;
     return smartCoachOfflineResponse({
       coachLines: context.coachLines,
       lessonTitle: context.lesson?.title ?? context.pdfGuide?.sectionTitle,
       sectionId: context.lesson?.id ?? context.pdfGuide?.lessonId,
       pdfSectionTitle: context.pdfGuide?.sectionTitle,
       pdfLessonId: context.pdfGuide?.lessonId,
+      localPdfSnippetLine,
     });
   }, [
     context.coachLines,
@@ -180,17 +187,22 @@ export default function AITutorPanel({ context, variant = "full", className }: P
     context.lesson?.title,
     context.pdfGuide?.lessonId,
     context.pdfGuide?.sectionTitle,
+    context.localPdfSnippets,
   ]);
 
   type TutorLayer = "live" | "fallback" | "rate_limited" | "exam_lock";
 
-  const pushAssistant = useCallback((structured: AiTutorResponse, _layer: TutorLayer = "fallback") => {
+  const pushAssistant = useCallback((structured: AiTutorResponse, layer: TutorLayer = "fallback") => {
     const text =
       `${structured.answer}\n\n` +
       (structured.keyPoints.length ? `• ${structured.keyPoints.join("\n• ")}\n\n` : "") +
       (structured.examTip ? `Exam tip: ${structured.examTip}\n\n` : "") +
       (structured.nextAction ? `Next: ${structured.nextAction}` : "");
     setMsgs((m) => [...m, { role: "assistant", text: text.trim(), structured }]);
+    if (layer !== "live") {
+      // Local-only signal — never sent anywhere. Used by Progress diagnostics.
+      markUsage("ai_fallback_used");
+    }
   }, []);
 
   const run = useCallback(
@@ -222,6 +234,7 @@ export default function AITutorPanel({ context, variant = "full", className }: P
                 pdfFileAvailable: context.pdfGuide.pdfFileAvailable,
               }
             : undefined,
+          localPdfSnippets: context.localPdfSnippets?.length ? context.localPdfSnippets : undefined,
           noteContext:
             context.noteDraft || context.noteHeuristic
               ? { draft: context.noteDraft, heuristic: context.noteHeuristic }
@@ -264,7 +277,7 @@ export default function AITutorPanel({ context, variant = "full", className }: P
             {
               ...fb,
               answer:
-                "**Request didn’t finish** — still giving you the same structured offline pattern (not a blank crash).\n\n" + fb.answer,
+                "**Coach couldn’t connect** — your lesson, notes, and quizzes still work. Here’s the built-in pattern (same format as live help):\n\n" + fb.answer,
             },
             "fallback",
           );
@@ -486,8 +499,8 @@ export default function AITutorPanel({ context, variant = "full", className }: P
           </div>
         ))}
         {loading && (
-          <p className="text-xs text-violet-200/80 animate-pulse" role="status" aria-live="polite">
-            Thinking…
+          <p className="text-xs text-violet-200/80 motion-safe:animate-pulse" role="status" aria-live="polite">
+            Coach is thinking…
           </p>
         )}
       </div>
@@ -510,6 +523,7 @@ export default function AITutorPanel({ context, variant = "full", className }: P
           <input
             className="flex-1 min-w-0 rounded-lg bg-slate-900 border border-slate-700 px-2 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-xs text-slate-100 placeholder:text-slate-600"
             placeholder="Ask in plain English…"
+            aria-label="Message for study tutor"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

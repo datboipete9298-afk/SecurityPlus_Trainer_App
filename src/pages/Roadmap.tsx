@@ -28,7 +28,7 @@ export default function Roadmap() {
         <div className="min-w-0">
           <PageHeader
             title="Course roadmap (Messer order)"
-            purpose="Follow top to bottom. Each row unlocks when the previous item is marked complete. The green Continue on Home always matches the first incomplete lesson in this list."
+            purpose="Follow top to bottom. Each row unlocks when the previous item is marked complete. Do this next on Home always matches the first incomplete lesson in this list."
           />
       <ol className="space-y-3">
         {SECTION_ORDER.map((s, i) => {

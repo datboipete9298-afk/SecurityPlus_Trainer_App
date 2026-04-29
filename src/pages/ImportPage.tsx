@@ -1,5 +1,7 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useProgress } from "../context/ProgressContext";
+import { usePdfLibrary, PRIVACY_LINE } from "../context/PdfLibraryContext";
 import { Link } from "react-router-dom";
 import type { Lesson } from "../types";
 import AppShell from "../components/AppShell";
@@ -44,9 +46,23 @@ function toTsLiteral(lesson: Lesson): string {
 
 export default function ImportPage() {
   const { bumpStudyResume } = useProgress();
+  const { pdfs, loading, importing, importError, totalChars, addFiles, removePdf } = usePdfLibrary();
+  const [params] = useSearchParams();
+  const focusPdfId = params.get("pdf") ?? "";
+  const focusPage = params.get("page") ?? "";
+  const pdfSectionRef = useRef<HTMLElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     bumpStudyResume({ import: true });
   }, [bumpStudyResume]);
+
+  useEffect(() => {
+    if (focusPdfId && pdfSectionRef.current) {
+      pdfSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [focusPdfId]);
+
   const [raw, setRaw] = useState("");
 
   const parsed = useMemo(() => {
@@ -67,10 +83,60 @@ export default function ImportPage() {
           purpose="Not for study backups. Paste one lesson JSON to validate shape before merging into source. Your streak, quizzes, and notes are exported from Progress → Backup & export — never from this page."
         />
 
-        <SectionCard
-          title="Progress vs lesson content"
-          subtitle="Please read before pasting"
-        >
+        <section ref={pdfSectionRef} id="local-text-pdfs" className="scroll-mt-24">
+          <SectionCard title="Add your own PDFs for study" subtitle="Text library (separate from PDF setup file slots)">
+            <p className="text-sm text-slate-300 leading-relaxed">{PRIVACY_LINE}</p>
+            <p className="text-xs text-slate-500 mt-2">
+              Choose PDF files on this device. Text is extracted here with pdf.js and saved locally in IndexedDB — not in this project folder, not on a server, and not in the service worker cache.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <input
+                ref={inputRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                multiple
+                className="hidden"
+                onChange={(e) => void addFiles(e.target.files ?? [])}
+              />
+              <button type="button" className="btn touch-manipulation min-h-[48px]" disabled={importing} onClick={() => inputRef.current?.click()}>
+                {importing ? "Reading PDFs…" : "Choose PDF"}
+              </button>
+              {loading ? <span className="text-xs text-slate-500">Loading library…</span> : null}
+              {!loading && pdfs.length > 0 ?
+                <span className="text-xs text-slate-400">
+                  {pdfs.length} file{pdfs.length === 1 ? "" : "s"} · {Math.round(totalChars / 1000)}k characters
+                </span>
+              : null}
+            </div>
+            {importError ? <p className="text-rose-400 text-sm mt-2">{importError}</p> : null}
+            {focusPdfId && (
+              <p className="text-xs text-emerald-300/95 mt-2">
+                Focus from search: PDF id <code className="text-amber-200">{focusPdfId}</code>
+                {focusPage ? ` · page ${focusPage}` : ""} — expand your file below if needed.
+              </p>
+            )}
+            {pdfs.length > 0 && (
+              <ul className="mt-4 text-sm divide-y divide-slate-800 border border-slate-800 rounded-lg overflow-hidden">
+                {pdfs.map((p) => (
+                  <li
+                    key={p.id}
+                    className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-900/50 ${focusPdfId === p.id ? "ring-1 ring-emerald-600/60" : ""}`}
+                  >
+                    <span className="text-slate-200 truncate" title={p.fileName}>
+                      {p.fileName}
+                    </span>
+                    <span className="text-xs text-slate-500">{p.pages.length} pp.</span>
+                    <button type="button" className="text-rose-400 text-xs shrink-0 touch-manipulation" onClick={() => void removePdf(p.id)}>
+                      Remove from this device
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+        </section>
+
+        <SectionCard title="Progress vs lesson content" subtitle="Please read before pasting">
           <ul className="text-sm text-slate-300 space-y-2 list-disc pl-5 leading-relaxed">
             <li>
               <strong className="text-white">Progress backup</strong> (streak, notes, quiz history) lives on{" "}
@@ -131,7 +197,7 @@ export default function ImportPage() {
           )}
         </SectionCard>
 
-        <NextActionCard label="Next step" description="After merging content in source, add matching quiz rows and run a full build.">
+        <NextActionCard label="Suggested next" description="After merging content in source, add matching quiz rows and run a full build.">
           <Link to="/roadmap" className="btn-ghost w-full text-center inline-block">
             Lesson path →
           </Link>

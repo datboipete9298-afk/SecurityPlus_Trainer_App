@@ -17,7 +17,7 @@ export default function OnboardingHintBanner({ onDismiss }: Props) {
         <Link to="/start-here" className="text-amber-200 underline font-medium">
           2-minute tour
         </Link>{" "}
-        — or just tap Continue. You can&apos;t take a wrong step.
+        — or tap <strong className="font-medium text-amber-50">Do this next</strong> on Home. You can&apos;t take a wrong step.
       </p>
       <button type="button" className="btn-ghost text-sm shrink-0 min-h-[44px] touch-manipulation" onClick={onDismiss}>
         Got it

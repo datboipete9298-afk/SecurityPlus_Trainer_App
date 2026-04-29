@@ -10,6 +10,8 @@ import { buildPausePromptPoolFromLesson } from "../../utils/pausePrompts";
 import { questionsByLesson } from "../../data/quizzes";
 import { correctAnswerLabel } from "../../utils/quizHelpers";
 import { getNextSectionId } from "../../data/lessons";
+import CoachLine from "../CoachLine";
+import BeginnerFollowAlong, { type FollowAlongSuggestion } from "./BeginnerFollowAlong";
 
 export type PauseContextPayload = {
   index: number;
@@ -35,9 +37,17 @@ export type VideoStudyModeProps = {
   showTutorPanel?: boolean;
   pdfGuideEyebrow?: string;
   variant: "watch-page" | "lesson-step" | "pdf-guide";
+  /** Matched text from the local extracted PDF library (Import page) — video + PDF loop */
+  localPdfFollowAlong?: {
+    fileName: string;
+    pageIndex: number;
+    snippet: string;
+    searchPhrase: string;
+    importHref: string;
+  };
   dense?: boolean;
   /**
-   * Simple lesson path — single column stack: video, one pause prompt, one note row, proof line, quick check, Continue.
+   * Simple lesson path — single column stack: video, pause prompt, note, proof line, quick check, then next action.
    * Tutor stays on the lesson page sidebar (showTutorPanel false).
    */
   minimal?: boolean;
@@ -70,6 +80,7 @@ export default function VideoStudyMode({
   pdfGuideButtonLabel = "Open PDF guide for this lesson",
   variant,
   dense,
+  localPdfFollowAlong,
   showTutorPanel = true,
   minimal = false,
   onPauseContextChange,
@@ -120,6 +131,30 @@ export default function VideoStudyMode({
   const [flashOpen, setFlashOpen] = useState(false);
   const [fcFront, setFcFront] = useState("");
   const [fcBack, setFcBack] = useState("");
+  /** True after the user taps "Use this" on the BeginnerFollowAlong block — used to relabel the button on subsequent taps. */
+  const [followAlongApplied, setFollowAlongApplied] = useState(false);
+  /** Used to one-time-show "You're doing this exactly right" the first time a beginner saves a fusion note in this session. */
+  const firstNoteAckedRef = useRef(false);
+  const [firstNoteAck, setFirstNoteAck] = useState(false);
+  /** Used to one-time-show the strong reinforcement after the first CORRECT quick-check answer in this session. */
+  const firstQcRightAckedRef = useRef(false);
+  const [firstQcRightAck, setFirstQcRightAck] = useState(false);
+  /** Shown briefly after saving a fusion note when local PDF follow-along is active. */
+  const [pdfFusionSavedAck, setPdfFusionSavedAck] = useState(false);
+  const pdfAckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const applyFollowAlong = useCallback(
+    (s: FollowAlongSuggestion) => {
+      if (!mainIdea.trim()) setMainIdea(s.mainIdea);
+      if (!keyword.trim()) setKeyword(s.keyword);
+      if (!trap.trim() && s.trap) setTrap(s.trap);
+      setFollowAlongApplied(true);
+    },
+    [mainIdea, keyword, trap],
+  );
+
+  /** Beginner follow-along is only enabled when the lesson is in BOTH simple-mode (`minimal`) AND the user has beginner mode on. */
+  const showFollowAlong = !!minimal && !!state.beginnerMode;
 
   const [isXl, setIsXl] = useState(false);
   useEffect(() => {
@@ -128,6 +163,12 @@ export default function VideoStudyMode({
     fn();
     mq.addEventListener("change", fn);
     return () => mq.removeEventListener("change", fn);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pdfAckTimerRef.current) clearTimeout(pdfAckTimerRef.current);
+    };
   }, []);
 
   const highlightTargets = useMemo(
@@ -222,17 +263,30 @@ export default function VideoStudyMode({
       setQcFeedback("Add a keyword and a short main idea (your words, ≥8 chars).");
       return;
     }
+    const pdfLine = localPdfFollowAlong ? `\n[PDF: ${localPdfFollowAlong.fileName}, page ${localPdfFollowAlong.pageIndex}]` : "";
+    const whatItMeansBody = (trimmedMain + pdfLine).slice(0, 500);
     addNote({
       id: crypto.randomUUID(),
       lessonId,
       topic: trimmedK.slice(0, 80),
-      whatItMeans: trimmedMain.slice(0, 500),
-      realLife: "Video fusion note",
+      whatItMeans: whatItMeansBody,
+      realLife: localPdfFollowAlong ? "Video fusion note · local PDF" : "Video fusion note",
       whyMatters: trap.trim().slice(0, 240) || "Exam trap awareness",
       examKeyword: trimmedK.slice(0, 120),
       memory: explainAloud.trim().slice(0, 240) || "Say it plainly",
       created: Date.now(),
     });
+    if (localPdfFollowAlong) {
+      setPdfFusionSavedAck(true);
+      if (pdfAckTimerRef.current) clearTimeout(pdfAckTimerRef.current);
+      pdfAckTimerRef.current = setTimeout(() => setPdfFusionSavedAck(false), 12_000);
+    }
+    // Beginner one-time reinforcement: only fires the first time per session.
+    if (!firstNoteAckedRef.current) {
+      firstNoteAckedRef.current = true;
+      setFirstNoteAck(true);
+      window.setTimeout(() => setFirstNoteAck(false), 6000);
+    }
     patchLessonProgress(lessonId, {
       videoFusionChecklist: { ...checklist, wroteOneNote: true },
       highlightsDone: true,
@@ -268,6 +322,7 @@ export default function VideoStudyMode({
     patchLessonProgress,
     recordVideoFusionActivity,
     trap,
+    localPdfFollowAlong,
   ]);
 
   /** After first quick-check submit, offer flashcard with saved suggestion — proof before cards. */
@@ -290,10 +345,18 @@ export default function VideoStudyMode({
     setQcDone(true);
     if (ok) {
       setQcFeedback("You captured the right idea.");
+      // One-time strong reinforcement — fires only on the FIRST correct
+      // quick-check this session and only when the beginner follow-along
+      // mode is active. Auto-clears after 6 s; never repeats.
+      if (showFollowAlong && !firstQcRightAckedRef.current) {
+        firstQcRightAckedRef.current = true;
+        setFirstQcRightAck(true);
+        window.setTimeout(() => setFirstQcRightAck(false), 6000);
+      }
     } else {
       setQcFeedback("Review your note — add the missing keyword.");
     }
-  }, [checklist, lessonId, patchLessonProgress, qc, recordVideoFusionActivity, selectedQ]);
+  }, [checklist, lessonId, patchLessonProgress, qc, recordVideoFusionActivity, selectedQ, showFollowAlong]);
 
   const allCheckComplete =
     !!(
@@ -330,6 +393,7 @@ export default function VideoStudyMode({
       )}
       <p className="text-sm font-medium text-white border-l-2 border-amber-400/90 pl-2">Pause here and answer this:</p>
       <p className="text-slate-200 text-sm leading-relaxed">{currentPause.prompt}</p>
+      <CoachLine k="pauseFiveSeconds" className="pt-1" />
     </>
   );
 
@@ -358,6 +422,14 @@ export default function VideoStudyMode({
           <div className="rounded-xl overflow-hidden border border-slate-800 bg-slate-900/50">
             <VideoEmbed embedUrl={embedUrl} title={videoTitle} />
           </div>
+          {showFollowAlong && (
+            <p
+              className="text-sm text-emerald-100/95 text-center rounded-lg border border-emerald-700/45 bg-emerald-950/25 px-3 py-2 leading-snug"
+              role="note"
+            >
+              <strong className="text-emerald-50">LISTEN → WRITE</strong> — same rhythm as the strip on the right.
+            </p>
+          )}
           {(needsVideoUrl || estimatedWatchTimeMin != null) && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
               {needsVideoUrl ? <StatusBadge tone="warn">Verify video URL</StatusBadge> : null}
@@ -408,6 +480,13 @@ export default function VideoStudyMode({
         </div>
 
         <aside className={`min-w-0 space-y-4 ${minimal ? "" : "order-2 xl:sticky xl:top-4 xl:self-start"}`}>
+          <section className="rounded-xl border border-amber-800/45 bg-amber-950/25 px-3 py-3 space-y-2 text-xs text-amber-50/95 leading-relaxed">
+            <p>
+              <span aria-hidden>👇</span> <strong className="text-amber-100">Just follow along</strong> — don&apos;t overthink it.
+            </p>
+            <p className="font-bold tracking-widest text-center text-amber-100">LISTEN → WRITE</p>
+            <p className="text-center text-amber-50/90">Take 2 seconds — look at that once</p>
+          </section>
           {minimal && (
             <section className="rounded-xl border border-emerald-800/35 bg-emerald-950/15 px-3 py-3 space-y-2">
               {pauseHeader}
@@ -442,15 +521,87 @@ export default function VideoStudyMode({
           : pdfGuideHref && minimal ?
             <div className="rounded-xl border border-cyan-800/35 bg-cyan-950/20 px-3 py-2 space-y-1">
               <Link to={pdfGuideHref} className="btn-ghost text-sm w-full text-center min-h-[44px] touch-manipulation">
-                PDF guide (optional) →
+                Open PDF guide →
               </Link>
-              <p className="text-[10px] text-slate-500">Thin path — fusion is note + quiz first.</p>
+              <p className="text-[10px] text-slate-500">Same loop: video, note, then proof — PDF guide opens beside it.</p>
             </div>
           : null}
 
+          {localPdfFollowAlong && (
+            <div className="rounded-xl border border-violet-800/40 bg-violet-950/20 px-3 py-3 space-y-3">
+              <p className="text-sm font-bold text-violet-100 leading-snug">
+                <span aria-hidden>👇</span> Look at this in your PDF
+              </p>
+              <p className="text-xs text-violet-200/90 leading-snug">
+                Same lesson: what you hear in the video, what this PDF says, and what you write — tie them into one idea.
+              </p>
+              <p className="text-xs text-slate-300">
+                <span className="text-slate-500">File:</span> <span className="text-white font-medium">{localPdfFollowAlong.fileName}</span>
+              </p>
+              <p className="text-xs text-slate-400">
+                <span className="text-slate-500">Page</span> <span className="text-white font-medium">{localPdfFollowAlong.pageIndex}</span>
+              </p>
+              <pre className="text-xs text-slate-200 whitespace-pre-wrap leading-snug max-h-40 overflow-auto rounded border border-slate-700/80 bg-slate-950/60 p-2">
+                {localPdfFollowAlong.snippet}
+              </pre>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-amber-200/95">WRITE THIS ↓</p>
+              <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-3 space-y-2 text-xs text-slate-200 leading-relaxed">
+                <p>
+                  <span aria-hidden>🎥</span> <strong className="text-white">Messer said:</strong>{" "}
+                  <span className="text-slate-300">&quot;{currentPause.prompt}&quot;</span>
+                </p>
+                <p>
+                  <span aria-hidden>📄</span> <strong className="text-white">PDF shows:</strong>{" "}
+                  <span className="text-slate-300">&quot;{localPdfFollowAlong.snippet}&quot;</span>
+                </p>
+                <p>
+                  <span aria-hidden>📝</span> <strong className="text-white">You write:</strong>{" "}
+                  <span className="text-slate-300">{mainIdea.trim() ? `“${mainIdea.trim()}”` : "(type in the note box below — one line)"}</span>
+                </p>
+                <p>
+                  <span aria-hidden>🧠</span> <strong className="text-white">You just learned this:</strong>{" "}
+                  <span className="text-emerald-200/95">{mainIdea.trim() || "— your line appears when you write it —"}</span>
+                </p>
+              </div>
+              <p className="text-xs text-violet-100/90 leading-relaxed">This is how you use your PDFs while learning — keep doing this.</p>
+              <p className="text-xs text-slate-400">
+                Search phrase:&nbsp;
+                <span className="text-white font-medium">&quot;{localPdfFollowAlong.searchPhrase}&quot;</span>
+              </p>
+              <Link
+                to={localPdfFollowAlong.importHref}
+                className="btn w-full text-center min-h-[44px] touch-manipulation inline-flex items-center justify-center text-sm"
+              >
+                Open context (Import)
+              </Link>
+            </div>
+          )}
+
+          {showFollowAlong && (
+            <BeginnerFollowAlong lesson={lesson} onUseThis={applyFollowAlong} alreadyApplied={followAlongApplied} />
+          )}
+
+          {showFollowAlong && (
+            <div
+              className="rounded-lg border border-emerald-800/55 bg-emerald-950/15 px-3 py-2 flex items-center gap-3"
+              role="note"
+            >
+              <span aria-hidden className="text-[10px] uppercase font-bold tracking-wider text-emerald-200/95 shrink-0">
+                Listen → Write
+              </span>
+              <span className="text-xs text-slate-300 leading-snug min-w-0">
+                What you just heard becomes your note below — same idea, your words.
+              </span>
+            </div>
+          )}
+
           <div className="rounded-xl border border-slate-700 bg-slate-900/45 p-3 space-y-3">
             <p className="text-[11px] font-bold uppercase text-amber-200/95 tracking-wide">Write ONE note</p>
-            <p className="text-xs text-slate-500 italic">Don’t write everything. Catch the trigger.</p>
+            <p className="text-xs text-slate-500 italic">
+              {showFollowAlong
+                ? "Edit the auto-filled line above into your own words — your version sticks better than copying."
+                : "Don’t write everything. Catch the trigger."}
+            </p>
 
             {!minimal && (
               <ul className="text-xs text-slate-400 space-y-1 list-disc pl-4">
@@ -500,7 +651,7 @@ export default function VideoStudyMode({
               </>
             : (
               <details className="text-xs text-slate-500 rounded-lg border border-slate-800 bg-slate-950/40">
-                <summary className="cursor-pointer px-2 py-2 touch-manipulation min-h-[40px] list-none [&::-webkit-details-marker]:hidden text-slate-400">
+                <summary className="cursor-pointer px-2 py-2 touch-manipulation min-h-[44px] list-none [&::-webkit-details-marker]:hidden text-slate-400">
                   More (trap / say aloud) — optional
                 </summary>
                 <div className="space-y-2 pb-2">
@@ -520,9 +671,65 @@ export default function VideoStudyMode({
               </details>
             )}
 
+            {showFollowAlong && (mainIdea.trim() || keyword.trim()) && (
+              <div
+                className="rounded-lg border border-emerald-800/45 bg-emerald-950/20 px-3 py-2.5 space-y-2"
+                role="status"
+                aria-live="polite"
+              >
+                <p className="text-sm font-bold text-emerald-100">
+                  <span aria-hidden>🧠</span> You just learned this:
+                </p>
+                <div className="rounded-md bg-slate-950/40 border border-slate-800 px-2.5 py-2 space-y-2">
+                  <p className="text-xs leading-snug">
+                    <span aria-hidden>🎥</span>{" "}
+                    <strong className="text-slate-300">Messer said:</strong>{" "}
+                    <em className="text-slate-200/95">
+                      “{(lesson.simpleExplanation ?? "").split(". ")[0]?.slice(0, 200) || lesson.title}”
+                    </em>
+                  </p>
+                  <p className="text-xs leading-snug">
+                    <span aria-hidden>📝</span>{" "}
+                    <strong className="text-slate-300">You wrote:</strong>{" "}
+                    <strong className="text-amber-200/95">{keyword.trim() || "(keyword goes here)"}</strong>
+                    {mainIdea.trim() && (
+                      <>
+                        {" — "}
+                        <span className="text-slate-100">{mainIdea.trim()}</span>
+                      </>
+                    )}
+                  </p>
+                </div>
+                <p className="text-[11px] text-emerald-200/80 italic leading-snug">
+                  Take 2 seconds — look at that once.
+                </p>
+              </div>
+            )}
+
             <button type="button" className="btn w-full min-h-[48px] touch-manipulation" onClick={saveFusionNote}>
               {minimal ? "Save note · then prove it" : "Save this video note → proof question"}
             </button>
+
+            {showFollowAlong && firstNoteAck && (
+              <p
+                className="text-sm text-emerald-200/95 border border-emerald-700/45 bg-emerald-950/30 rounded-lg px-3 py-2 leading-snug"
+                role="status"
+                aria-live="polite"
+              >
+                <strong className="text-emerald-50">You’re doing this exactly right.</strong> One note, one keyword — that’s the loop.
+              </p>
+            )}
+
+            {pdfFusionSavedAck && localPdfFollowAlong && (
+              <div
+                className="text-sm text-cyan-100/95 border border-cyan-700/40 bg-cyan-950/25 rounded-lg px-3 py-2 leading-snug space-y-1"
+                role="status"
+                aria-live="polite"
+              >
+                <p className="font-semibold text-white">Saved with your PDF.</p>
+                <p className="text-xs text-slate-300">You connected the video, PDF, and your note.</p>
+              </div>
+            )}
 
             {proofBanner && (
               <p className="text-sm text-emerald-200/95 border border-emerald-700/35 bg-emerald-950/25 rounded-lg px-3 py-2" role="status">
@@ -603,6 +810,17 @@ export default function VideoStudyMode({
                   )}
                 </p>
               )}
+              {firstQcRightAck && (
+                <p
+                  className="text-sm text-emerald-100/95 border border-emerald-700/55 bg-emerald-950/35 rounded-lg px-3 py-2 mt-2 leading-snug"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span aria-hidden>🎯</span>{" "}
+                  <strong className="text-emerald-50">This is exactly how you get better at this.</strong>{" "}
+                  Watch → write → prove it. Repeat the loop.
+                </p>
+              )}
             </div>
           )}
 
@@ -677,6 +895,33 @@ export default function VideoStudyMode({
                 </button>
               )}
             </div>
+          )}
+
+          {minimal && notesForLesson.length > 0 && (
+            <section
+              className="rounded-xl border border-slate-700 bg-slate-900/40 p-3 space-y-2"
+              aria-labelledby="vf-session-notes-h"
+              role="status"
+              aria-live="polite"
+            >
+              <p id="vf-session-notes-h" className="text-[11px] font-bold uppercase tracking-wide text-emerald-200/95">
+                Notes you’ve captured · live ({notesForLesson.length})
+              </p>
+              <ul className="text-xs text-slate-300 space-y-1.5">
+                {notesForLesson.slice(-5).reverse().map((n) => (
+                  <li key={n.id} className="flex items-start gap-2 leading-snug">
+                    <span aria-hidden className="text-emerald-300/95 mt-0.5">✓</span>
+                    <span className="min-w-0">
+                      <strong className="text-slate-100">{n.examKeyword || n.topic}</strong>
+                      {n.whatItMeans ? <span className="text-slate-400"> — {n.whatItMeans.slice(0, 120)}{n.whatItMeans.length > 120 ? "…" : ""}</span> : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[10px] text-slate-500 leading-snug">
+                Saved on this device. Open them anytime in <strong className="text-slate-400">Brain Book</strong> on the lesson page.
+              </p>
+            </section>
           )}
 
           <div className="rounded-xl border border-slate-700 bg-slate-900/35 p-3 flex flex-col gap-2">

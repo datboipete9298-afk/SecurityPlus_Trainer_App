@@ -131,7 +131,7 @@ export function buildQuizTutorFeedback(
 
   let nextAction = correct
     ? "Next: try the next question, or retry this one for speed if you want automatic recognition."
-    : "Next: reread the breakdown, add a card if it still feels fuzzy, then retry this question or continue when ready.";
+    : "Next: reread the breakdown, add a card if it still feels fuzzy, then retry this question or move on when ready.";
   if (!correct && missAfterAttempt >= 3) {
     nextAction =
       "Same item missed 3+ times — pause forward progress: use lesson labs, priority flashcards, or retry until this stem feels easy.";
@@ -204,7 +204,7 @@ export function buildSimChoiceTutorFeedback(params: {
     examRecognitionRule: examWhy,
     realWorldMeaning: "SOC and IR run on ordered decisions; the exam tests whether you pick the next safe action.",
     memoryHook: "Triage → scope → preserve evidence → escalate — order matters.",
-    nextActionSuggestion: "Continue the simulation when the feedback sits right; retry the sim from the start if you want a clean run.",
+    nextActionSuggestion: "Go to the next sim step when the feedback feels clear; restart from the top anytime for a clean run.",
     commonMistakeAlert: wasBest
       ? "Don’t skip documenting handoff details — exams love “what to log first.”"
       : "Watch for “fastest looking” answers that skip evidence or policy.",
@@ -267,7 +267,7 @@ export function buildFlashcardTutorFeedback(front: string, back: string, gotRigh
     realWorldMeaning: "These cards mirror how teams shorthand controls and pitfalls in standups.",
     memoryHook: (front.slice(0, 40) + (front.length > 40 ? "…" : "")) + " → " + firstSentence(back),
     nextActionSuggestion: gotRight
-      ? "Continue when ready — spaced repetition will bring this card back."
+      ? "Tap next when you’re ready — spaced repetition will bring this card back at the right time."
       : "Hit Again to reschedule sooner; add your own note in Brain Book if a word keeps tripping you.",
     commonMistakeAlert: "Mixing similar acronyms or control types is the #1 flashcard miss — compare pairs on purpose.",
     thinkingTraining: "Flashcard pattern: front = trigger phrase you’ll see on the exam; back = one rule you’d tell a new hire.",

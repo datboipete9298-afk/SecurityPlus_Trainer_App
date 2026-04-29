@@ -8,15 +8,15 @@ Copy this whole file per cohort and fill in. Keep it under version control along
 
 ---
 
-## Per-persona row
+## Per-persona row — task pass/fail (T1–T8 in `REAL_USER_TEST_PLAN.md`)
 
-| Persona | Task completion (0–5) | Time to first win (mm:ss) | # confusion points | Trust concerns (Y/N + note) | Mobile friction (0–5) | "Would use again?" (1–10) |
-|---------|----------------------:|--------------------------:|-------------------:|-----------------------------|----------------------:|--------------------------:|
-| Complete beginner       |  |  |  |  |  |  |
-| Phone-only user         |  |  |  |  |  |  |
-| Distracted user         |  |  |  |  |  |  |
-| Serious exam candidate  |  |  |  |  |  |  |
-| No-AI / no-PDF user     |  |  |  |  |  |  |
+| Persona | T1 first win mm:ss | T2 confusions | T3 export | T4 PDF add | T5 wrong recover | T6 lab recover | T7 offline reload | T8 would-use 1–10 |
+|---------|-------------------:|---------------:|:---------:|:----------:|:----------------:|:--------------:|:-----------------:|------------------:|
+| Complete beginner       |        |  | n/a   | n/a   |       | n/a   |       |       |
+| Phone-only user         |        |  | n/a   | n/a   | n/a   | n/a   |       |       |
+| Distracted user         |        |  |       | n/a   | n/a   | n/a   |       |       |
+| Serious exam candidate  |        |  |       |       |       |       | n/a   |       |
+| No-AI / no-PDF user     |        |  |       | n/a   | n/a   | n/a   |       |       |
 
 **Cohort medians**
 

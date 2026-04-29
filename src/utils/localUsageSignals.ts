@@ -22,7 +22,13 @@ export type UsageSignalName =
   | "export_completed"
   | "error_boundary_hit"
   | "offline_mode_used"
-  | "pwa_installed";
+  | "pwa_installed"
+  /** AI tutor served a structured fallback (live failed / weak / timeout / rate-limit / no API base). */
+  | "ai_fallback_used"
+  /** User retried the same quiz question after a wrong answer. */
+  | "quiz_retry"
+  /** User landed on a route that didn't exist — graceful 404. */
+  | "unknown_route_hit";
 
 export type UsageRecord = {
   count: number;
@@ -44,6 +50,9 @@ const ALL_NAMES: UsageSignalName[] = [
   "error_boundary_hit",
   "offline_mode_used",
   "pwa_installed",
+  "ai_fallback_used",
+  "quiz_retry",
+  "unknown_route_hit",
 ];
 
 function emptySignals(): UsageSignals {
@@ -144,4 +153,7 @@ export const USAGE_SIGNAL_LABELS: Record<UsageSignalName, string> = {
   error_boundary_hit: "App caught a render snag",
   offline_mode_used: "Studied offline",
   pwa_installed: "Installed as app",
+  ai_fallback_used: "AI tutor used built-in fallback",
+  quiz_retry: "Retried a wrong quiz question",
+  unknown_route_hit: "Hit an unknown URL (404)",
 };

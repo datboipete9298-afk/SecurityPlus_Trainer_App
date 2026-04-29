@@ -2,7 +2,7 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import type { AiRequestMode, AiTutorRequestBody } from "../src/types/aiTutor";
-import { askTutor } from "./aiCore";
+import { askTutor, type AskTutorInput } from "./aiCore";
 import { clientKey, rateLimitHit } from "./rateLimit";
 
 const app = express();
@@ -47,6 +47,7 @@ async function handleAi(req: express.Request, res: express.Response, mode: AiReq
       noteContext: (body.noteContext as Record<string, unknown> | null) ?? null,
       labContext: (body.labContext as Record<string, unknown> | null) ?? null,
       pdfGuideContext: (body.pdfGuideContext as Record<string, unknown> | null) ?? null,
+      localPdfSnippets: (body.localPdfSnippets as AskTutorInput["localPdfSnippets"]) ?? null,
     });
     res.json(out);
   } catch (e) {

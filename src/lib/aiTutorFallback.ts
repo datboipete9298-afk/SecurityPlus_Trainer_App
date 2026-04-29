@@ -6,6 +6,8 @@ export type FallbackHints = {
   sectionId?: string;
   pdfSectionTitle?: string;
   pdfLessonId?: string;
+  /** One short line about matched local PDF excerpt (offline coach). */
+  localPdfSnippetLine?: string;
 };
 
 export function smartCoachOfflineResponse(hints: FallbackHints): AiTutorResponse {
@@ -18,7 +20,9 @@ export function smartCoachOfflineResponse(hints: FallbackHints): AiTutorResponse
       `\n\n**PDF focus:** you’re anchored to “${hints.pdfSectionTitle}”${hints.pdfLessonId ? ` (lesson ${hints.pdfLessonId})` : ""}. Search that exact phrase, mark one MUST line, mirror it into Brain Book — that’s deliberate exam prep, not busywork.`
     : "";
 
-  const baseKp =
+  const snippetLine = hints.localPdfSnippetLine?.trim();
+
+  const baseKpRaw =
     lines.length >= 3 ?
       [lines[0]!, lines[1]!, lines[2]!, lines[3] ?? "Close the loop — one retrieval action (quiz, flashcard, or PDF line) in the next 3 minutes."]
     : [
@@ -27,6 +31,8 @@ export function smartCoachOfflineResponse(hints: FallbackHints): AiTutorResponse
         "Pick your next move: PDF search, one flashcard, or one quiz retry (choose one, finish it).",
         `Stay inside ${where} so today’s reps stack instead of drifting topics.`,
       ];
+
+  const baseKp = snippetLine ? [snippetLine, ...baseKpRaw].slice(0, 4) : baseKpRaw;
 
   return {
     answer:

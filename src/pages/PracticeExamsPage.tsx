@@ -13,6 +13,7 @@ import { readinessTrack, weakestDomainHintFromScores } from "../utils/readinessB
 import PracticeExamDraftResume from "../components/PracticeExamDraftResume";
 import TrustReminderStrip from "../components/TrustReminderStrip";
 import { readPracticeExamDraft } from "../utils/practiceExamDraft";
+import CoachLine from "../components/CoachLine";
 
 const EXAMS = [
   { id: "messer-exam-a", label: "Exam A", blurb: "Professor Messer SY0-701 practice set A (MCQ bank in app)." },
@@ -58,9 +59,10 @@ export default function PracticeExamsPage() {
           </FlowPrimaryStrip>
           <PageHeader
             title="Practice exam hub"
-            purpose="Pick an exam below — Exam mode saves grading for the end; Study mode checks each question."
+            purpose="Pick an exam below — Exam mode saves grading for the end; Study mode checks each question. A score only shows where to study next; it does not measure your worth as a student."
             badge={<StatusBadge tone="accent">A · B · C</StatusBadge>}
           />
+          <CoachLine k="practiceExamWhen" />
           <TrustReminderStrip dense />
 
           <details className="rounded-2xl border border-slate-700 bg-slate-900/35 group">

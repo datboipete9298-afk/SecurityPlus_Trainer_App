@@ -26,6 +26,7 @@ import PracticeExamDraftResume from "../components/PracticeExamDraftResume";
 import SectionCard from "../components/SectionCard";
 import TrustReminderStrip from "../components/TrustReminderStrip";
 import FirstLoopCard from "../components/FirstLoopCard";
+import CoachLine from "../components/CoachLine";
 
 export default function Dashboard() {
   const {
@@ -126,7 +127,7 @@ export default function Dashboard() {
             purpose={
               isFreshUser
                 ? "Welcome. Local-first study app for Security+ — your progress saves on this device."
-                : "Tap Continue for the smartest next move. Readiness reflects your practice here — not a real CompTIA score."
+                : "Use Do this next on Home — it picks the smartest move. Readiness reflects your practice here, not a real CompTIA score."
             }
           />
 
@@ -154,7 +155,7 @@ export default function Dashboard() {
                 <ContinueButton step={nextStep} className="btn w-full text-center text-lg py-4 min-h-[52px]" coachHint="" />
               </FlowPrimaryStrip>
               <p className="text-[11px] text-slate-500 text-center leading-snug">
-                This guides you step by step — just follow Continue.
+                The green box above always says what happens when you tap.
               </p>
               <div className="rounded-xl border border-slate-700/85 bg-slate-900/40 px-4 py-3 text-center">
                 {resumeCue ? (
@@ -175,6 +176,7 @@ export default function Dashboard() {
                 {pct}% course · {done}/{totalSections} sections
                 {here.title ? <span className="text-slate-600"> · {here.title}</span> : null}
               </p>
+              <CoachLine k="sessionPacing" className="justify-center text-center" />
             </>
           )}
 
@@ -217,7 +219,7 @@ export default function Dashboard() {
               <ResumeWhereCard state={state} />
 
               {!(done >= 4 && hasTodayActivity) && (
-                <SectionCard title="One quick question" subtitle="Optional. Continue above is still your main path.">
+                <SectionCard title="One quick question" subtitle="Optional. Do this next above is still your main path.">
                   <Link
                     to={`/quiz/${firstLessonId}?quick=1`}
                     className="btn w-full text-center min-h-[48px] touch-manipulation"
@@ -234,7 +236,7 @@ export default function Dashboard() {
               <div className="rounded-2xl border border-slate-700/80 bg-slate-900/35 px-4 py-4 space-y-3">
                 <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wide">Today</h2>
                 {!hasTodayActivity ? (
-                  <p className="text-sm text-slate-500">Nothing yet — Continue picks where to start.</p>
+                  <p className="text-sm text-slate-500">Nothing yet — Home will pick where to start.</p>
                 ) : (
                   <ul className="text-sm text-slate-300 space-y-1.5 list-none">
                     <li>

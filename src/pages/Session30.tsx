@@ -104,7 +104,7 @@ export default function Session30() {
 
         <SectionCard title="Beginner quick guide" subtitle="How to use this timer">
           <ul className="text-sm text-slate-300 space-y-2 list-disc pl-5 leading-relaxed">
-            <li>Press <strong className="text-white">Start</strong> when you are ready to focus — the phase name updates automatically.</li>
+            <li>Press <strong className="text-white">Start 30-minute timer</strong> when you are ready to focus — the phase name updates automatically.</li>
             <li>Stay in one lesson flow; use the suggested lesson link below if you do not have one open.</li>
             <li>
               <strong className="text-white">Reset</strong> stops the clock and returns to 0:00 (no XP until you complete a full run).
@@ -144,7 +144,7 @@ export default function Session30() {
 
           <div className="flex flex-col sm:flex-row gap-2 justify-center mt-4">
             <button type="button" className="btn w-full sm:w-auto min-h-[48px] touch-manipulation" onClick={() => setOn(true)}>
-              Start
+              Start 30-minute timer →
             </button>
             <button
               type="button"
@@ -214,7 +214,7 @@ export default function Session30() {
           <div className="rounded-2xl border border-violet-800/45 bg-violet-950/25 px-4 py-4">
             <p className="text-xs font-bold text-violet-200 uppercase tracking-wide">Next time, start here</p>
             <p className="text-sm text-slate-300 mt-2 leading-relaxed">
-              When you come back, use <strong className="text-white">{nextStep.buttonLabel}</strong> — it matches Home and your phone&apos;s green Continue bar.
+              When you come back, use <strong className="text-white">{nextStep.buttonLabel}</strong> — it matches Home and the bottom bar on your phone.
             </p>
             <Link to={nextStep.href} className="btn w-full sm:w-auto text-center mt-3 inline-block min-h-[44px] touch-manipulation">
               {nextStep.buttonLabel} →

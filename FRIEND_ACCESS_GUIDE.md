@@ -23,7 +23,7 @@ You run deploy from your machine or from the host’s “Deploy” button — **
 
 1. You send them **one link** (copy from Vercel/Netlify after deploy).
 2. They tap or paste it in **Safari, Chrome, etc.**
-3. The app loads. They can use **Menu** on phones for navigation and **Continue** at the bottom to follow the study queue.
+3. The app loads. They can use **Menu** on phones for navigation and **Do this next** at the bottom (same queue as Home) to follow the study path.
 
 ---
 
@@ -72,4 +72,4 @@ This is the supported way to sync **manually** between phone and PC.
 
 ## 8. Mobile notes
 
-The app is **responsive**: hamburger menu, large tap targets, sticky **Continue** on small screens, and videos scale to the screen width. Works best in an up-to-date mobile browser.
+The app is **responsive**: hamburger menu, large tap targets, sticky **Do this next** on small screens, and videos scale to the screen width. Works best in an up-to-date mobile browser.

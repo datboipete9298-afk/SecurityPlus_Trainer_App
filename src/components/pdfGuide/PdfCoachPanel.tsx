@@ -23,7 +23,7 @@ export default function PdfCoachPanel({ guide, interruptSeen, onSeen }: Props) {
               <p className="font-semibold text-violet-100/95">{it.title}</p>
               <p className="mt-1 leading-relaxed">{it.body}</p>
               {!seen && (
-                <button type="button" className="mt-2 btn text-xs min-h-[40px] touch-manipulation" onClick={() => onSeen(key)}>
+                <button type="button" className="mt-2 btn text-xs min-h-[44px] touch-manipulation" onClick={() => onSeen(key)}>
                   Got it
                 </button>
               )}

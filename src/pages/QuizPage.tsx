@@ -28,6 +28,7 @@ import {
 } from "../utils/practiceExamDraft";
 import { buildMomentumPair } from "../utils/microEncouragement";
 import { markUsage } from "../utils/localUsageSignals";
+import CoachLine from "../components/CoachLine";
 
 const MESSER_PREFIX = "messer-exam-";
 
@@ -109,7 +110,7 @@ export default function QuizPage() {
   );
 
   const [draftLoaded, setDraftLoaded] = useState(false);
-  /** Tutor mode: confidence before Continue / Finish */
+  /** Tutor mode: confidence before advancing or finishing */
   const [confidenceGate, setConfidenceGate] = useState<UserConfidenceLevel | null>(null);
   const [quizWrapUp, setQuizWrapUp] = useState(false);
   const [feedbackDetailOpen, setFeedbackDetailOpen] = useState(true);
@@ -623,7 +624,7 @@ export default function QuizPage() {
       const dis = multi ? picked.length === 0 : sel == null;
       return (
         <button type="button" className="btn w-full text-center min-h-[48px] touch-manipulation" onClick={goNext} disabled={dis}>
-          {i >= qs.length - 1 ? "Finish exam" : "Next"}
+          {i >= qs.length - 1 ? "Finish exam & review →" : "Save answer, next →"}
         </button>
       );
     }
@@ -669,7 +670,7 @@ export default function QuizPage() {
               })
             }
           >
-            Next question
+            Save & next question →
           </button>
         );
       }
@@ -685,7 +686,7 @@ export default function QuizPage() {
             })
           }
         >
-          Finish quiz
+          Finish quiz & wrap-up →
         </button>
       );
     }
@@ -710,6 +711,7 @@ export default function QuizPage() {
             "Scan wrong rows first, then reread the rationales. Every miss is data, not a verdict about you."
           : "Pick your best answer, read the explanation whether you were right or wrong, then move on. Misses power your journal and optional flashcards automatically."}
         </p>
+        {!isMesser && <CoachLine k="quizGoal" className="mt-2" />}
       </aside>
       <TrustReminderStrip dense />
       <div>
@@ -741,7 +743,7 @@ export default function QuizPage() {
           )}
         </p>
         {isMesser && mode === "exam" && examPhase === "taking" && (
-          <p className="text-xs text-slate-500 mt-1">Pick an answer, then use <strong className="text-slate-300">Next step</strong> above.</p>
+          <p className="text-xs text-slate-500 mt-1">Pick an answer, then use <strong className="text-slate-300">Do this next</strong> above.</p>
         )}
       </div>
       <div className="card mt-2">
@@ -761,7 +763,7 @@ export default function QuizPage() {
           ))}
         </ul>
         {!multi && !show && !(isMesser && mode === "exam" && examPhase === "taking") && (
-          <p className="text-xs text-slate-500 mt-3">Tap a choice, then <strong className="text-slate-300">Next step</strong> above.</p>
+          <p className="text-xs text-slate-500 mt-3">Tap a choice, then <strong className="text-slate-300">Do this next</strong> above.</p>
         )}
         {show && !(isMesser && mode === "exam") && tutorFeedback && (
           <>
@@ -882,7 +884,7 @@ export default function QuizPage() {
               </div>
             )}
             <ConfidenceSelector value={confidenceGate} onChange={setConfidenceGate} />
-            <p className="text-xs text-slate-500 mt-2">Pick how sure you felt, then use <strong className="text-slate-300">Next step</strong> above.</p>
+            <p className="text-xs text-slate-500 mt-2">Pick how sure you felt, then use <strong className="text-slate-300">Do this next</strong> above.</p>
             <details className="mt-3 rounded-lg border border-slate-700 bg-slate-900/40 group">
               <summary className="cursor-pointer list-none px-3 py-2 text-xs text-slate-400 touch-manipulation min-h-[44px] flex items-center [&::-webkit-details-marker]:hidden">
                 <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
@@ -894,6 +896,7 @@ export default function QuizPage() {
                   className="btn-ghost text-sm w-full min-h-[44px]"
                   onClick={() => {
                     bumpQuizRetryCount(qq.id);
+                    markUsage("quiz_retry");
                     setQuizWrapUp(false);
                     setFeedbackDetailOpen(false);
                     setShow(false);

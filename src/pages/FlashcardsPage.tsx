@@ -14,6 +14,7 @@ import SectionCard from "../components/SectionCard";
 import AITutorPanel from "../components/AITutorPanel";
 import StatusBadge from "../components/StatusBadge";
 import { buildFlashcardStreakIdentityLine, buildWeakCardRepairIdentityLine } from "../utils/identityPersonalization";
+import CoachLine from "../components/CoachLine";
 
 export default function FlashcardsPage() {
   const [sp] = useSearchParams();
@@ -70,12 +71,12 @@ export default function FlashcardsPage() {
           <div className="min-w-0 space-y-6 max-w-xl">
             <FlowPrimaryStrip>
               <Link to="/weak" className="btn w-full text-center min-h-[48px] touch-manipulation justify-center">
-                Continue improving (weak areas)
-              </Link>
+              Open weak spots hub →
+            </Link>
             </FlowPrimaryStrip>
             <PageHeader
               title="Flashcards"
-              purpose="This filtered deck is empty — open flashcards from a lesson that includes cards, convert quiz misses from home, or drop the lesson filter below."
+              purpose="No cards match this filter yet — that is normal early on. Open flashcards from a lesson that has cards, clear the lesson filter, or turn recent quiz misses into cards from Progress."
             />
             <SectionCard title="Empty deck" subtitle="Secondary paths">
               <details className="group">
@@ -141,6 +142,7 @@ export default function FlashcardsPage() {
               </div>
             }
           />
+          <CoachLine k="flashcardsBoring" />
 
           <details className="rounded-2xl border border-slate-700 bg-slate-900/30 group overflow-hidden">
             <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-300 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
@@ -228,7 +230,7 @@ export default function FlashcardsPage() {
               )}
               <p className="text-xs text-slate-500">You control pacing — continue when the hook sticks.</p>
               <button type="button" className="btn w-full min-h-[48px]" onClick={advanceAfterFeedback}>
-                Continue to next card
+                Next flashcard →
               </button>
               <button
                 type="button"

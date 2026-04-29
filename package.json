@@ -16,10 +16,15 @@
     "validate:videos": "node scripts/validate-videos.mjs",
     "validate:pdf-guides": "tsx scripts/validate-pdf-guides.ts",
     "validate:pdf-upload": "tsx scripts/validate-pdf-upload-system.ts",
+    "validate:pdf-library": "tsx scripts/validate-pdf-library.ts",
     "validate:ai": "node scripts/validate-ai-system.mjs",
     "validate:ai-integration": "node scripts/validate-ai-integration.mjs",
     "validate:video-notes": "tsx scripts/validate-video-note-system.ts",
-    "build": "npm run validate:data && npm run validate:feedback && npm run validate:training && npm run validate:elite-labs && npm run validate:videos && npm run validate:pdf-guides && npm run validate:pdf-upload && npm run validate:video-notes && tsc -b && vite build",
+    "validate:production": "tsx scripts/validate-production-readiness.ts",
+    "validate:flow-smoke": "tsx scripts/validate-flow-smoke.ts",
+    "validate:ai-quality": "tsx scripts/validate-ai-quality-stress.ts",
+    "test:e2e": "playwright test --config=tests/e2e/playwright.config.ts",
+    "build": "npm run validate:data && npm run validate:feedback && npm run validate:training && npm run validate:elite-labs && npm run validate:videos && npm run validate:pdf-guides && npm run validate:pdf-upload && npm run validate:pdf-library && npm run validate:video-notes && npm run validate:production && npm run validate:ai-quality && tsc -b && vite build && npm run validate:flow-smoke",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
@@ -28,22 +33,24 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "openai": "^4.73.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
     "@vitejs/plugin-react": "^4.2.1",
-    "concurrently": "^9.1.0",
     "autoprefixer": "^10.4.17",
+    "concurrently": "^9.1.0",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.2.2",
     "tsx": "^4.19.0",
+    "typescript": "^5.2.2",
     "vite": "^5.1.0"
   }
 }

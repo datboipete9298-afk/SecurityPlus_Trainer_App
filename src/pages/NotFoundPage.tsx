@@ -1,9 +1,14 @@
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
+import { markUsage } from "../utils/localUsageSignals";
 
 /** Clear route when bookmarks or deeplinks don’t exist — avoids silent redirects. */
 export default function NotFoundPage() {
+  useEffect(() => {
+    markUsage("unknown_route_hit");
+  }, []);
   return (
     <AppShell>
       <div className="max-w-xl space-y-6">

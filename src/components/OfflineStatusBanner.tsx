@@ -30,19 +30,24 @@ export default function OfflineStatusBanner() {
 
   if (online && !justReconnected) return null;
 
+  /**
+   * Mobile placement: render below the sticky mobile header (which sits at
+   * `top: 0; z-30`). On desktop there is no mobile header — pin to top.
+   * `safe-area-inset-top` covers iOS notches when no header is visible.
+   */
   return (
     <div
-      className={`fixed left-0 right-0 z-[60] top-0 px-3 py-1.5 text-center text-xs font-medium border-b shadow-sm pointer-events-none ${
+      className={`fixed left-0 right-0 z-[55] px-3 py-1.5 text-center text-xs font-medium border-b shadow-sm pointer-events-none top-[calc(2.875rem+env(safe-area-inset-top))] md:top-0 ${
         online
-          ? "bg-emerald-950/90 border-emerald-800/60 text-emerald-100"
-          : "bg-amber-950/90 border-amber-800/60 text-amber-100"
+          ? "bg-emerald-950/95 border-emerald-800/60 text-emerald-100"
+          : "bg-amber-950/95 border-amber-800/60 text-amber-100"
       }`}
       role="status"
       aria-live="polite"
     >
       {online
-        ? "Back online — everything sync-free still saved on this device."
-        : "Offline — keep studying. Notes, quizzes, and PDFs work. Tutor falls back to built-in coach."}
+        ? "Back online — everything you saved is still on this device."
+        : "Offline — keep studying. Notes, quizzes, and PDFs work. Tutor falls back to the built-in coach."}
     </div>
   );
 }

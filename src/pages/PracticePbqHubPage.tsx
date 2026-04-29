@@ -46,7 +46,7 @@ export default function PracticePbqHubPage() {
         <SectionCard title="How to use these" subtitle="Safe, local practice">
           <ul className="text-sm text-slate-300 space-y-2 list-disc pl-5 leading-relaxed">
             <li>Open a lab, read the scenario, then reorder steps with Up/Down.</li>
-            <li>Submit once you are confident — wrong answers nudge weak-area signals for that domain.</li>
+            <li>Lock your answer once you&apos;re confident — misses still nudge weak-area signals for that domain.</li>
             <li>Retry until the pattern sticks; pair with lesson quizzes in the same domain.</li>
           </ul>
         </SectionCard>
@@ -68,7 +68,7 @@ export default function PracticePbqHubPage() {
           </ul>
         </div>
 
-        <NextActionCard label="Next step" description="After a lab, run a practice exam in study mode or review weak areas.">
+        <NextActionCard label="Suggested next" description="After a lab, run a practice exam in study mode or review weak areas.">
           <div className="flex flex-col sm:flex-row gap-2">
             <Link to="/practice-exams" className="btn w-full sm:w-auto text-center">
               Practice exams →

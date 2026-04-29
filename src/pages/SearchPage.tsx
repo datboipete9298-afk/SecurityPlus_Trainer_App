@@ -1,23 +1,36 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useProgress } from "../context/ProgressContext";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { lessons } from "../data/lessons";
 import { allQuestions } from "../data/quizzes";
 import { flashcards } from "../data/flashcards";
 import { labs } from "../data/labs";
 import { SECTION_ORDER } from "../data/sectionOrder";
 import { getVideoForLesson } from "../data/videoMap";
+import { searchPdfLibrary } from "../utils/lessonPdfMatch";
+import type { PdfSearchHit } from "../utils/lessonPdfMatch";
+import { pdfNoteLineFromHit } from "../utils/pdfSearchNoteLine";
+import { usePdfLibrary } from "../context/PdfLibraryContext";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
 import NextActionCard from "../components/NextActionCard";
 
 export default function SearchPage() {
+  const navigate = useNavigate();
   const { bumpStudyResume } = useProgress();
+  const { pdfs } = usePdfLibrary();
   useEffect(() => {
     bumpStudyResume({ search: true });
   }, [bumpStudyResume]);
+
   const [q, setQ] = useState("");
+  const [pdfSendHint, setPdfSendHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPdfSendHint(null);
+  }, [q]);
+
   const results = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (s.length < 2)
@@ -27,6 +40,7 @@ export default function SearchPage() {
         fc: [] as import("../types").Flashcard[],
         lab: [] as import("../types").Lab[],
         sec: [] as { id: string; label: string; domain: string }[],
+        pdf: [] as ReturnType<typeof searchPdfLibrary>,
       };
     const L = Object.values(lessons).filter(
       (l) =>
@@ -42,8 +56,30 @@ export default function SearchPage() {
       .slice(0, 12);
     const Lab = labs.filter((l) => l.title.toLowerCase().includes(s) || l.description.toLowerCase().includes(s)).slice(0, 8);
     const sec = SECTION_ORDER.filter((x) => x.label.toLowerCase().includes(s));
-    return { lessons: L.map((l) => l.id), qu: Q, fc: F, lab: Lab, sec };
-  }, [q]);
+    const pdf = searchPdfLibrary(q, pdfs, 20);
+    return { lessons: L.map((l) => l.id), qu: Q, fc: F, lab: Lab, sec, pdf };
+  }, [q, pdfs]);
+
+  const sendPdfHitToBrainBook = useCallback(
+    async (h: PdfSearchHit) => {
+      const line = pdfNoteLineFromHit(q, h.snippet);
+      const prefill = { line, fileName: h.fileName, page: h.pageIndex, snippet: h.snippet };
+      const lessonId = results.lessons[0] ?? results.sec[0]?.id ?? null;
+      setPdfSendHint(null);
+      if (lessonId) {
+        navigate(`/lesson/${lessonId}`, { state: { sptPdfNotePrefill: prefill } });
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(line);
+      } catch {
+        /* user may deny clipboard */
+      }
+      setPdfSendHint("Take me to where I can save it.");
+      navigate(`/import?pdf=${encodeURIComponent(h.pdfId)}&page=${h.pageIndex}#local-text-pdfs`);
+    },
+    [q, results.lessons, results.sec, navigate],
+  );
 
   const hasResults =
     q.length >= 2 &&
@@ -51,22 +87,15 @@ export default function SearchPage() {
       results.lessons.length > 0 ||
       results.qu.length > 0 ||
       results.fc.length > 0 ||
-      results.lab.length > 0);
+      results.lab.length > 0 ||
+      results.pdf.length > 0);
 
   return (
     <AppShell>
       <div className="max-w-3xl space-y-6">
         <PageHeader
           title="Search"
-          purpose={
-            <>
-              <strong className="text-slate-200">What this is:</strong> one search box across lessons, questions, cards, labs, and the roadmap.{" "}
-              <strong className="text-slate-200">Why use it:</strong> jump straight to a weak term without hunting menus.{" "}
-              <strong className="text-slate-200">First:</strong> type at least 2 characters (e.g. port number, acronym, attack name).{" "}
-              <strong className="text-slate-200">Next:</strong> open a lesson or question result, then quiz yourself on that topic.{" "}
-              <strong className="text-slate-200">No results?</strong> try a shorter root word or browse the lesson path.
-            </>
-          }
+          purpose="Type a term, port number, or acronym. Jumps straight to the lessons, questions, cards, labs, or roadmap section that mentions it."
         />
 
         <SectionCard title="Search" subtitle="Terms, ports, controls, acronyms…">
@@ -86,7 +115,7 @@ export default function SearchPage() {
         {q.length >= 2 && !hasResults && (
           <SectionCard title="No matches" subtitle="Try a shorter word or browse">
             <p className="text-sm text-slate-400">
-              No lessons, questions, cards, labs, or roadmap labels matched <strong className="text-slate-200">{q}</strong>.
+              No lessons, questions, cards, labs, roadmap labels, or your saved PDF text matched <strong className="text-slate-200">{q}</strong>.
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <Link to="/roadmap" className="btn w-full text-center">
@@ -148,6 +177,48 @@ export default function SearchPage() {
               </SectionCard>
             )}
 
+            {results.pdf.length > 0 && (
+              <SectionCard title="Your PDFs (saved on this device)" subtitle="Extracted text from Import">
+                {pdfSendHint ? <p className="text-sm text-emerald-200/95 mb-3 rounded-lg border border-emerald-800/40 bg-emerald-950/20 px-3 py-2">{pdfSendHint}</p> : null}
+                <ul className="space-y-3">
+                  {results.pdf.map((h, i) => (
+                    <li key={`${h.pdfId}-${h.pageIndex}-${i}`} className="border-b border-slate-800 pb-2 text-slate-400">
+                      <p className="text-xs text-slate-200 font-medium">Found in your PDF.</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        <span className="text-slate-300">{h.fileName}</span> · page {h.pageIndex}
+                      </p>
+                      <p className="text-slate-200 text-sm mt-2">{h.snippet}</p>
+                      <p className="text-sm text-slate-300 mt-2">Use this as one note.</p>
+                      <p className="text-sm text-white font-medium mt-1 rounded border border-emerald-800/50 bg-emerald-950/30 px-2 py-1.5">
+                        {pdfNoteLineFromHit(q, h.snippet)}
+                      </p>
+                      <button
+                        type="button"
+                        className="btn w-full mt-2 text-sm min-h-[44px] touch-manipulation"
+                        onClick={() => void sendPdfHitToBrainBook(h)}
+                      >
+                        Send to lesson note
+                      </button>
+                      <p className="text-xs text-slate-500 mt-1.5">Take me to where I can save it.</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <Link
+                          to={`/import?pdf=${encodeURIComponent(h.pdfId)}&page=${h.pageIndex}#local-text-pdfs`}
+                          className="text-emerald-400 text-xs underline-offset-2 hover:underline"
+                        >
+                          Open Import &amp; focus
+                        </Link>
+                        {results.lessons[0] && (
+                          <Link to={`/lesson/${results.lessons[0]}`} className="text-slate-400 text-xs underline-offset-2 hover:underline">
+                            Open lesson hit
+                          </Link>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </SectionCard>
+            )}
+
             {results.qu.length > 0 && (
               <SectionCard title="Questions" subtitle="Jump to the lesson quiz">
                 <ul className="space-y-2">
@@ -195,7 +266,7 @@ export default function SearchPage() {
           </div>
         )}
 
-        <NextActionCard label="Next step" description="Open a result above or continue your lesson path.">
+        <NextActionCard label="Suggested next" description="Open a result above or continue your lesson path.">
           <Link to="/roadmap" className="btn-ghost w-full text-center inline-block">
             Full lesson path →
           </Link>

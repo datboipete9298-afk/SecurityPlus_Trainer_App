@@ -47,18 +47,22 @@ export default function FeedbackPanel({
     >
       <div
         className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${
-          ok ? "border-emerald-600/60 bg-emerald-950/25" : "border-rose-600/50 bg-rose-950/20"
+          ok ? "border-emerald-600/60 bg-emerald-950/25" : "border-amber-600/45 bg-amber-950/20"
         }`}
       >
-        <span className="text-2xl shrink-0" aria-hidden>
-          {ok ? "✔" : "✗"}
+        <span className={`text-xl shrink-0 ${ok ? "text-emerald-300" : "text-amber-300"}`} aria-hidden>
+          {ok ? "✔" : "•"}
         </span>
         <div>
-          <p className={`text-sm font-bold ${ok ? "text-emerald-300" : "text-rose-200"}`}>
-            {ok ? "Correct" : "Incorrect"}
+          <p className={`text-sm font-bold ${ok ? "text-emerald-300" : "text-amber-100"}`}>
+            {ok ? "That’s right" : "Not quite — let’s break it down"}
           </p>
           <p className="text-sm text-slate-200 mt-2 leading-relaxed">{feedback.explanationSimple}</p>
-          <p className="text-xs text-slate-400 mt-2 italic">{ok ? "This is correct because…" : "Here’s how to think about it…"}</p>
+          <p className={`text-xs mt-2 italic ${ok ? "text-slate-400" : "text-amber-100/80"}`}>
+            {ok
+              ? "This is correct because…"
+              : "Getting it wrong once is normal — here’s the clean mental model."}
+          </p>
         </div>
       </div>
 

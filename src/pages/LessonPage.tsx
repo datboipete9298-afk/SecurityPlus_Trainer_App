@@ -1,8 +1,10 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { lessons, getNextSectionId, ORDERED_LESSON_IDS } from "../data/lessons";
+import { getSectionOrderEntry } from "../data/sectionOrder";
 import { lessonAnticipationLine } from "../utils/stickinessCopy";
 import { useProgress, getNotesTodayCount } from "../context/ProgressContext";
+import { usePdfLibrary } from "../context/PdfLibraryContext";
 import { isLessonUnlocked } from "../utils/adaptive";
 import { questionsByLesson } from "../data/quizzes";
 import { getLabsForLesson } from "../data/labs";
@@ -37,10 +39,460 @@ import LessonStepIndicator from "../components/LessonStepIndicator";
 import { pickConfidenceLine, pickNextLine } from "../utils/microEncouragement";
 import { markUsage, markUsageOnce } from "../utils/localUsageSignals";
 import MultiTabHint from "../components/MultiTabHint";
+import ForeignWriteCue from "../components/ForeignWriteCue";
+import CoachLine from "../components/CoachLine";
+import { snippetsForLesson, suggestedSearchPhrase } from "../utils/lessonPdfMatch";
+import type { PdfNotePrefillRoot } from "../utils/pdfSearchNoteLine";
+import { noteUnderstandingOverlap } from "../utils/pdfSearchNoteLine";
+
+function pickPdfExamKeyword(userLine: string, excerpt: string): string {
+  const w = userLine
+    .split(/\s+/)
+    .map((x) => x.replace(/[^a-zA-Z0-9-]/g, ""))
+    .find((x) => x.length > 3);
+  if (w) return w.slice(0, 48);
+  const ex = excerpt.split(/\s+/).find((x) => x.replace(/[^a-zA-Z0-9]/g, "").length > 4);
+  return (ex || "pdf").slice(0, 48);
+}
+
+function LessonPdfPlaceholderBody({
+  lessonId,
+  pdfPrefill,
+  onClearPdfPrefill,
+}: {
+  lessonId: string;
+  pdfPrefill?: PdfNotePrefillRoot["sptPdfNotePrefill"] | null;
+  onClearPdfPrefill?: () => void;
+}) {
+  const { pdfs, loading, importing, importError, totalChars, addFiles, removePdf } = usePdfLibrary();
+  const { state, addNote } = useProgress();
+  const roadmap = getSectionOrderEntry(lessonId);
+  const title = lessons[lessonId]?.title ?? roadmap?.label ?? `Section ${lessonId}`;
+  const snippets = useMemo(() => snippetsForLesson(lessonId, title, pdfs), [lessonId, title, pdfs]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const prefillApplied = useRef(false);
+
+  useEffect(() => {
+    prefillApplied.current = false;
+  }, [lessonId, pdfPrefill?.line]);
+
+  const [oneLine, setOneLine] = useState("");
+  const [savedPhase, setSavedPhase] = useState<"idle" | "saved" | "checked">("idle");
+  const [lockedLine, setLockedLine] = useState("");
+  const [lockedSnippet, setLockedSnippet] = useState("");
+  const [qcAns, setQcAns] = useState("");
+  const [qcFeedback, setQcFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pdfPrefill?.line || prefillApplied.current) return;
+    prefillApplied.current = true;
+    setOneLine((prev) => prev || pdfPrefill.line);
+    onClearPdfPrefill?.();
+  }, [pdfPrefill, onClearPdfPrefill]);
+
+  const messerLine =
+    lessons[lessonId]?.simpleExplanation?.trim().slice(0, 320) ||
+    `Open the Messer video for “${title}”. Pause when he explains this topic — listen for one sentence you can match to the PDF lines below.`;
+
+  const top = snippets[0];
+  const notesHere = state.notes.filter((n) => n.lessonId === lessonId);
+  const notesToday = getNotesTodayCount(state.notes);
+  const limitMsg = overNotingMessage(notesHere.length, notesToday);
+  const quizN = questionsByLesson(lessonId).length;
+
+  const saveToBrainBook = () => {
+    if (!top) return;
+    const line = oneLine.trim();
+    if (!line) return;
+    if (limitMsg || notesHere.length >= 5) return;
+    const tagged = `[PDF: ${top.fileName}, page ${top.pageIndex}] ${line}`;
+    const b: BrainNote = {
+      id: crypto.randomUUID(),
+      lessonId,
+      topic: line.slice(0, 100),
+      whatItMeans: tagged.slice(0, 900),
+      realLife: "Local PDF",
+      whyMatters: top.excerpt.slice(0, 500),
+      examKeyword: pickPdfExamKeyword(line, top.excerpt),
+      memory: "",
+      created: Date.now(),
+    };
+    addNote(b);
+    markUsage("video_note_saved");
+    setLockedLine(line);
+    setLockedSnippet(top.excerpt);
+    setSavedPhase("saved");
+    setQcAns("");
+    setQcFeedback(null);
+  };
+
+  const checkUnderstanding = () => {
+    const ans = qcAns.trim();
+    if (!ans) return;
+    const ok = noteUnderstandingOverlap(ans, lockedLine, lockedSnippet);
+    setQcFeedback(ok ? "Good — that matches the idea." : "Look at your note once, then say it simpler.");
+    setSavedPhase("checked");
+  };
+
+  const pdfStepLabels = ["Read", "Write", "Save", "Check", "Quiz"] as const;
+  const pdfCurrentStepIdx =
+    savedPhase === "checked" ? 4
+    : savedPhase === "saved" ? 3
+    : oneLine.trim() ? 2
+    : 0;
+  const pdfStepDone = (i: number) => {
+    if (savedPhase === "checked") return i < 4;
+    if (savedPhase === "saved") return i < 3;
+    if (oneLine.trim() && savedPhase === "idle") return i < 1;
+    return false;
+  };
+  const pdfDrafting = savedPhase === "idle" && !!oneLine.trim();
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-emerald-900/45 bg-gradient-to-b from-emerald-950/25 via-slate-950/50 to-slate-950/90 shadow-lg shadow-black/20 overflow-hidden">
+        <div className="px-3 sm:px-4 py-3 border-b border-emerald-900/35 bg-slate-950/70">
+          <h2 className="text-emerald-200 font-bold text-sm sm:text-base leading-snug mb-3">Use your PDF to learn this</h2>
+          <nav aria-label="PDF study path: Read, Write, Save, Check, then quiz">
+            <ol className="flex flex-wrap sm:flex-nowrap items-stretch gap-1 sm:gap-0 justify-between list-none m-0 p-0">
+              {pdfStepLabels.map((label, i) => {
+                const done = pdfStepDone(i);
+                const current = pdfCurrentStepIdx === i;
+                const upNext = i === 1 && pdfDrafting && pdfCurrentStepIdx === 2;
+                const muted = !done && !current && !upNext;
+                return (
+                  <li
+                    key={label}
+                    className="flex items-center min-w-0 flex-1 sm:flex-1 basis-[30%] sm:basis-0 min-h-[48px]"
+                    aria-current={current ? "step" : undefined}
+                    aria-label={`${label}${done ? ", completed" : ""}${current ? ", current step" : ""}${upNext ? ", up next" : ""}`}
+                  >
+                    <div
+                      className={`flex flex-col items-center justify-center text-center w-full min-h-[48px] min-w-0 rounded-lg px-1 py-2 transition-colors ${
+                        current ? "bg-emerald-600/25 ring-1 ring-emerald-500/60 shadow-inner"
+                        : upNext ? "bg-slate-800/70 ring-1 ring-emerald-500/35"
+                        : done ? "bg-emerald-950/40"
+                        : "bg-slate-900/40 opacity-70"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold border ${
+                          done ? "border-emerald-500/70 bg-emerald-900/50 text-emerald-100"
+                          : current ? "border-emerald-400 bg-emerald-800/40 text-white"
+                          : upNext ? "border-emerald-500/50 bg-emerald-900/30 text-emerald-100"
+                          : "border-slate-600 bg-slate-800/60 text-slate-400"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {done ? "✓" : i + 1}
+                      </span>
+                      <span className={`mt-1 text-[10px] sm:text-xs font-semibold uppercase tracking-wide truncate w-full ${muted ? "text-slate-500" : current || upNext ? "text-emerald-100" : "text-emerald-200/90"}`}>
+                        {label}
+                      </span>
+                    </div>
+                    {i < pdfStepLabels.length - 1 ?
+                      <div
+                        className={`hidden sm:block w-2 sm:w-3 shrink-0 self-center h-0.5 mx-0.5 rounded ${pdfStepDone(i) ? "bg-emerald-600/50" : "bg-slate-700/80"}`}
+                        aria-hidden="true"
+                      />
+                    : null}
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
+        </div>
+        <div className="p-3 sm:p-4 space-y-3 border-b border-slate-800/60">
+          <details className="text-xs text-slate-500 rounded-lg border border-slate-800/80 bg-slate-950/40 px-3 py-2">
+            <summary className="cursor-pointer text-slate-400 font-medium touch-manipulation min-h-[44px] flex items-center list-none [&::-webkit-details-marker]:hidden">
+              Where your PDF lives
+            </summary>
+            <p className="mt-2 pt-2 border-t border-slate-800/80 leading-relaxed">
+              On this device only — extracted in your browser.{" "}
+              <Link to="/import" className="text-emerald-400 underline">
+                Import a PDF
+              </Link>{" "}
+              if nothing shows below.
+            </p>
+          </details>
+        </div>
+        {limitMsg ? <p className="text-amber-200/95 text-sm px-3 sm:px-4">{limitMsg}</p> : null}
+        {loading && pdfs.length === 0 ? <p className="text-xs text-slate-500 px-3 sm:px-4">Loading your saved PDF text…</p> : null}
+        {snippets.length === 0 && pdfs.length > 0 ? (
+          <p className="text-sm text-slate-400 px-3 sm:px-4 pb-3">No strong heading match for this roadmap row — expand a PDF below or use Search.</p>
+        ) : null}
+
+        {snippets.length > 0 && top ?
+          <div className="relative">
+            <div className="absolute left-[15px] top-8 bottom-8 w-px bg-gradient-to-b from-emerald-700/40 via-slate-700 to-slate-800 hidden sm:block" aria-hidden />
+            <ul className="space-y-0 divide-y divide-slate-800/80">
+              {snippets.map((s, i) => (
+                <li key={`${s.pdfId}-${s.pageIndex}-${i}`} className="relative sm:pl-10">
+                  {i === 0 ?
+                    <div className="sm:pl-2">
+                      <div className="flex gap-3 pt-1 pb-4">
+                        <div className="hidden sm:flex flex-col items-center shrink-0 w-8 pt-1">
+                          <span
+                            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold border z-[1] bg-slate-950 ${
+                              pdfCurrentStepIdx === 0 ? "border-emerald-400 ring-2 ring-emerald-500/40 text-white"
+                              : pdfStepDone(0) ? "border-emerald-500/70 text-emerald-200"
+                              : "border-slate-600 text-slate-400"
+                            }`}
+                            aria-hidden
+                          >
+                            {pdfStepDone(0) ? "✓" : "1"}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0 rounded-xl border border-slate-800/90 bg-slate-950/50 overflow-hidden">
+                          <p className="text-xs font-semibold text-emerald-200/95 px-3 pt-3">From your PDF</p>
+                          <p className="text-[11px] text-slate-500 px-3 pb-2 leading-snug">Read this first — your Write step is right below.</p>
+                          <details className="border-b border-slate-800/80">
+                            <summary className="cursor-pointer px-3 py-2 text-xs text-slate-400 hover:text-slate-300 touch-manipulation list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-2">
+                              <span>File &amp; page</span>
+                              <span className="text-slate-500 font-normal tabular-nums">▸</span>
+                            </summary>
+                            <div className="px-3 pb-2 text-xs text-slate-400 flex flex-wrap gap-2 justify-between border-t border-slate-800/60 pt-2">
+                              <span className="text-slate-200 font-medium truncate">{s.fileName}</span>
+                              <span className="text-slate-300 shrink-0">Page {s.pageIndex}</span>
+                            </div>
+                          </details>
+                          <pre className="text-xs text-slate-200 whitespace-pre-wrap p-3 max-h-56 overflow-auto leading-relaxed">{s.excerpt}</pre>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pb-4">
+                        <div className="hidden sm:flex flex-col items-center shrink-0 w-8 pt-1">
+                          <span
+                            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold border z-[1] bg-slate-950 ${
+                              pdfDrafting ? "border-emerald-400 ring-2 ring-emerald-500/40 text-white"
+                              : pdfStepDone(1) ? "border-emerald-500/70 text-emerald-200"
+                              : "border-slate-600 text-slate-400"
+                            }`}
+                            aria-hidden
+                          >
+                            {pdfStepDone(1) ? "✓" : "2"}
+                          </span>
+                        </div>
+                        <div
+                          className={`flex-1 min-w-0 rounded-xl border bg-slate-950/50 p-3 space-y-2 transition-shadow ${
+                            pdfDrafting ? "border-emerald-700/45 ring-1 ring-emerald-500/25" : "border-slate-800/90"
+                          }`}
+                        >
+                          <p className="text-xs font-semibold text-white">Your note</p>
+                          <label className="block text-sm text-slate-200">
+                            <span className="sr-only">Your note</span>
+                            <textarea
+                              className="mt-1 w-full min-h-[64px] rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-sm text-slate-100"
+                              placeholder="One line in your own words…"
+                              aria-label="Write one line for your Brain Book"
+                              value={oneLine}
+                              onChange={(e) => setOneLine(e.target.value)}
+                              disabled={savedPhase !== "idle"}
+                              autoComplete="off"
+                            />
+                          </label>
+                          <details className="text-xs text-slate-500 rounded-md border border-slate-800 bg-slate-950/50">
+                            <summary className="cursor-pointer px-2 py-2 text-slate-400 font-medium touch-manipulation min-h-[44px] flex items-center list-none [&::-webkit-details-marker]:hidden">
+                              Stuck? Video hint
+                            </summary>
+                            <p className="px-2 pb-2 text-slate-400 leading-relaxed border-t border-slate-800/80 pt-2">{messerLine}</p>
+                          </details>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pb-4">
+                        <div className="hidden sm:flex flex-col items-center shrink-0 w-8 pt-1">
+                          <span
+                            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold border z-[1] bg-slate-950 ${
+                              pdfCurrentStepIdx === 2 ? "border-emerald-400 ring-2 ring-emerald-500/40 text-white"
+                              : pdfStepDone(2) ? "border-emerald-500/70 text-emerald-200"
+                              : "border-slate-600 text-slate-400"
+                            }`}
+                            aria-hidden
+                          >
+                            {pdfStepDone(2) ? "✓" : "3"}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <button
+                            type="button"
+                            className={`btn w-full touch-manipulation min-h-[48px] text-sm ${pdfCurrentStepIdx === 2 && savedPhase === "idle" && oneLine.trim() ? "ring-2 ring-emerald-400/70" : ""}`}
+                            disabled={!oneLine.trim() || notesHere.length >= 5 || !!limitMsg || savedPhase !== "idle"}
+                            onClick={saveToBrainBook}
+                          >
+                            Save to Brain Book
+                          </button>
+                          {savedPhase !== "idle" ?
+                            <p
+                              className="text-sm text-emerald-200/95 font-medium border border-emerald-800/50 bg-emerald-950/30 rounded-lg px-3 py-2"
+                              role="status"
+                              aria-live="polite"
+                            >
+                              Saved to Brain Book — you can review this later.
+                            </p>
+                          : null}
+                        </div>
+                      </div>
+
+                      {savedPhase !== "idle" ?
+                        <div className="flex gap-3 pb-4">
+                          <div className="hidden sm:flex flex-col items-center shrink-0 w-8 pt-1">
+                            <span
+                              className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold border z-[1] bg-slate-950 ${
+                                pdfCurrentStepIdx === 3 ? "border-emerald-400 ring-2 ring-emerald-500/40 text-white"
+                                : pdfStepDone(3) ? "border-emerald-500/70 text-emerald-200"
+                                : "border-slate-600 text-slate-400"
+                              }`}
+                              aria-hidden
+                            >
+                              {pdfStepDone(3) ? "✓" : "4"}
+                            </span>
+                          </div>
+                          <div
+                            className={`flex-1 min-w-0 rounded-xl border p-3 space-y-2 ${
+                              pdfCurrentStepIdx === 3 && savedPhase === "saved" ? "border-emerald-700/50 bg-emerald-950/15 ring-1 ring-emerald-500/30" : "border-slate-800/90 bg-slate-950/50"
+                            }`}
+                          >
+                            <p className="text-xs font-semibold text-white">Check</p>
+                            <p className="text-sm text-slate-300">Now prove it in one sentence.</p>
+                            <p className="text-sm text-slate-200">Say this idea in your own words.</p>
+                            <textarea
+                              className="w-full min-h-[56px] rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-sm text-slate-100"
+                              placeholder="One sentence…"
+                              aria-label="Restate your idea in one sentence for the confidence check"
+                              value={qcAns}
+                              onChange={(e) => setQcAns(e.target.value)}
+                              disabled={savedPhase === "checked"}
+                              autoComplete="off"
+                            />
+                            {savedPhase === "saved" ?
+                              <button
+                                type="button"
+                                className={`btn-ghost w-full touch-manipulation min-h-[44px] text-sm border border-slate-600 ${pdfCurrentStepIdx === 3 ? "ring-1 ring-emerald-500/40" : ""}`}
+                                onClick={checkUnderstanding}
+                              >
+                                Check understanding
+                              </button>
+                            : null}
+                            {qcFeedback ? (
+                              <p className="text-sm text-slate-200" role="status" aria-live="polite">
+                                {qcFeedback}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      : null}
+
+                      {savedPhase === "checked" ?
+                        <div className="flex gap-3 pb-2">
+                          <div className="hidden sm:flex flex-col items-center shrink-0 w-8 pt-1">
+                            <span
+                              className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold border z-[1] bg-slate-950 ${
+                                savedPhase === "checked" ? "border-emerald-400 ring-2 ring-emerald-500/40 text-emerald-100"
+                                : "border-slate-600 text-slate-400"
+                              }`}
+                              aria-hidden
+                            >
+                              {savedPhase === "checked" ? "✓" : "5"}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0 rounded-xl border border-cyan-800/45 bg-cyan-950/20 p-3 space-y-2 ring-1 ring-cyan-500/25">
+                            <p className="text-xs font-semibold text-cyan-100/90">Wrap up</p>
+                            {quizN > 0 ?
+                              <>
+                                <Link
+                                  to={`/quiz/${lessonId}?quick=1`}
+                                  className="btn w-full text-center min-h-[48px] touch-manipulation inline-flex items-center justify-center"
+                                >
+                                  Open quick quiz for this lesson →
+                                </Link>
+                                <p className="text-xs text-slate-400 text-center">You saved it. Now test it once.</p>
+                              </>
+                            : (
+                              <>
+                                <Link to="/roadmap" className="btn w-full text-center min-h-[48px] touch-manipulation inline-flex items-center justify-center">
+                                  Back to lesson path
+                                </Link>
+                                <p className="text-xs text-slate-400 text-center">You saved it. Keep going.</p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      : null}
+
+                      {savedPhase !== "idle" && top ?
+                        <details className="text-[11px] text-slate-500 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 mx-0 sm:ml-10 mb-3">
+                          <summary className="cursor-pointer text-slate-400 touch-manipulation list-none [&::-webkit-details-marker]:hidden">What we saved</summary>
+                          <p className="mt-1.5 pt-1.5 border-t border-slate-800/80 font-mono text-slate-500 break-words">
+                            [PDF: {top.fileName}, page {top.pageIndex}] {lockedLine || oneLine.trim()}
+                          </p>
+                        </details>
+                      : null}
+                    </div>
+                  : (
+                    <div className="sm:pl-2 py-3">
+                      <p className="text-xs font-semibold text-slate-500 px-3">More from your PDF</p>
+                      <pre className="text-xs text-slate-300 whitespace-pre-wrap p-3 max-h-40 overflow-auto">{s.excerpt}</pre>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        : null}
+      </section>
+
+      <section className="rounded-xl border border-slate-700/80 bg-slate-900/40 p-4 space-y-2">
+        <h2 className="text-white font-semibold text-sm">Full extracted text (every page)</h2>
+        <p className="text-xs text-slate-500">Each block uses the page separator exactly as stored.</p>
+        {pdfs.length === 0 ? (
+          <p className="text-sm text-slate-400">Choose PDF files on the Import page to see full text here.</p>
+        ) : (
+          <div className="space-y-2">
+            {pdfs.map((p) => (
+              <details key={p.id} className="rounded-lg border border-slate-800 bg-slate-950/40 group">
+                <summary className="cursor-pointer px-3 py-2 text-sm text-emerald-300 hover:bg-slate-800/50 rounded-lg">
+                  {p.fileName} <span className="text-slate-500">({p.pages.length} pages)</span>
+                </summary>
+                <pre className="text-xs text-slate-200 whitespace-pre-wrap p-3 max-h-[55vh] overflow-auto border-t border-slate-800 leading-relaxed">
+                  {p.pages.map((pg) => `--- Page ${pg.pageIndex} ---\n${pg.text}`).join("\n\n")}
+                </pre>
+              </details>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="rounded-xl border border-dashed border-slate-600 bg-slate-900/30 p-4 space-y-2 text-sm text-slate-400">
+        <p className="text-xs text-slate-500">{Math.round(totalChars / 1000)}k characters in library · {pdfs.length} file(s)</p>
+        <input ref={inputRef} type="file" accept="application/pdf,.pdf" multiple className="hidden" onChange={(e) => void addFiles(e.target.files ?? [])} />
+        <button type="button" className="btn text-sm touch-manipulation" disabled={importing} onClick={() => inputRef.current?.click()}>
+          {importing ? "Reading…" : "Choose PDF"}
+        </button>
+        {importError ? <p className="text-rose-400 text-sm">{importError}</p> : null}
+        {pdfs.length > 0 && (
+          <ul className="text-xs divide-y divide-slate-800 border border-slate-800 rounded-lg overflow-hidden">
+            {pdfs.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2 px-2 py-1.5 bg-slate-900/50">
+                <span className="text-slate-200 truncate">{p.fileName}</span>
+                <button type="button" className="text-rose-400 shrink-0" onClick={() => void removePdf(p.id)}>
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function LessonPage() {
   const { id } = useParams();
   const nav = useNavigate();
+  const location = useLocation();
+  const pdfPrefillFromNav = (location.state as PdfNotePrefillRoot | null)?.sptPdfNotePrefill;
+  const clearPdfPrefillNav = useCallback(() => nav(".", { replace: true, state: {} }), [nav]);
   const {
     state,
     addNote,
@@ -57,8 +509,11 @@ export default function LessonPage() {
     readiness,
     bumpStudyResume,
   } = useProgress();
+  const { pdfs } = usePdfLibrary();
   const t0 = useRef(Date.now());
   const L = id ? lessons[id] : null;
+  const roadmap = id ? getSectionOrderEntry(id) : undefined;
+  const placeholderTitle = id ? L?.title ?? roadmap?.label ?? `Section ${id}` : "";
 
   useEffect(() => {
     if (!id) return;
@@ -97,6 +552,22 @@ export default function LessonPage() {
     setFlowStep(1);
   }, [id]);
 
+  const pdfPrefillFullApplied = useRef(false);
+  useEffect(() => {
+    pdfPrefillFullApplied.current = false;
+  }, [id, location.key]);
+
+  useEffect(() => {
+    if (!id || !L?.hasFullContent || !pdfPrefillFromNav?.line || pdfPrefillFullApplied.current) return;
+    pdfPrefillFullApplied.current = true;
+    setNote((n) => ({
+      ...n,
+      whatItMeans: n.whatItMeans.trim() ? n.whatItMeans : pdfPrefillFromNav.line,
+      whyMatters: n.whyMatters.trim() ? n.whyMatters : (pdfPrefillFromNav.snippet ?? n.whyMatters).slice(0, 500),
+    }));
+    clearPdfPrefillNav();
+  }, [id, L?.hasFullContent, pdfPrefillFromNav, clearPdfPrefillNav]);
+
   useEffect(() => {
     if (!state.simpleLessonMode && flowStep !== 1) setFusionPauseCtx(null);
   }, [state.simpleLessonMode, flowStep]);
@@ -114,26 +585,120 @@ export default function LessonPage() {
   const observer = useMemo(() => buildLearningProfile(state), [state]);
   const antiPassive: string[] = id && L?.hasFullContent ? getAntiPassiveWarnings(id, state) : [];
 
-  if (!id) return <p>Missing id</p>;
-  if (!L || !L.hasFullContent) {
+  const lessonPdfSnippets = useMemo(() => {
+    if (!id) return [];
+    const titleForMatch = L?.hasFullContent ? L.title : (L?.title ?? placeholderTitle);
+    return snippetsForLesson(id, titleForMatch, pdfs);
+  }, [id, L, placeholderTitle, pdfs]);
+
+  const localPdfFollowAlong = useMemo(() => {
+    const top = lessonPdfSnippets[0];
+    if (!top || !id || !L?.hasFullContent) return undefined;
+    return {
+      fileName: top.fileName,
+      pageIndex: top.pageIndex,
+      snippet: top.excerpt.slice(0, 260),
+      searchPhrase: suggestedSearchPhrase(id, L.title),
+      importHref: `/import?pdf=${encodeURIComponent(top.pdfId)}&page=${top.pageIndex}#local-text-pdfs`,
+    };
+  }, [lessonPdfSnippets, id, L]);
+
+  const localPdfSnippetsForAi = useMemo(
+    () =>
+      lessonPdfSnippets.slice(0, 3).map((s) => ({
+        fileName: s.fileName,
+        pageIndex: s.pageIndex,
+        excerpt: s.excerpt.slice(0, 520),
+      })),
+    [lessonPdfSnippets],
+  );
+
+  const coachWithPdf = useMemo(
+    () =>
+      [...antiPassive, ...draftAnalysis.messages, ...(lessonPdfSnippets[0] ? [`Local PDF “${lessonPdfSnippets[0].fileName}” p.${lessonPdfSnippets[0].pageIndex} — keep it beside the video.`] : [])].slice(
+        0,
+        8,
+      ),
+    [antiPassive, draftAnalysis.messages, lessonPdfSnippets],
+  );
+
+  const simpleCoachLines = useMemo(
+    () => [
+      "Simple fusion: same pause prompt as above — tutor matches what you paused on.",
+      ...(lessonPdfSnippets[0] ?
+        [`Your text PDF “${lessonPdfSnippets[0].fileName}” (p.${lessonPdfSnippets[0].pageIndex}) matches this section — keep it beside the video.`]
+      : []),
+    ],
+    [lessonPdfSnippets],
+  );
+
+  if (!id) {
     return (
-      <div className="card max-w-2xl">
-        <h1 className="h1">Section {id}</h1>
-        <p className="text-slate-400 mt-2">
-          The full guided lesson for this section is not available in the app yet. Open the{" "}
-          <Link to="/roadmap" className="text-emerald-400 underline">
-            lesson path
-          </Link>{" "}
-          to choose another section, or use{" "}
-          <Link to="/import" className="text-emerald-400 underline">
-            Import
-          </Link>{" "}
-          if you are merging your own study file.
+      <div className="card max-w-xl space-y-3">
+        <h1 className="h1">Lesson not found</h1>
+        <p className="text-slate-400">
+          That URL is missing the lesson id — pick a lesson from the path. Your progress is safe.
         </p>
-        <Link to="/roadmap" className="btn mt-4 inline-block">
-          Lesson path
+        <Link to="/roadmap" className="btn mt-2 inline-block min-h-[48px] touch-manipulation">
+          Lesson path →
         </Link>
       </div>
+    );
+  }
+  if (!L || !L.hasFullContent) {
+    const phTitle = L?.title ?? roadmap?.label ?? `Section ${id}`;
+    const domainLine = roadmap ? `Domain ${roadmap.domain}.0 (SY0-701)` : null;
+    return (
+      <AppShell>
+        <div className="max-w-2xl space-y-6">
+          <PageHeader
+            eyebrow={domainLine ?? "Lesson path"}
+            title={phTitle}
+            purpose="This roadmap row does not ship a full guided body in the app yet. Text you add from your own PDFs shows below — it stays on this device only."
+          />
+          {lessonPdfSnippets[0] ?
+            <CoachLine>Your PDF excerpt is below — pause after each idea and write one hook in your own words.</CoachLine>
+          : null}
+          <LessonPdfPlaceholderBody lessonId={id} pdfPrefill={pdfPrefillFromNav} onClearPdfPrefill={clearPdfPrefillNav} />
+          {lessonPdfSnippets.length > 0 && (
+            <details className="rounded-xl border border-violet-900/45 bg-violet-950/15 group">
+              <summary className="cursor-pointer list-none px-3 py-3 text-sm font-medium text-violet-100 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+                <span className="text-violet-400/90 mr-2 group-open:rotate-90 transition-transform inline-block">▸</span>
+                Optional: ask the tutor (short PDF excerpts only)
+              </summary>
+              <div className="p-2 pt-0">
+                <AITutorPanel
+                  variant="compact"
+                  context={{
+                    surface: "lesson",
+                    lesson: {
+                      id,
+                      title: phTitle,
+                      domain: roadmap?.domain,
+                      mustHighlights: [],
+                      examTraps: [],
+                      instantRecognition: [],
+                    },
+                    localPdfSnippets: localPdfSnippetsForAi,
+                    coachLines: [`Open your PDF match for “${phTitle}” — the tutor only receives short excerpts, not full files.`],
+                  }}
+                />
+              </div>
+            </details>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Link to="/roadmap" className="btn inline-block touch-manipulation min-h-[48px]">
+              Lesson path →
+            </Link>
+            <Link to="/search" className="btn-ghost inline-block touch-manipulation min-h-[48px]">
+              Search
+            </Link>
+            <Link to="/import" className="btn-ghost inline-block touch-manipulation min-h-[48px]">
+              Import
+            </Link>
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
@@ -443,7 +1008,7 @@ export default function LessonPage() {
                 estimatedWatchTimeMin={vMeta.estimatedWatchTimeMin ?? null}
                 needsVideoUrl={!!vMeta.needsVideoUrl}
                 continueHref={`/quiz/${id}?quick=3`}
-                continueLabel="Continue to quick quiz →"
+                continueLabel="Open quick quiz for this lesson →"
                 pdfGuideHref={hasMesserNotesPdf ? messerPdfGuideHref : undefined}
                 pdfSearchPhrase={L.title}
                 pdfGuideEyebrow={
@@ -451,6 +1016,7 @@ export default function LessonPage() {
                 }
                 showTutorPanel={false}
                 onPauseContextChange={setFusionPauseCtx}
+                localPdfFollowAlong={localPdfFollowAlong}
               />
             </section>
             <section className="card border-slate-700 space-y-3">
@@ -515,8 +1081,9 @@ export default function LessonPage() {
                   weakAreas,
                   noteDraft: note,
                   noteHeuristic: draftAnalysis.messages,
-                  coachLines: ["Simple fusion: same pause prompt as above — tutor matches what you paused on."],
+                  coachLines: simpleCoachLines,
                   videoFusion: lessonPageVideoFusion,
+                  localPdfSnippets: localPdfSnippetsForAi.length ? localPdfSnippetsForAi : undefined,
                 }}
               />
             </div>
@@ -551,6 +1118,7 @@ export default function LessonPage() {
           <LessonStepIndicator currentStep={flowStep} strict={lessonOneStepUi || state.beginnerMode} />
 
           <MultiTabHint />
+          <ForeignWriteCue />
 
           <PageHeader
             eyebrow={`Domain ${L.domain}${L.sectionNumber ? ` · Section ${L.sectionNumber}` : ""}`}
@@ -631,7 +1199,7 @@ export default function LessonPage() {
                     <li><span className="text-emerald-300 font-medium">Write: </span>One Brain Book row.</li>
                     <li><span className="text-emerald-300 font-medium">Do: </span>{L.quickAction}</li>
                     <li><span className="text-emerald-300 font-medium">Quiz: </span>{quizCount} questions · same topic as this section.</li>
-                    <li><span className="text-emerald-300 font-medium">Next: </span>Flashcards, then complete — Continue on Home picks what&apos;s next.</li>
+                    <li><span className="text-emerald-300 font-medium">Next: </span>Flashcards, then complete — <strong className="text-emerald-200/90">Do this next</strong> on Home picks what&apos;s next.</li>
                   </ul>
                 </div>
               </details>
@@ -722,6 +1290,7 @@ export default function LessonPage() {
             pdfSearchPhrase={L.title}
             pdfGuideEyebrow={hasMesserNotesPdf ? "Your Messer notes PDF is on file — search matches this file." : "Add your PDF in PDF setup to align search + highlights."}
             onPauseContextChange={setFusionPauseCtx}
+            localPdfFollowAlong={localPdfFollowAlong}
           />
         </div>
         <ul className="mt-3 space-y-1 text-sm text-slate-300 list-disc pl-4">
@@ -1311,6 +1880,7 @@ export default function LessonPage() {
           Brain Book
         </h3>
         <p className="text-slate-500 text-xs">Max 5 rows this lesson · {notesToday} / 10 today</p>
+        <CoachLine k="oneNoteRule" className="mt-2" />
         {noteLimitWarning && <p className="text-amber-200/90 text-xs mt-2 font-medium">{noteLimitWarning}</p>}
         <div className="rounded-xl border border-violet-800/35 bg-violet-950/15 p-2 mt-2 text-xs text-slate-400">
           <span className="text-violet-200/90 font-semibold">AI note check: </span>
@@ -1461,8 +2031,9 @@ export default function LessonPage() {
                 weakAreas,
                 noteDraft: note,
                 noteHeuristic: draftAnalysis.messages,
-                coachLines: [...antiPassive, ...draftAnalysis.messages].slice(0, 6),
+                coachLines: coachWithPdf,
                 videoFusion: lessonPageVideoFusion,
+                localPdfSnippets: localPdfSnippetsForAi.length ? localPdfSnippetsForAi : undefined,
               }}
             />
           </div>

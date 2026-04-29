@@ -11,6 +11,7 @@ import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
 import ContinueButton from "../components/ContinueButton";
 import { examDomainShortTitle } from "../utils/identityPersonalization";
 import TrustReminderStrip from "../components/TrustReminderStrip";
+import CoachLine from "../components/CoachLine";
 
 function missLabel(m: { qid: string; lessonId: string }) {
   const pbq = getPbqTitleFromJournalQid(m.qid);
@@ -50,18 +51,20 @@ export default function WeakPage() {
     if (!m) return null;
     const row = missLabel(m);
     if (row.kind === "quiz") {
-      return { href: `/pdf-guides/messer-course-notes-v107/${m.lessonId}`, label: "Fix this mistake" };
+      return { href: `/pdf-guides/messer-course-notes-v107/${m.lessonId}`, label: "Repair this miss →" };
     }
-    return { href: row.href, label: "Fix this mistake" };
+    return { href: row.href, label: "Repair this miss →" };
   }, [missed]);
 
   return (
     <AppShell>
       <div className="max-w-3xl space-y-6">
         <PageHeader
-          title="Weak area repair"
-          purpose="One repair at a time — tap the button below. Come back when you’re ready for more."
+          title="Improve fastest here"
+          purpose="Misses and domain dips are normal — this page turns them into one clear next step. Work one item at a time; no shame, just repair."
         />
+
+        <CoachLine k="weakPosture" />
 
         <TrustReminderStrip dense />
 
@@ -73,7 +76,7 @@ export default function WeakPage() {
           : <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />}
         </FlowPrimaryStrip>
 
-        <SectionCard title="Other ways to repair" subtitle="Optional — the strip above is enough.">
+        <SectionCard title="Other ways to repair" subtitle="Optional — the strip above is enough for today.">
           <div className="flex flex-col gap-2">
             <button type="button" className="btn-ghost w-full min-h-[48px] touch-manipulation" onClick={() => addMistakeFlashcards()}>
               Turn recent misses into flashcards
@@ -110,7 +113,7 @@ export default function WeakPage() {
           <ul className="text-sm space-y-3">
             {missed.length === 0 && (
               <li className="text-slate-400 leading-relaxed border border-slate-800 rounded-lg p-3 bg-slate-950/40">
-                No journal misses yet — keep running lesson quizzes and PBQs; wrong answers land here automatically. Meanwhile, use mixed practice so domains stay honest.
+                No misses in your journal yet — keep quizzing; wrong answers show up here automatically so you can fix them calmly. Until then, mixed practice keeps domains honest.
               </li>
             )}
             {missed.map((m) => {

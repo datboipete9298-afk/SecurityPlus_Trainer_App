@@ -20,15 +20,15 @@ const NEXT_LINES_AFTER_NOTE = [
 ] as const;
 
 const NEXT_LINES_AFTER_QUIZ = [
-  "Next: tap Continue — your next move is queued.",
+  "Next: tap Do this next on Home — your queue is already lined up.",
   "Next: review one miss, then move on.",
-  "Next: keep the loop going — Continue picks where to go.",
+  "Next: keep the loop going — Home’s green strip names the next move.",
 ] as const;
 
 const NEXT_LINES_AFTER_LESSON = [
-  "Next: Continue on Home picks the smartest follow-up.",
-  "Next: tap Continue — momentum compounds.",
-  "Next: keep the streak — Continue knows what’s next.",
+  "Next: Do this next on Home picks the smartest follow-up.",
+  "Next: tap the same button you used to get here — momentum compounds.",
+  "Next: keep the streak — one tap on Home and you’re back in flow.",
 ] as const;
 
 function hashSeed(seed: string | number): number {

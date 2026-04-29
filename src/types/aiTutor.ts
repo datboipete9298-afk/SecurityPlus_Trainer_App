@@ -21,6 +21,8 @@ export type AiTutorRequestBody = {
   labContext?: Record<string, unknown> | null;
   /** PDF guided study — section summary, must highlights, user-captured hooks */
   pdfGuideContext?: Record<string, unknown> | null;
+  /** Short excerpts from user-added PDF text library (local device only) — never full PDF text */
+  localPdfSnippets?: { fileName: string; pageIndex: number; excerpt: string }[] | null;
   /** When true (Beginner mode): shorter, plainer answers on the server */
   simpleMode?: boolean;
 };

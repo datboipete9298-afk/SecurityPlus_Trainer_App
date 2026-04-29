@@ -7,6 +7,7 @@ import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
 import NextActionCard from "../components/NextActionCard";
 import StatusBadge from "../components/StatusBadge";
+import CoachLine from "../components/CoachLine";
 
 export default function BossHub() {
   const { state, nextStep, bumpStudyResume } = useProgress();
@@ -21,13 +22,15 @@ export default function BossHub() {
       <div className="max-w-3xl space-y-6">
         <PageHeader
           title="Boss fights"
-          purpose="Milestone challenges: longer scenario chains with instant feedback. Pass for XP; fail nudges weak domains — retry after reviewing the related lessons."
+          purpose="Milestone challenges — longer scenario chains with instant feedback. Pass for XP; fail nudges your weak domains."
           badge={
             <StatusBadge tone="ok">
               {cleared}/{BOSS_FIGHTS.length} cleared
             </StatusBadge>
           }
         />
+
+        <CoachLine k="bossPosture" />
 
         <SectionCard title="How bosses work" subtitle="Capstone difficulty">
           <ul className="text-sm text-slate-300 space-y-2 list-disc pl-5">
@@ -52,7 +55,7 @@ export default function BossHub() {
                   <div className="flex flex-col gap-2 items-stretch sm:items-end w-full sm:w-auto">
                     {won && <span className="text-xs text-emerald-400 text-center sm:text-right">Cleared</span>}
                     <Link to={`/boss/${b.id}`} className="btn text-sm w-full sm:w-auto text-center">
-                      {won ? "Replay" : "Start boss"}
+                      {won ? "Replay" : "Begin boss drill"}
                     </Link>
                   </div>
                 </li>
@@ -61,7 +64,7 @@ export default function BossHub() {
           </ul>
         </div>
 
-        <NextActionCard label="Next step" description="Pick a boss you are prepared for, or follow Smart Coach.">
+        <NextActionCard label="Suggested next" description="Pick a boss you are prepared for, or follow Smart Coach.">
           <Link to={nextStep.href} className="btn w-full text-center">
             {nextStep.buttonLabel} →
           </Link>

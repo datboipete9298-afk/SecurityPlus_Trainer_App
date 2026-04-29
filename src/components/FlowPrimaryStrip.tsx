@@ -9,7 +9,7 @@ type Props = {
 
 /**
  * Single “next step” surface — matches Home hero pattern.
- * Pass exactly one primary control as children (button or Continue link).
+ * Pass exactly one primary control as children (button or `ContinueButton` link).
  */
 export default function FlowPrimaryStrip({ children, id = "flow-primary-strip", className = "" }: Props) {
   return (
@@ -19,7 +19,7 @@ export default function FlowPrimaryStrip({ children, id = "flow-primary-strip", 
       aria-labelledby={`${id}-label`}
     >
       <p id={`${id}-label`} className="text-xs font-bold text-emerald-200 uppercase tracking-wide">
-        Next step
+        Do this next
       </p>
       <div className="mt-3">{children}</div>
     </section>

@@ -32,7 +32,7 @@ export function getResumeLabel(s: PersistedState): { href: string; text: string;
   };
 }
 
-/** One line under Home Continue: bookmarked activity or partially started lesson. */
+/** One line under Home “Do this next” / resume: bookmarked activity or partially started lesson. */
 export function getDashboardResumeCue(s: PersistedState): { href: string; line: string; sub?: string } | null {
   const sorted = buildResumeLinkList(s.studyResume, lessons);
   const studyFirst = sorted.filter((i) => resumeKindTier(i.kind) === 0);

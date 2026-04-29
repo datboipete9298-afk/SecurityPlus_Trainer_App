@@ -23,6 +23,7 @@ import {
 } from "../utils/localUsageSignals";
 import CloudSyncStub from "../components/CloudSyncStub";
 import MultiTabHint from "../components/MultiTabHint";
+import ForeignWriteCue from "../components/ForeignWriteCue";
 
 export default function ProgressPage() {
   const { state, readiness, levelInfo, nextStep, nextLesson, importProgress, exportProgress, resetAllProgress, bumpStudyResume } =
@@ -146,6 +147,7 @@ export default function ProgressPage() {
           <TrustReminderStrip dense />
 
           <MultiTabHint />
+          <ForeignWriteCue />
 
           <DailyMinimumCard lessonId={nextLesson ?? undefined} />
 
@@ -181,7 +183,7 @@ export default function ProgressPage() {
               to={`/watch/${state.videoStudyStats?.lastFusionLessonId ?? nextLesson ?? ORDERED_LESSON_IDS[0]!}`}
               className="btn-ghost mt-4 w-full text-center inline-block text-sm min-h-[44px] touch-manipulation"
             >
-              Continue video notes →
+              Pick up video notes →
             </Link>
           </SectionCard>
 
@@ -487,7 +489,7 @@ export default function ProgressPage() {
             </Link>
           </SectionCard>
 
-          <NextActionCard label="Next system action" description="Same Continue target as Home — one queue everywhere.">
+          <NextActionCard label="Next system action" description="Same target as Home — one queue everywhere.">
             <Link to={nextStep.href} className="btn w-full text-center">
               {nextStep.buttonLabel} →
             </Link>
@@ -558,7 +560,7 @@ function UsageSignalsPanel() {
       )}
       <button
         type="button"
-        className="btn-ghost text-xs min-h-[40px] touch-manipulation border border-slate-700"
+        className="btn-ghost text-xs min-h-[44px] touch-manipulation border border-slate-700"
         onClick={() => {
           if (window.confirm("Clear local usage counters? This won't affect notes, quiz history, or progress.")) {
             clearUsageSignals();

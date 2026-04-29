@@ -112,7 +112,7 @@ Run these in a clean Incognito window pointed at the deployed URL.
 
 ### 1. First-load + first-win
 
-- [ ] Home shows **First loop card** with `Start now →` (or Continue if you've used the app before in this profile).
+- [ ] Home shows **First loop card** with `Start now →` (returning profiles: **Do this next** on Home or the bottom bar matches the coach queue).
 - [ ] Tap **Start now**. A lesson loads with the **Do this now** strip, **You are here · Step 1 of 10**, and the embedded video.
 - [ ] Save a fusion note → green proof banner appears → quick-check question appears.
 - [ ] Total time from cold open to first quick-check: **≤ 60–90 s**.

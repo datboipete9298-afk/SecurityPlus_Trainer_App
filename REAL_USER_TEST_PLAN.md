@@ -119,3 +119,32 @@
 Ship the next change when **at least 4 of 5** personas pass their criteria with **no critical hesitation**. A single critical block in any persona = block ship.
 
 See `USER_TEST_SCORECARD.md` for the recording template.
+
+---
+
+## Common pass/fail tasks (apply across personas)
+
+These eight tasks are the **load-bearing tests** — every persona must complete the ones that apply to them.
+
+| Task | Pass criteria | How to measure | Applies to |
+|------|---------------|----------------|------------|
+| **T1 — Time to first win** | Open URL → save first fusion note + answer first quick check | Stopwatch; target **≤ 90 s** | All personas |
+| **T2 — Confusion count** | Number of times the tester paused **> 5 s** asking "what now?" | Tally during session | All personas |
+| **T3 — Successful export** | Progress → Export progress → JSON downloads | Confirm file in Downloads | Exam candidate, distracted user |
+| **T4 — Successful PDF add** | PDF setup → drop file → setup screen reports a saved match | Confirm `Ready` row | PDF learner, exam candidate |
+| **T5 — Wrong answer recovery** | Miss a question → read explanation → continue without abandoning | Tester continues to next Q within 30 s | Beginner, exam candidate |
+| **T6 — Lab pass/fail recovery** | Fail a lab/sim → read debrief → retry → pass | Pass on retry within 5 min | Exam candidate |
+| **T7 — Offline reload** | DevTools offline → reload → app shell loads + notes still save | Visual confirm + offline banner reads correct | Phone-only, distracted, no-AI |
+| **T8 — Would use again?** | 1–10 self-rating at end of session | Verbal answer | All personas |
+
+**Pass thresholds (cohort medians):**
+
+- T1 ≤ 90 s
+- T2 ≤ 1 confusion event per persona
+- T3 / T4: 100 % success when applicable
+- T5: 100 % continuation
+- T6: ≥ 80 % succeed on retry
+- T7: 100 % shell loads
+- T8: median ≥ **7 / 10**, no individual < 5
+
+If any threshold is missed, file a confusion log row in `USER_TEST_SCORECARD.md` with a copy/layout fix and re-test.

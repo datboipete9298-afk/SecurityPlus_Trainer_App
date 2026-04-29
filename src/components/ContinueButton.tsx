@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import type { NextStep } from "../core/nextStepEngine";
 
-const DEFAULT_COACH_HINT = "Your next step — tap to go.";
+const DEFAULT_COACH_HINT = "Opens your next queued step.";
 
 export default function ContinueButton({
   step,
