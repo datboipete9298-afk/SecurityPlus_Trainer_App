@@ -7,5 +7,5 @@ type Props = {
 
 /** Shared vertical rhythm for pages (keeps spacing consistent with AI panel + sticky footer). */
 export default function AppShell({ children, className }: Props) {
-  return <div className={className ?? "space-y-6"}>{children}</div>;
+  return <div className={className ?? "space-y-8"}>{children}</div>;
 }

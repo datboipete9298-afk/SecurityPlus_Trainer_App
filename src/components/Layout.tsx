@@ -50,7 +50,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="mb-5 md:mb-6 flex items-start justify-between gap-2">
         <div>
           <div className="text-lg font-bold text-emerald-400 leading-tight">Security+ Trainer</div>
-          <div className="text-xs text-slate-500 mt-0.5">SY0-701 · Messer order</div>
+          <div className="text-xs text-slate-500 mt-0.5">Security+ study that tells you exactly what to do next.</div>
         </div>
         <button
           type="button"
@@ -89,7 +89,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <Link
             key={n.to}
             to={n.to}
-            className={`rounded-lg px-3 py-3 text-sm min-h-[44px] flex items-center touch-manipulation ${
+            aria-current={loc.pathname === n.to ? "page" : undefined}
+            className={`rounded-lg px-3 py-3 text-sm min-h-[44px] flex items-center touch-manipulation transition-colors duration-200 ease-ds-out ${
               loc.pathname === n.to ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white hover:bg-slate-800/50"
             }`}
           >
@@ -103,7 +104,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <Link
             key={n.to}
             to={n.to}
-            className={`rounded-lg px-3 py-2.5 text-sm min-h-[44px] flex items-center touch-manipulation ${
+            aria-current={loc.pathname === n.to ? "page" : undefined}
+            className={`rounded-lg px-3 py-2.5 text-sm min-h-[44px] flex items-center touch-manipulation transition-colors duration-200 ease-ds-out ${
               loc.pathname === n.to ? "bg-slate-800/80 text-slate-200" : "text-slate-500 hover:text-slate-300"
             }`}
           >
@@ -162,7 +164,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         tabIndex={-1}
         className="flex-1 w-full min-w-0 px-3 py-4 sm:px-4 md:p-8 max-w-5xl mx-auto pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-8 text-base outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 rounded-sm"
       >
-        {children}
+        <div key={loc.pathname} className="min-w-0 ds-route-enter">
+          {children}
+        </div>
         <BackupNudgeBanner />
       </main>
 

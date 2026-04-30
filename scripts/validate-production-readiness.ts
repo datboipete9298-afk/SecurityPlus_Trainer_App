@@ -184,7 +184,7 @@ mustContain("scripts/validate-ai-quality-stress.ts", [
 if (!exists("tests/e2e/smoke.spec.ts")) fail("tests/e2e/smoke.spec.ts missing");
 mustContain("tests/e2e/smoke.spec.ts", [
   "Home → first lesson → quiz → progress → 404",
-  "Locked-lesson recovery",
+  "Deep-link any lesson: future row opens (no hard lock)",
   "AI tutor never blanks",
   "Multi-tab foreign write cue",
 ]);

@@ -15,6 +15,7 @@ export default function NotePanel({ lessonId, writeThisDown }: Props) {
   const [why, setWhy] = useState("");
   const [kw, setKw] = useState("");
   const [memory, setMemory] = useState("");
+  const [savedAck, setSavedAck] = useState(false);
 
   const heuristics = useMemo(() => {
     const m: string[] = [];
@@ -49,6 +50,8 @@ export default function NotePanel({ lessonId, writeThisDown }: Props) {
     setWhy("");
     setKw("");
     setMemory("");
+    setSavedAck(true);
+    window.setTimeout(() => setSavedAck(false), 3200);
   };
 
   return (
@@ -103,6 +106,11 @@ export default function NotePanel({ lessonId, writeThisDown }: Props) {
         <button type="button" className="btn text-sm min-h-[44px] touch-manipulation" disabled={!canSave} onClick={save}>
           Save to Brain Book
         </button>
+        {savedAck && (
+          <p className="ds-soft-in text-ds-body text-emerald-200/95 rounded-lg border border-emerald-800/45 bg-emerald-950/25 px-3 py-2.5" role="status" aria-live="polite">
+            Saved — you can review this later.
+          </p>
+        )}
         {!canSave && simple.trim().length >= 3 && (
           <p className="text-[11px] text-amber-200/90">Add a short exam keyword (2+ characters) so this note stays searchable.</p>
         )}

@@ -60,8 +60,9 @@ export default function WeakPage() {
     <AppShell>
       <div className="max-w-3xl space-y-6">
         <PageHeader
-          title="Improve fastest here"
-          purpose="Misses and domain dips are normal — this page turns them into one clear next step. Work one item at a time; no shame, just repair."
+          eyebrow="Repair queue"
+          title="Weak areas"
+          purpose="This is where you improve fastest — misses become one calm next step. Work one item at a time; no shame, just repair."
         />
 
         <CoachLine k="weakPosture" />
@@ -99,7 +100,7 @@ export default function WeakPage() {
           <p className="text-xs text-slate-500 mt-3">You have {state.userFlashcards.length} user flashcards · {missed.length} recent miss rows shown below.</p>
         </SectionCard>
 
-        <details className="rounded-xl border border-slate-700 bg-slate-900/35 group mb-6">
+        <details className="ds-details rounded-xl border border-slate-700/90 bg-slate-900/35 group mb-6 open:shadow-ds-soft transition-shadow duration-200">
           <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-300 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
             <span className="mr-2 text-slate-500 group-open:text-emerald-400">▸</span>
             Explain this page (optional)
@@ -112,14 +113,16 @@ export default function WeakPage() {
         <SectionCard title="Recent misses" subtitle="Newest first — tap retry on any row">
           <ul className="text-sm space-y-3">
             {missed.length === 0 && (
-              <li className="text-slate-400 leading-relaxed border border-slate-800 rounded-lg p-3 bg-slate-950/40">
-                No misses in your journal yet — keep quizzing; wrong answers show up here automatically so you can fix them calmly. Until then, mixed practice keeps domains honest.
+              <li className="text-ds-body text-slate-400 leading-relaxed rounded-xl border border-slate-800/90 bg-slate-950/40 p-4 ds-soft-in">
+                <p className="text-slate-300">Nothing here yet — you have not missed a tracked question.</p>
+                <p className="text-ds-helper text-slate-500 mt-2">Keep quizzing; wrong answers show up automatically so you can repair one at a time.</p>
+                <p className="text-ds-helper text-slate-500 mt-2">That is expected early on — mixed practice still keeps domains honest.</p>
               </li>
             )}
             {missed.map((m) => {
               const row = missLabel(m);
               return (
-                <li key={`${m.qid}-${m.at}`} className="text-slate-300 border-b border-slate-800 pb-3">
+                <li key={`${m.qid}-${m.at}`} className="text-slate-300 rounded-xl border border-slate-800/85 bg-slate-950/35 p-4 space-y-2">
                   <span className="text-[10px] uppercase text-slate-500 font-semibold">
                     {row.kind === "pbq" ? "PBQ lab" : row.kind === "quiz" ? "Lesson quiz" : "Other"}
                   </span>
@@ -137,7 +140,7 @@ export default function WeakPage() {
           <button
             type="button"
             className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-200 hover:bg-slate-800/50 min-h-[48px] touch-manipulation flex justify-between items-center gap-2"
-            aria-expanded={detailsOpen}
+            aria-expanded={detailsOpen ? "true" : "false"}
             onClick={() => setDetailsOpen((o) => !o)}
           >
             <span>Domain scores &amp; lab reminders</span>

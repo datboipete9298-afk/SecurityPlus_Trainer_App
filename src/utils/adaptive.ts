@@ -257,13 +257,22 @@ export function smartCoach(s: PersistedState): CoachRecommendation[] {
 
 export { LEVELS };
 
-export function isLessonUnlocked(lessonId: string, s: PersistedState): boolean {
-  if (!lessons[lessonId]) return true;
+/** Soft guidance only — every roadmap lesson is openable. */
+export type LessonOrderNudge = { prevId: string; prevTitle: string };
+
+/** When the previous Messer-ordered lesson is not complete, show a banner (never block access). */
+export function getLessonOrderNudge(lessonId: string, s: PersistedState): LessonOrderNudge | null {
+  if (!lessons[lessonId]) return null;
   const idx = ORDERED_LESSON_IDS.indexOf(lessonId);
-  if (idx <= 0) return true;
+  if (idx <= 0) return null;
   const prev = ORDERED_LESSON_IDS[idx - 1];
-  if (!prev) return true;
-  return s.completedLessons.includes(prev);
+  if (!prev || s.completedLessons.includes(prev)) return null;
+  return { prevId: prev, prevTitle: lessons[prev]?.title ?? prev };
+}
+
+/** Kept for call sites; curriculum access is never hard-gated by completion order. */
+export function isLessonUnlocked(_lessonId: string, _s: PersistedState): boolean {
+  return true;
 }
 
 export function addMiss(s: PersistedState, qid: string, lessonId: string): PersistedState {

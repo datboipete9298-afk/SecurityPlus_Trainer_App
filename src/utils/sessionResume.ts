@@ -28,7 +28,7 @@ export function getResumeLabel(s: PersistedState): { href: string; text: string;
   return {
     href: `/lesson/${id}`,
     text: `Resume: ${t}`,
-    sub: "You already started this lesson — pick up where you left off.",
+    sub: "Pick up where you left off — same lesson, same browser.",
   };
 }
 

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import type { NextStep } from "../core/nextStepEngine";
 
-const DEFAULT_COACH_HINT = "Opens your next queued step.";
+const DEFAULT_COACH_HINT = "Same priority as Smart Coach on Home.";
 
 export default function ContinueButton({
   step,

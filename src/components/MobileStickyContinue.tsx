@@ -15,7 +15,7 @@ export default function MobileStickyContinue() {
       role="navigation"
       aria-label="Go to your next study step"
     >
-      <p className="text-[10px] text-center text-emerald-200/80 mb-1 px-1 leading-tight">Same as Home — your queued next move.</p>
+      <p className="text-[10px] text-center text-emerald-200/80 mb-1 px-1 leading-tight">Matches Home — your coach-priority next move.</p>
       <Link
         to={nextStep.href}
         className="btn w-full min-h-[52px] text-base font-semibold touch-manipulation active:scale-[0.99] transition-transform"

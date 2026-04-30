@@ -10,7 +10,6 @@ import AppShell from "../components/AppShell";
 import FlowPrimaryStrip from "../components/FlowPrimaryStrip";
 import ContinueButton from "../components/ContinueButton";
 import PageHeader from "../components/PageHeader";
-import SectionCard from "../components/SectionCard";
 import AITutorPanel from "../components/AITutorPanel";
 import StatusBadge from "../components/StatusBadge";
 import { buildFlashcardStreakIdentityLine, buildWeakCardRepairIdentityLine } from "../utils/identityPersonalization";
@@ -67,32 +66,35 @@ export default function FlashcardsPage() {
   if (!list.length) {
     return (
       <AppShell>
-        <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
-          <div className="min-w-0 space-y-6 max-w-xl">
+        <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-8 items-start">
+          <div className="min-w-0 space-y-8 max-w-xl">
+            <PageHeader
+              eyebrow="Memory mode"
+              title="Flashcards"
+              purpose="No cards match this filter yet — that’s normal early on. Clear the lesson filter, open a lesson with cards, or build cards from misses on Progress."
+            />
             <FlowPrimaryStrip>
               <Link to="/weak" className="btn w-full text-center min-h-[48px] touch-manipulation justify-center">
-              Open weak spots hub →
-            </Link>
+                Open weak areas hub
+              </Link>
             </FlowPrimaryStrip>
-            <PageHeader
-              title="Flashcards"
-              purpose="No cards match this filter yet — that is normal early on. Open flashcards from a lesson that has cards, clear the lesson filter, or turn recent quiz misses into cards from Progress."
-            />
-            <SectionCard title="Empty deck" subtitle="Secondary paths">
-              <details className="group">
-                <summary className="cursor-pointer text-sm text-slate-400 touch-manipulation min-h-[44px] list-none [&::-webkit-details-marker]:hidden">
+            <div className="card border-slate-800/90 border-l-[3px] border-l-amber-500/45 ds-soft-in">
+              <p className="text-ds-section text-white">Empty deck</p>
+              <p className="text-ds-helper text-slate-400 mt-2 leading-relaxed">When you’re ready, add cards from quizzes or pick a lesson path row that includes flashcards.</p>
+            <details className="group mt-4 ds-details">
+                <summary className="cursor-pointer text-ds-helper text-slate-400 touch-manipulation min-h-[44px] list-none [&::-webkit-details-marker]:hidden">
                   ▸ Other ways to get cards
                 </summary>
                 <div className="flex flex-col gap-2 mt-3">
-                  <Link to="/practice-exams" className="btn-ghost w-full text-center">
+                  <Link to="/practice-exams" className="btn-ghost w-full text-center min-h-[44px] touch-manipulation">
                     Practice exams
                   </Link>
-                  <Link to="/roadmap" className="btn-ghost w-full text-center">
+                  <Link to="/roadmap" className="btn-ghost w-full text-center min-h-[44px] touch-manipulation">
                     Lesson path
                   </Link>
                 </div>
               </details>
-            </SectionCard>
+            </div>
           </div>
         <AITutorPanel
           className="lg:sticky lg:top-4 order-first lg:order-none"
@@ -128,13 +130,11 @@ export default function FlashcardsPage() {
   return (
     <AppShell>
       <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
-        <div className="min-w-0 space-y-6 max-w-xl">
-          <FlowPrimaryStrip>
-            <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation justify-center" coachHint="" />
-          </FlowPrimaryStrip>
+        <div className="min-w-0 space-y-8 max-w-xl">
           <PageHeader
+            eyebrow="Memory mode"
             title="Flashcards"
-            purpose={lesson ? `Session started — Lesson ${lesson}. Flip the card when you're ready.` : "Deck ready — flip the card when you're ready."}
+            purpose={lesson ? `Filtered to lesson ${lesson} — flip when you’re ready, then mark how it felt.` : "Deck ready — flip when you’re ready, then mark how it felt."}
             badge={
               <div className="flex flex-wrap gap-1 justify-end">
                 {dueNow > 0 && <StatusBadge tone="warn">{dueNow} due</StatusBadge>}
@@ -142,11 +142,14 @@ export default function FlashcardsPage() {
               </div>
             }
           />
+          <FlowPrimaryStrip>
+            <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation justify-center" coachHint="" />
+          </FlowPrimaryStrip>
           <CoachLine k="flashcardsBoring" />
 
-          <details className="rounded-2xl border border-slate-700 bg-slate-900/30 group overflow-hidden">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-300 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
-              <span className="text-slate-500 mr-2 group-open:text-emerald-400">▸</span>
+          <details className="ds-details rounded-2xl border border-slate-700/90 bg-slate-900/30 group overflow-hidden open:shadow-ds-soft transition-shadow duration-200">
+            <summary className="cursor-pointer list-none px-4 py-3 text-ds-helper font-medium text-slate-300 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="text-slate-500 mr-2 group-open:text-emerald-400 transition-transform duration-200 group-open:rotate-90 inline-block">▸</span>
               How this deck works
             </summary>
             <div className="px-4 pb-4 border-t border-slate-800/80 pt-3">
@@ -174,7 +177,7 @@ export default function FlashcardsPage() {
                 id="flashcards-card"
                 type="button"
                 onClick={() => setFlip(!flip)}
-                className="card w-full min-h-[200px] flex flex-col justify-center text-center cursor-pointer hover:border-emerald-700 transition-transform active:scale-[0.99] touch-manipulation"
+                className="card w-full min-h-[220px] flex flex-col justify-center text-center cursor-pointer hover:border-emerald-700/60 transition-[transform,border-color,box-shadow] duration-200 ease-ds-out active:scale-[0.99] touch-manipulation shadow-ds-soft"
               >
                 <p className="text-slate-500 text-xs mb-1">{c.cardType}</p>
                 <p className="text-xl text-white font-medium px-2 break-words">{flip ? c.back : c.front}</p>
@@ -223,7 +226,7 @@ export default function FlashcardsPage() {
           )}
 
           {grade && (
-            <div className="space-y-4">
+            <div className="space-y-4 ds-soft-in">
               <FeedbackPanel feedback={buildFlashcardTutorFeedback(grade.card.front, grade.card.back, grade.gotRight, grade.card.trap)} />
               {flashcardIdentityAside && (
                 <p className="text-xs text-slate-400/95 leading-relaxed border-l border-slate-600/80 pl-3">{flashcardIdentityAside}</p>

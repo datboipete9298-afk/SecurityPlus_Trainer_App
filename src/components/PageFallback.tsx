@@ -2,7 +2,7 @@
 export default function PageFallback() {
   return (
     <div
-      className="min-h-[50vh] flex flex-col items-center justify-center gap-3 text-slate-400 text-sm px-4"
+      className="min-h-[50vh] flex flex-col items-center justify-center gap-3 text-slate-400 text-sm px-4 ds-route-enter"
       role="status"
       aria-live="polite"
     >

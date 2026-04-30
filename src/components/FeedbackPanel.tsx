@@ -41,12 +41,12 @@ export default function FeedbackPanel({
 
   return (
     <div
-      className={`mt-4 space-y-4 border-t border-slate-800 pt-4 ${className}`}
+      className={`ds-soft-in mt-4 space-y-4 border-t border-slate-800 pt-4 ${className}`}
       role="status"
       aria-live="polite"
     >
       <div
-        className={`rounded-xl border px-4 py-3 flex items-start gap-3 ${
+        className={`rounded-xl border px-4 py-3 flex items-start gap-3 transition-[border-color,box-shadow] duration-200 ease-ds-out ${
           ok ? "border-emerald-600/60 bg-emerald-950/25" : "border-amber-600/45 bg-amber-950/20"
         }`}
       >
@@ -55,7 +55,7 @@ export default function FeedbackPanel({
         </span>
         <div>
           <p className={`text-sm font-bold ${ok ? "text-emerald-300" : "text-amber-100"}`}>
-            {ok ? "That’s right" : "Not quite — let’s break it down"}
+            {ok ? "Good — that matches the concept." : "Not quite — let’s break it down"}
           </p>
           <p className="text-sm text-slate-200 mt-2 leading-relaxed">{feedback.explanationSimple}</p>
           <p className={`text-xs mt-2 italic ${ok ? "text-slate-400" : "text-amber-100/80"}`}>

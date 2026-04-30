@@ -19,26 +19,24 @@ export default function LessonStepIndicator({ currentStep, strict }: Props) {
   const pct = Math.round((step / TOTAL_STEPS) * 100);
   return (
     <div
-      className="rounded-xl border border-slate-700/80 bg-slate-900/40 px-3 py-2.5"
+      className="rounded-xl border border-slate-800/80 bg-slate-900/50 px-3 py-3 sm:px-4 sm:py-3.5 shadow-sm"
       role="status"
       aria-live="polite"
       aria-label={`Lesson progress: step ${step} of ${TOTAL_STEPS}, ${label}`}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-[11px] text-slate-400">
-          <span className="text-emerald-300/95 font-semibold">You are here:</span>{" "}
+        <p className="text-ds-helper text-slate-400">
+          <span className="text-emerald-300/95 font-semibold">You are here · </span>
           <span className="text-slate-200 font-medium">
             Step {step} of {TOTAL_STEPS}
           </span>{" "}
-          · <span className="text-slate-300">{label}</span>
+          <span className="text-slate-500">—</span> <span className="text-slate-300">{label}</span>
         </p>
-        <p className="text-[10px] text-slate-500">
-          {strict ? "One step at a time" : "Free scroll on"}
-        </p>
+        <p className="text-ds-micro text-slate-500 uppercase tracking-wide">{strict ? "One step at a time" : "Free scroll"}</p>
       </div>
-      <div className="mt-2 h-1.5 rounded-full bg-slate-800 overflow-hidden" aria-hidden>
+      <div className="mt-2.5 h-1.5 rounded-full bg-slate-800/90 overflow-hidden" aria-hidden>
         <div
-          className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all"
+          className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 motion-reduce:transition-none transition-[width] duration-300 ease-ds-out"
           style={{ width: `${pct}%` }}
         />
       </div>

@@ -12,6 +12,7 @@ import { correctAnswerLabel } from "../../utils/quizHelpers";
 import { getNextSectionId } from "../../data/lessons";
 import CoachLine from "../CoachLine";
 import BeginnerFollowAlong, { type FollowAlongSuggestion } from "./BeginnerFollowAlong";
+import StudyFlowTimeline from "../StudyFlowTimeline";
 
 export type PauseContextPayload = {
   index: number;
@@ -125,6 +126,15 @@ export default function VideoStudyMode({
   const [selectedQ, setSelectedQ] = useState<number | null>(null);
   const [qcDone, setQcDone] = useState(false);
   const [qcFeedback, setQcFeedback] = useState<string | null>(null);
+  const fusionFlowStep = useMemo(() => {
+    const wrote = !!(checklist.wroteOneNote || notesForLesson.length > 0);
+    const drafting = mainIdea.trim().length >= 4 || keyword.trim().length > 0;
+    if (qcDone && checklist.quickCheckPassed) return 4;
+    if (qcDone) return 3;
+    if (wrote) return 2;
+    if (drafting) return 1;
+    return 0;
+  }, [checklist.wroteOneNote, checklist.quickCheckPassed, notesForLesson.length, mainIdea, keyword, qcDone]);
   const [proofBanner, setProofBanner] = useState<string | null>(null);
   const [pendingFlash, setPendingFlash] = useState<{ front: string; back: string } | null>(null);
 
@@ -306,7 +316,7 @@ export default function VideoStudyMode({
     setFcFront(sugFront);
     setFcBack(sugBack);
     setQcFeedback(null);
-    setProofBanner("Good — now prove it with one question.");
+    setProofBanner("Nice — that idea is locked in.");
     window.requestAnimationFrame(() => {
       qcBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
@@ -344,7 +354,7 @@ export default function VideoStudyMode({
     recordVideoFusionActivity(lessonId, ok ? "quick_check_pass" : "quick_check_wrong", { qid: qc.id });
     setQcDone(true);
     if (ok) {
-      setQcFeedback("You captured the right idea.");
+      setQcFeedback("Good — that matches the concept.");
       // One-time strong reinforcement — fires only on the FIRST correct
       // quick-check this session and only when the beginner follow-along
       // mode is active. Auto-clears after 6 s; never repeats.
@@ -354,7 +364,7 @@ export default function VideoStudyMode({
         window.setTimeout(() => setFirstQcRightAck(false), 6000);
       }
     } else {
-      setQcFeedback("Review your note — add the missing keyword.");
+      setQcFeedback("That’s normal — tweak your note, then try again. No rush.");
     }
   }, [checklist, lessonId, patchLessonProgress, qc, recordVideoFusionActivity, selectedQ, showFollowAlong]);
 
@@ -432,7 +442,7 @@ export default function VideoStudyMode({
           )}
           {(needsVideoUrl || estimatedWatchTimeMin != null) && (
             <div className="flex flex-wrap items-center gap-2 text-xs">
-              {needsVideoUrl ? <StatusBadge tone="warn">Verify video URL</StatusBadge> : null}
+              {needsVideoUrl ? <StatusBadge tone="warn">No exact video yet — playlist</StatusBadge> : null}
               {estimatedWatchTimeMin != null ?
                 <span className="text-slate-500">~{estimatedWatchTimeMin} min · Professor Messer</span>
               : null}
@@ -480,6 +490,7 @@ export default function VideoStudyMode({
         </div>
 
         <aside className={`min-w-0 space-y-4 ${minimal ? "" : "order-2 xl:sticky xl:top-4 xl:self-start"}`}>
+          <StudyFlowTimeline currentStep={fusionFlowStep} />
           <section className="rounded-xl border border-amber-800/45 bg-amber-950/25 px-3 py-3 space-y-2 text-xs text-amber-50/95 leading-relaxed">
             <p>
               <span aria-hidden>👇</span> <strong className="text-amber-100">Just follow along</strong> — don&apos;t overthink it.
@@ -614,7 +625,7 @@ export default function VideoStudyMode({
 
             <label className="block text-xs text-slate-500">Main idea (your words)</label>
             <textarea
-              className={minimal ? "w-full min-h-[56px] rounded-lg bg-slate-950 border border-slate-600 px-3 py-2 text-sm text-slate-100" : "w-full min-h-[72px] rounded-lg bg-slate-950 border border-slate-600 px-3 py-2 text-sm text-slate-100"}
+              className={minimal ? "w-full min-h-[56px] rounded-lg bg-slate-950 border border-slate-600 px-3 py-2.5 text-base sm:text-sm text-slate-100" : "w-full min-h-[72px] rounded-lg bg-slate-950 border border-slate-600 px-3 py-2.5 text-base sm:text-sm text-slate-100"}
               placeholder={minimal ? "One short retrieval line." : "One or two sentences — recognition, not transcription."}
               value={mainIdea}
               onChange={(e) => setMainIdea(e.target.value)}
@@ -623,7 +634,7 @@ export default function VideoStudyMode({
 
             <label className="block text-xs text-slate-500">Exam keyword</label>
             <input
-              className="w-full rounded-lg bg-slate-950 border border-slate-600 px-3 py-2 text-sm"
+              className="w-full rounded-lg bg-slate-950 border border-slate-600 px-3 py-2.5 text-base sm:text-sm"
               placeholder={minimal ? "One trigger word / acronym" : "Exact word STEM might use"}
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
@@ -634,7 +645,7 @@ export default function VideoStudyMode({
               <>
                 <label className="block text-xs text-slate-500">Likely trap / confusion</label>
                 <input
-                  className="w-full rounded-lg bg-slate-950 border border-slate-600 px-3 py-2 text-sm"
+                  className="w-full rounded-lg bg-slate-950 border border-slate-600 px-3 py-2.5 text-base sm:text-sm"
                   placeholder="e.g. vs similar control / port / protocol"
                   value={trap}
                   onChange={(e) => setTrap(e.target.value)}
@@ -642,7 +653,7 @@ export default function VideoStudyMode({
                 />
                 <label className="block text-xs text-slate-500">Say it simply (no looking)</label>
                 <textarea
-                  className="w-full min-h-[56px] rounded-lg bg-slate-950 border border-slate-600 px-3 py-2 text-sm"
+                  className="w-full min-h-[56px] rounded-lg bg-slate-950 border border-slate-600 px-3 py-2.5 text-base sm:text-sm"
                   placeholder="One breath — optional but powerful"
                   value={explainAloud}
                   onChange={(e) => setExplainAloud(e.target.value)}
@@ -656,13 +667,13 @@ export default function VideoStudyMode({
                 </summary>
                 <div className="space-y-2 pb-2">
                   <input
-                    className="w-full rounded-lg bg-slate-950 border border-slate-600 px-3 py-2 text-sm"
+                    className="w-full rounded-lg bg-slate-950 border border-slate-600 px-3 py-2.5 text-base sm:text-sm"
                     placeholder="Trap / confusion pair"
                     value={trap}
                     onChange={(e) => setTrap(e.target.value)}
                   />
                   <textarea
-                    className="w-full min-h-[48px] rounded-lg bg-slate-950 border border-slate-600 px-3 py-2 text-sm"
+                    className="w-full min-h-[48px] rounded-lg bg-slate-950 border border-slate-600 px-3 py-2.5 text-base sm:text-sm"
                     placeholder="Say it in one breath"
                     value={explainAloud}
                     onChange={(e) => setExplainAloud(e.target.value)}
@@ -727,7 +738,7 @@ export default function VideoStudyMode({
                 aria-live="polite"
               >
                 <p className="font-semibold text-white">Saved with your PDF.</p>
-                <p className="text-xs text-slate-300">You connected the video, PDF, and your note.</p>
+                <p className="text-xs text-slate-300">Saved on this device — review anytime in Brain Book on the lesson.</p>
               </div>
             )}
 
@@ -777,7 +788,7 @@ export default function VideoStudyMode({
                   <li key={`${qc.id}-${i}`}>
                     <button
                       type="button"
-                      className={`w-full text-left text-sm px-3 py-2 rounded-lg border min-h-[44px] touch-manipulation ${
+                      className={`w-full text-left text-sm px-3 py-2 rounded-lg border min-h-[44px] touch-manipulation transition-[border-color,background-color,opacity] duration-200 ease-ds-out ${
                         selectedQ === i ?
                           "border-emerald-500 bg-emerald-950/30 text-white"
                         : "border-slate-700 bg-slate-950/40 text-slate-200"
@@ -792,7 +803,7 @@ export default function VideoStudyMode({
               </ul>
               {!qcDone && (
                 <button type="button" className="btn text-sm min-h-[48px] w-full touch-manipulation" disabled={selectedQ === null} onClick={submitQuickCheck}>
-                  Check answer
+                  Lock answer
                 </button>
               )}
               {qcDone && qcFeedback && (
@@ -972,9 +983,9 @@ export default function VideoStudyMode({
             </p>
             <p className="text-xs text-slate-400">After your proof check — tighten wording, then save.</p>
             <label className="block text-xs text-slate-500">Front</label>
-            <input className="w-full rounded-lg bg-slate-950 border px-3 py-2 text-sm" value={fcFront} onChange={(e) => setFcFront(e.target.value)} />
+            <input className="w-full rounded-lg bg-slate-950 border px-3 py-2.5 text-base sm:text-sm" value={fcFront} onChange={(e) => setFcFront(e.target.value)} />
             <label className="block text-xs text-slate-500">Back</label>
-            <textarea className="w-full rounded-lg bg-slate-950 border px-3 py-2 text-sm min-h-[72px]" value={fcBack} onChange={(e) => setFcBack(e.target.value)} />
+            <textarea className="w-full rounded-lg bg-slate-950 border px-3 py-2.5 text-base sm:text-sm min-h-[72px]" value={fcBack} onChange={(e) => setFcBack(e.target.value)} />
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 type="button"

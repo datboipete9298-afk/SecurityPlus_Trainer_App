@@ -12,7 +12,7 @@ export default function ForeignWriteCue() {
   if (!cue) return null;
   return (
     <p
-      className="text-[11px] text-amber-100/95 leading-relaxed rounded-lg border border-amber-700/55 bg-amber-950/30 px-3 py-2"
+      className="text-xs text-amber-100/95 leading-relaxed rounded-lg border border-amber-700/55 bg-amber-950/30 px-3 py-2.5"
       role="status"
       aria-live="polite"
     >

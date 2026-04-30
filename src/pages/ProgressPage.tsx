@@ -135,10 +135,11 @@ export default function ProgressPage() {
       <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
         <div className="min-w-0 space-y-8">
           <PageHeader
+            eyebrow="Momentum & safety"
             title="Progress"
             purpose={
               <>
-                <strong className="text-slate-200">Your safety hub.</strong> Export when you finish a session. Import only to replace this device&apos;s copy. Nothing leaves your browser.
+                <strong className="text-slate-200">Your safety hub.</strong> Export after a solid session. Import only replaces this device&apos;s copy. Nothing leaves your browser unless you choose otherwise.
               </>
             }
             badge={<StatusBadge tone="ok">{pct}% course</StatusBadge>}
@@ -148,6 +149,23 @@ export default function ProgressPage() {
 
           <MultiTabHint />
           <ForeignWriteCue />
+
+          <SectionCard title="Keep moving" subtitle="Small wins compound">
+            <p className="text-ds-body text-slate-400 leading-relaxed">
+              What improved shows up in streaks, fusion stats, and domain scores. What&apos;s next is always on <strong className="text-slate-200">Home</strong> — export here when you want a backup.
+            </p>
+            <div className="mt-4 flex flex-col sm:flex-row gap-2">
+              <Link to="/" className="btn w-full sm:flex-1 text-center min-h-[44px] touch-manipulation">
+                Home
+              </Link>
+              <Link to="/weak" className="btn-ghost w-full sm:flex-1 text-center min-h-[44px] touch-manipulation border border-slate-600">
+                Weak areas
+              </Link>
+              <Link to="/practice-exams" className="btn-ghost w-full sm:flex-1 text-center min-h-[44px] touch-manipulation border border-slate-600">
+                Practice exams
+              </Link>
+            </div>
+          </SectionCard>
 
           <DailyMinimumCard lessonId={nextLesson ?? undefined} />
 
@@ -192,13 +210,13 @@ export default function ProgressPage() {
           <UsageSignalsPanel />
 
           <section
-            className="rounded-2xl border border-slate-700/85 bg-slate-900/40 px-4 py-4 space-y-2"
+            className="card border-slate-800/90 border-l-[3px] border-l-cyan-600/40 space-y-2"
             aria-labelledby="offline-ready-h"
           >
-            <h2 id="offline-ready-h" className="text-sm font-bold text-slate-100 uppercase tracking-wide">
+            <h2 id="offline-ready-h" className="text-ds-micro font-bold text-slate-300 uppercase tracking-wider">
               Offline ready
             </h2>
-            <p className="text-sm text-slate-300 leading-relaxed">
+            <p className="text-ds-body text-slate-300 leading-relaxed">
               After your first visit on a device, this app loads even with no internet. Notes, quizzes, and PDFs you’ve added still work.
               The study tutor falls back to the built-in coach when the API is unreachable.
             </p>
@@ -207,26 +225,26 @@ export default function ProgressPage() {
             </p>
           </section>
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="card">
-              <h2 className="font-semibold text-white">Course</h2>
-              <p className="text-3xl font-bold mt-2 text-emerald-400">{pct}%</p>
-              <p className="text-slate-400 text-sm">
-                {done} / {total} lessons (Messer order)
+          <div className="grid sm:grid-cols-2 gap-5">
+            <div className="card border-emerald-900/30">
+              <h2 className="text-ds-section text-white">Course</h2>
+              <p className="text-3xl font-bold mt-2 text-emerald-400 tabular-nums">{pct}%</p>
+              <p className="text-ds-helper text-slate-400 mt-1">
+                {done} / {total} lessons · Messer order
               </p>
-              <p className="text-slate-500 text-sm mt-2">
-                🔥 {state.streak} day streak · {state.xp} XP · {levelInfo.name} (next tier {levelInfo.next} XP)
+              <p className="text-ds-helper text-slate-500 mt-3 leading-relaxed">
+                {state.streak} day streak · {state.xp} XP · {levelInfo.name} (next tier {levelInfo.next} XP)
               </p>
             </div>
-            <div className="card">
-              <h2 className="font-semibold text-white">Exam readiness</h2>
-              <p className="text-xs text-emerald-300/90 font-medium mt-2 uppercase tracking-wide">Momentum</p>
-              <p className="text-xl font-semibold text-white mt-1">{track.headline}</p>
-              <p className="text-sm text-slate-400 mt-1 leading-relaxed">{track.sub}</p>
-              <p className="text-2xl font-bold mt-3 text-white">{r.score}</p>
-              <p className="text-slate-500 text-sm capitalize">{r.label.replace("_", " ")}</p>
-              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                This score reflects your activity here — use it to steer study, not as a pass/fail prediction.
+            <div className="card border-amber-900/25">
+              <h2 className="text-ds-section text-white">Exam readiness</h2>
+              <p className="text-ds-micro text-emerald-300/90 font-semibold mt-2 uppercase tracking-wider">Local signal</p>
+              <p className="text-ds-section text-white mt-1 leading-snug">{track.headline}</p>
+              <p className="text-ds-helper text-slate-400 mt-2 leading-relaxed">{track.sub}</p>
+              <p className="text-2xl font-bold mt-3 text-white tabular-nums">{r.score}</p>
+              <p className="text-ds-helper text-slate-500 capitalize">{r.label.replace("_", " ")}</p>
+              <p className="text-ds-helper text-slate-500 mt-3 leading-relaxed">
+                Practice-only signal — use it to steer, not as a pass/fail prediction.
               </p>
             </div>
           </div>
@@ -241,11 +259,11 @@ export default function ProgressPage() {
               ))}
             </ul>
             <Link to="/weak" className="btn mt-4 w-full text-center">
-              Open weak areas
+              Open repair queue
             </Link>
           </SectionCard>
 
-          <SectionCard title="Elite SOC lab portfolio" subtitle="Generated triage runs — shareable evidence of hands-on practice">
+          <SectionCard title="Elite SOC lab portfolio" subtitle="Hands-on triage drills — scores stay on this device like the rest of your progress">
             {elitePortfolioRows.length === 0 ? (
               <p className="text-sm text-slate-500">
                 Complete an Elite alert triage block inside any lesson’s training labs — your alignment scores anchor here automatically.
@@ -302,7 +320,9 @@ export default function ProgressPage() {
 
           <SectionCard title="Practice exam history" subtitle="Most recent attempts on this device">
             {examHistory.length === 0 ? (
-              <p className="text-sm text-slate-500">No scored attempts yet — open the practice exam hub.</p>
+              <p className="text-ds-body text-slate-500 leading-relaxed">
+                No scored attempts yet — run Exam A, B, or C from the practice hub. Each score simply shows where to study next.
+              </p>
             ) : (
               <ul className="text-sm text-slate-300 space-y-2">
                 {examHistory.map((a) => (

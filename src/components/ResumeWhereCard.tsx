@@ -18,7 +18,7 @@ export default function ResumeWhereCard({ state }: { state: PersistedState }) {
       </h2>
       {items.length === 0 ? (
         <p className="text-sm text-slate-400 leading-relaxed">
-          No saved activity yet — start your first lesson and the app will remember your last spot automatically.
+          Nothing bookmarked yet — open a lesson once and this list becomes your <strong className="text-slate-300">pick up where you left off</strong> row.
         </p>
       ) : (
         <p className="text-xs text-slate-400 leading-relaxed">Newest first — study rows stay above roadmap, search, and tools.</p>
@@ -55,7 +55,7 @@ export default function ResumeWhereCard({ state }: { state: PersistedState }) {
           to={`/lesson/${firstLessonId}`}
           className="btn w-full text-center min-h-[44px] touch-manipulation inline-block"
         >
-          Start your first lesson →
+          Do this next — first lesson →
         </Link>
       )}
     </section>

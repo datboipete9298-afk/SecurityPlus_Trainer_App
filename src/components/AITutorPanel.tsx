@@ -90,7 +90,15 @@ export type AITutorPanelContext = {
     pdfFileAvailable?: boolean;
   };
   /** Short excerpts from the local extracted PDF library (device-only). Never full PDFs. */
-  localPdfSnippets?: { fileName: string; pageIndex: number; excerpt: string }[];
+  localPdfSnippets?: {
+    fileName: string;
+    pageIndex: number;
+    excerpt: string;
+    pdfCategory?: string;
+    matchConfidence?: number;
+    matchReason?: string;
+    matchStrength?: "strong" | "medium" | "weak";
+  }[];
 };
 
 type Msg = { role: "user" | "assistant"; text: string; structured?: AiTutorResponse };
@@ -171,8 +179,11 @@ export default function AITutorPanel({ context, variant = "full", className }: P
 
   const coachFallback = useCallback(() => {
     const s0 = context.localPdfSnippets?.[0];
+    const cat = s0?.pdfCategory ? ` · ${s0.pdfCategory}` : "";
     const localPdfSnippetLine =
-      s0 ? `Your saved PDF “${s0.fileName}” (page ${s0.pageIndex}) lines up with this lesson — skim that page and match one heading to what you just heard.` : undefined;
+      s0 ?
+        `Your saved PDF “${s0.fileName}”${cat} (page ${s0.pageIndex}) lines up with this lesson — skim that page and match one heading to what you just heard.`
+      : undefined;
     return smartCoachOfflineResponse({
       coachLines: context.coachLines,
       lessonTitle: context.lesson?.title ?? context.pdfGuide?.sectionTitle,

@@ -51,7 +51,15 @@ export type AskTutorInput = {
   noteContext?: Record<string, unknown> | null;
   labContext?: Record<string, unknown> | null;
   pdfGuideContext?: Record<string, unknown> | null;
-  localPdfSnippets?: { fileName: string; pageIndex: number; excerpt: string }[] | null;
+  localPdfSnippets?: {
+    fileName: string;
+    pageIndex: number;
+    excerpt: string;
+    pdfCategory?: string;
+    matchConfidence?: number;
+    matchReason?: string;
+    matchStrength?: "strong" | "medium" | "weak";
+  }[] | null;
   simpleMode?: boolean;
 };
 

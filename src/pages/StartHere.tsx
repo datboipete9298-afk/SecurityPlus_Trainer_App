@@ -8,6 +8,7 @@ import PageHeader from "../components/PageHeader";
 import SectionCard from "../components/SectionCard";
 import NextActionCard from "../components/NextActionCard";
 import StatusBadge from "../components/StatusBadge";
+import { PRODUCT_PROMISE_LINE, PRODUCT_RHYTHM_LINE } from "../copy/productIdentity";
 
 const FIRST_LESSON_QUIZ_ID = COURSE_TOUR_LINKS.firstLesson.replace(/^\/lesson\//, "");
 
@@ -20,7 +21,7 @@ export default function StartHere() {
     <AppShell>
       <div className="max-w-3xl mx-auto space-y-6 pb-4 text-slate-200">
         <p className="text-base sm:text-lg text-slate-100 font-medium leading-snug text-center sm:text-left border border-emerald-800/40 bg-emerald-950/20 rounded-xl px-4 py-3">
-          Start here → follow the steps → this app guides you automatically.
+          {PRODUCT_PROMISE_LINE} Follow the steps below — {PRODUCT_RHYTHM_LINE.toLowerCase()}
         </p>
         <p className="text-xs text-slate-400 text-center sm:text-left leading-relaxed px-1">
           <strong className="text-slate-300">Heads up:</strong> any readiness or percentage in the app is a <strong className="text-slate-200">study guide</strong> from your practice here — not a promise about the real CompTIA exam. Official materials still rule for policy and live PBQ formats.
@@ -29,13 +30,18 @@ export default function StartHere() {
         <PageHeader
           eyebrow="Start here · Beginner-friendly"
           title="You don’t need any security background"
-          purpose="Security+ (SY0-701) in Professor Messer’s lesson order: videos, quizzes, flashcards, and safe labs. Tap the big green button below — the ☰ menu has the rest."
+          purpose={
+            <>
+              {PRODUCT_PROMISE_LINE} SY0-701 in Professor Messer’s lesson order: Professor Messer videos, quizzes, flashcards, and safe labs. Tap{" "}
+              <strong className="text-slate-200">Do this next</strong> below — the ☰ menu has the rest.
+            </>
+          }
           badge={<StatusBadge tone="ok">No login</StatusBadge>}
         />
 
         <NextActionCard
-          label="Start now"
-          description="Your first win: open the lesson, watch a few minutes, add one keyword, then try the short quiz. The app saves progress in this browser."
+          label="Do this next"
+          description="First win: open the lesson, watch a few minutes, save one keyword line to Brain Book, then check understanding with the short quiz. Progress stays in this browser until you export."
         >
           <Link
             to={COURSE_TOUR_LINKS.firstLesson}

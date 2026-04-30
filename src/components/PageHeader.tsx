@@ -11,19 +11,16 @@ type Props = {
 
 export default function PageHeader({ title, purpose, eyebrow, badge, actions, children }: Props) {
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          {eyebrow && <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">{eyebrow}</p>}
+    <header className="space-y-4 pb-1 border-b border-slate-800/60">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          {eyebrow && <p className="text-ds-micro text-slate-500 uppercase tracking-wider mb-1.5">{eyebrow}</p>}
           <h1 className="h1">{title}</h1>
-          {purpose && <p className="text-slate-400 text-sm max-w-2xl mt-1.5 leading-relaxed">{purpose}</p>}
+          {purpose && <p className="text-ds-body text-slate-400 max-w-2xl mt-2 leading-relaxed">{purpose}</p>}
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {badge}
-          {actions}
-        </div>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">{badge}{actions}</div>
       </div>
       {children}
-    </div>
+    </header>
   );
 }

@@ -12,3 +12,6 @@ tsconfig.tsbuildinfo
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Local playlist scrape / tooling output (do not ship)
+scripts/playlist-dump.jsonl

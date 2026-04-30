@@ -3,11 +3,15 @@ import { useMemo, useEffect } from "react";
 import { SECTION_ORDER } from "../data/sectionOrder";
 import { lessons } from "../data/lessons";
 import { useProgress } from "../context/ProgressContext";
-import { isLessonUnlocked } from "../utils/adaptive";
+import { getLessonOrderNudge } from "../utils/adaptive";
+import { formatMesserRoadmapVideoLine } from "../data/videoLessonGroups";
 import { nextLessonId } from "../utils/lessonOrder";
+import { examDomainShortTitle } from "../utils/identityPersonalization";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
 import AITutorPanel from "../components/AITutorPanel";
+
+const DOMAIN_ORDER = ["1", "2", "3", "4", "5"] as const;
 
 export default function Roadmap() {
   const { state, bumpStudyResume } = useProgress();
@@ -22,59 +26,101 @@ export default function Roadmap() {
         .map((d) => `Domain ${d}`),
     [state.domainScore],
   );
+
+  const sectionsByDomain = useMemo(() => {
+    const m = new Map<string, typeof SECTION_ORDER>();
+    for (const d of DOMAIN_ORDER) m.set(d, []);
+    for (const s of SECTION_ORDER) {
+      m.get(s.domain)?.push(s);
+    }
+    return DOMAIN_ORDER.map((domain) => ({ domain, sections: m.get(domain) ?? [] }));
+  }, []);
+
   return (
     <AppShell>
-      <div className="lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
-        <div className="min-w-0">
+      <div className="lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-8 items-start">
+        <div className="min-w-0 space-y-8">
           <PageHeader
-            title="Course roadmap (Messer order)"
-            purpose="Follow top to bottom. Each row unlocks when the previous item is marked complete. Do this next on Home always matches the first incomplete lesson in this list."
+            eyebrow="Lesson path"
+            title="Course roadmap"
+            purpose="Messer-ordered map of every section. Open any row when you want — Home still suggests the next incomplete lesson."
           />
-      <ol className="space-y-3">
-        {SECTION_ORDER.map((s, i) => {
-          const L = lessons[s.id];
-          const unlocked = isLessonUnlocked(s.id, state);
-          const done = state.completedLessons.includes(s.id);
-          const youHere = s.id === currentId && !done;
-          return (
-            <li
-              key={s.id}
-              className={`card flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3 ${
-                !unlocked ? "opacity-50" : ""
-              } ${youHere ? "ring-2 ring-emerald-600/50 bg-emerald-950/15" : ""}`}
-            >
-              <div className="min-w-0 text-[15px] sm:text-sm leading-snug">
-                <span className="text-slate-500 text-xs w-7 inline-block align-top">{i + 1}.</span>
-                <span className="text-slate-200 font-medium">{s.label}</span>
-                {L?.hasFullContent && (
-                  <span className="mt-1 sm:mt-0 sm:ml-2 block sm:inline text-xs rounded px-2 py-0.5 bg-emerald-900/50 text-emerald-300">
-                    Ready
-                  </span>
-                )}
-                {L && !L.hasFullContent && (
-                  <span className="mt-1 sm:mt-0 sm:ml-2 block sm:inline text-xs rounded px-2 py-0.5 bg-slate-800 text-slate-400">
-                    Coming soon
-                  </span>
-                )}
-                {youHere && (
-                  <span className="block sm:inline mt-1 sm:mt-0 sm:ml-2 text-xs text-emerald-300 font-semibold">· you are here</span>
-                )}
-                {!L && <span className="block sm:inline mt-1 text-xs text-slate-500">Coming soon</span>}
-              </div>
-              <div className="flex flex-wrap gap-2 items-center sm:shrink-0">
-                {done && <span className="text-xs text-emerald-400">done</span>}
-                {unlocked ? (
-                  <Link to={`/lesson/${s.id}`} className="btn text-sm w-full sm:w-auto">
-                    Open lesson
-                  </Link>
-                ) : (
-                  <span className="text-xs text-slate-500 py-2">locked</span>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+
+          <ol className="space-y-10 list-none p-0 m-0">
+            {sectionsByDomain.map(({ domain, sections }) => (
+              <li key={domain} className="space-y-4">
+                <div className="sticky top-0 z-[1] -mx-1 px-1 py-2 bg-slate-950/90 backdrop-blur-sm border-b border-slate-800/80">
+                  <h2 className="text-ds-micro font-bold uppercase tracking-wider text-slate-400">
+                    Domain {domain} · <span className="text-slate-300 normal-case font-medium">{examDomainShortTitle(domain)}</span>
+                  </h2>
+                </div>
+                <ol className="space-y-4 list-none p-0 m-0">
+                  {sections.map((s) => {
+                    const idx = SECTION_ORDER.findIndex((x) => x.id === s.id) + 1;
+                    const L = lessons[s.id];
+                    const done = state.completedLessons.includes(s.id);
+                    const youHere = s.id === currentId && !done;
+                    const orderNudge = getLessonOrderNudge(s.id, state);
+                    const actionLabel = done ? "Review lesson" : youHere ? "Pick up here" : "Open lesson";
+                    const pdfLine = L?.hasFullContent ? "Full lesson + quiz" : "PDF + quiz path";
+                    return (
+                      <li
+                        key={s.id}
+                        className={`card flex flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6 ${
+                          youHere ? "ring-1 ring-emerald-500/40 border-emerald-800/50 bg-emerald-950/10" : ""
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-ds-micro text-slate-500 tabular-nums font-semibold">#{idx}</span>
+                            {done ?
+                              <span className="text-ds-micro rounded-full border border-emerald-800/60 bg-emerald-950/30 px-2 py-0.5 text-emerald-200/95">
+                                Done
+                              </span>
+                            : youHere ?
+                              <span className="text-ds-micro rounded-full border border-amber-700/50 bg-amber-950/25 px-2 py-0.5 text-amber-100/95">
+                                Suggested next
+                              </span>
+                            : null}
+                          </div>
+                          <h3 className="text-ds-section text-white leading-snug">{s.label}</h3>
+                          <p className="text-ds-helper text-slate-400">
+                            Domain {s.domain}
+                            {L?.sectionNumber ? ` · ${L.sectionNumber}` : ""}
+                          </p>
+                          <div className="flex flex-col gap-1.5 pt-1">
+                            <p className="text-ds-helper text-slate-300">
+                              <span className="text-slate-500">Messer:</span> {formatMesserRoadmapVideoLine(s.id)}
+                            </p>
+                            <p className="text-ds-helper text-slate-400">
+                              <span className="text-slate-500">PDF / app:</span> {pdfLine}
+                            </p>
+                          </div>
+                          {youHere && <p className="text-ds-helper text-emerald-300/90 font-medium">You are here in the suggested path.</p>}
+                          {orderNudge && (
+                            <p className="text-ds-helper text-amber-200/90 leading-relaxed rounded-lg border border-amber-900/35 bg-amber-950/15 px-3 py-2">
+                              Order hint: usually after “{orderNudge.prevTitle}” — you can still open this now.
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2 sm:w-52 shrink-0 sm:justify-center">
+                          <Link to={`/lesson/${s.id}`} className="btn text-sm w-full text-center min-h-[44px] touch-manipulation justify-center">
+                            {actionLabel}
+                          </Link>
+                          <Link
+                            to={`/watch/${s.id}`}
+                            className="btn-ghost text-sm w-full text-center min-h-[44px] touch-manipulation justify-center border-slate-600"
+                          >
+                            Watch Messer videos
+                          </Link>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </li>
+            ))}
+          </ol>
         </div>
         <AITutorPanel
           className="lg:sticky lg:top-4 order-first lg:order-none"

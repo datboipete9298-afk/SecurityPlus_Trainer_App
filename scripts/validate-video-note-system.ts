@@ -20,7 +20,7 @@ function dead(reason: string): never {
 
 const modeSrc = read("src/components/video/VideoStudyMode.tsx");
 if (!modeSrc.includes("export default function VideoStudyMode")) dead("VideoStudyMode component missing");
-for (const s of ["videoFusionChecklist", "recordVideoFusionActivity", "Pause here and answer", "Smart note rules", "onPauseContextChange", "Good — now prove it with one question."]) {
+for (const s of ["videoFusionChecklist", "recordVideoFusionActivity", "Pause here and answer", "Smart note rules", "onPauseContextChange", "Nice — that idea is locked in."]) {
   if (!modeSrc.includes(s)) dead(`VideoStudyMode missing: "${s}"`);
 }
 

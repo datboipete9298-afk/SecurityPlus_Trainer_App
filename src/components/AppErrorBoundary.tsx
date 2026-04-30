@@ -26,11 +26,14 @@ export default class AppErrorBoundary extends Component<Props, State> {
             <p className="text-sm text-slate-400">
               <strong className="text-slate-200">Your progress is safe</strong> — quiz history, notes, and streak are still on this device. Reloading almost always clears it.
             </p>
-            <pre className="text-xs text-rose-300/90 overflow-auto max-h-32 rounded bg-slate-900 p-2">{this.state.err.message}</pre>
+            <details className="text-xs text-slate-500">
+              <summary className="cursor-pointer text-emerald-400/90 py-1 touch-manipulation min-h-[44px] sm:min-h-0">Technical details</summary>
+              <pre className="mt-2 text-rose-300/90 overflow-auto max-h-32 rounded bg-slate-900 p-2">{this.state.err.message}</pre>
+            </details>
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="btn" onClick={() => window.location.reload()}>
-                Reload
-              </button>
+            <button type="button" className="btn" onClick={() => window.location.reload()}>
+              Try again
+            </button>
               <Link to="/" className="btn-ghost">
                 Home
               </Link>

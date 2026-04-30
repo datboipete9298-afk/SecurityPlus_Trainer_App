@@ -60,7 +60,7 @@ test.describe("Security+ Trainer — minimal smoke", () => {
     await expect(page.getByText(/Page not found/i)).toBeVisible();
   });
 
-  test("Full-mode toggle shows 'Do this now' + 'You are here'", async ({ page, isMobile }) => {
+  test("Full-mode toggle shows primary cue + 'You are here'", async ({ page, isMobile }) => {
     // Mobile drawer hides the sidebar checkboxes behind the Menu button — keep
     // this test desktop-only to avoid flakiness driving the drawer open/close.
     if (isMobile) test.skip(true, "Sidebar toggles are desktop-only here; mobile uses a drawer.");
@@ -71,16 +71,18 @@ test.describe("Security+ Trainer — minimal smoke", () => {
     await page.getByRole("checkbox", { name: /Simple lesson view/i }).uncheck();
     await page.getByRole("checkbox", { name: /Beginner mode/i }).uncheck();
 
-    await expect(page.getByText(/Do this now/i).first()).toBeVisible();
+    await expect(page.getByText(/Do this next|This step/i).first()).toBeVisible();
     await expect(page.getByText(/You are here/i).first()).toBeVisible();
   });
 
-  test("Locked-lesson recovery: deep-link to a future lesson shows graceful fallback", async ({ page }) => {
-    // Fresh profile + deep-link to lesson 1-1 (next after 1-0). Should NOT crash;
-    // should render the "Lesson locked" page with a link back to the previous lesson.
+  test("Deep-link any lesson: future row opens (no hard lock)", async ({ page }) => {
     await page.goto(BASE + "/lesson/1-1");
-    await expect(page.getByRole("heading", { name: /Lesson locked/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Go to previous lesson/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Lesson not found/i })).not.toBeVisible();
+    await expect(page.getByRole("heading", { name: /Lesson locked/i })).not.toBeVisible();
+    await expect(page.locator("h1").first()).toBeVisible();
+    await expect(page.getByText(/Suggested path:|Watch · pause · prove it|Use your PDF to learn this/i).first()).toBeVisible({
+      timeout: 8000,
+    });
   });
 
   test("AI tutor never blanks out — structured badge is always rendered", async ({ page }) => {

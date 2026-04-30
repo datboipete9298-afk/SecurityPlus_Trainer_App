@@ -27,6 +27,7 @@ import SectionCard from "../components/SectionCard";
 import TrustReminderStrip from "../components/TrustReminderStrip";
 import FirstLoopCard from "../components/FirstLoopCard";
 import CoachLine from "../components/CoachLine";
+import { PRODUCT_PROMISE_LINE, PRODUCT_RHYTHM_LINE } from "../copy/productIdentity";
 
 export default function Dashboard() {
   const {
@@ -112,7 +113,7 @@ export default function Dashboard() {
     ? lessonsTouched < 1
       ? "Open any lesson for a few minutes."
       : notesToday < 1
-        ? "Add one short note in Brain Book."
+        ? "Save it to Brain Book — one short row."
         : quizToday < 2
           ? "Answer one or two more quiz questions."
           : null
@@ -123,11 +124,19 @@ export default function Dashboard() {
       <div className="lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
         <div className="space-y-6 min-w-0">
           <PageHeader
+            eyebrow="Security+ Trainer · SY0-701"
             title="Home"
             purpose={
-              isFreshUser
-                ? "Welcome. Local-first study app for Security+ — your progress saves on this device."
-                : "Use Do this next on Home — it picks the smartest move. Readiness reflects your practice here, not a real CompTIA score."
+              isFreshUser ? (
+                <>
+                  {PRODUCT_PROMISE_LINE} {PRODUCT_RHYTHM_LINE} Progress stays in this browser until you export.
+                </>
+              ) : (
+                <>
+                  {PRODUCT_PROMISE_LINE} Use the green <strong className="text-slate-200">Do this next</strong> action below.
+                  Readiness is a practice signal here — not an official CompTIA score.
+                </>
+              )
             }
           />
 
@@ -154,8 +163,8 @@ export default function Dashboard() {
               <FlowPrimaryStrip>
                 <ContinueButton step={nextStep} className="btn w-full text-center text-lg py-4 min-h-[52px]" coachHint="" />
               </FlowPrimaryStrip>
-              <p className="text-[11px] text-slate-500 text-center leading-snug">
-                The green box above always says what happens when you tap.
+              <p className="text-ds-helper text-slate-500 text-center leading-snug">
+                <strong className="text-slate-400 font-medium">Do this next</strong> always matches your coach queue — same line on mobile at the bottom.
               </p>
               <div className="rounded-xl border border-slate-700/85 bg-slate-900/40 px-4 py-3 text-center">
                 {resumeCue ? (
@@ -169,7 +178,9 @@ export default function Dashboard() {
                     {resumeCue.sub ? <p className="text-xs text-slate-500 mt-1.5 leading-snug">{resumeCue.sub}</p> : null}
                   </>
                 ) : (
-                  <p className="text-sm text-slate-400 leading-snug">Resume: bookmark a spot by opening any lesson, quiz, or PDF guide — it will appear here.</p>
+                  <p className="text-sm text-slate-400 leading-snug">
+                    <strong className="text-slate-300">Pick up where you left off:</strong> open any lesson, quiz, or PDF study guide once — your last spot surfaces here.
+                  </p>
                 )}
               </div>
               <p className="text-xs text-slate-500 text-center" aria-live="polite">
@@ -388,7 +399,9 @@ export default function Dashboard() {
                   )}
                 </div>
                 {hasSmallWinToday && (
-                  <p className="text-xs text-slate-500 mt-3 border-t border-slate-800 pt-2">You moved forward today.</p>
+                  <p className="text-xs text-slate-500 mt-3 border-t border-slate-800 pt-2">
+                    Nice — the app sees lesson, note, or quiz activity today. Small sessions still move the path.
+                  </p>
                 )}
               </div>
 
@@ -398,7 +411,7 @@ export default function Dashboard() {
                   <p className="text-xs text-emerald-300/90 font-medium mt-2 uppercase tracking-wide">From practice here only</p>
                   <p className="text-lg font-semibold text-white mt-1">{track.headline}</p>
                   <p className="text-sm text-slate-400 mt-1 leading-relaxed">{track.sub}</p>
-                  <p className="text-xs text-amber-200/90 mt-3">Not a pass guarantee.</p>
+                  <p className="text-xs text-amber-200/90 mt-3">This shows where to study next — not a pass guarantee.</p>
                   <div className="mt-2 h-3 rounded-full bg-slate-800 overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-amber-600 to-emerald-500 transition-all"
@@ -410,7 +423,8 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className="card">
-                  <h2 className="font-semibold text-white">Weak spots</h2>
+                  <h2 className="font-semibold text-white">Weak areas</h2>
+                  <p className="text-[11px] text-slate-500 mt-1 leading-snug">Repair queue — same hub as the menu.</p>
                   <ul className="mt-2 text-sm text-slate-300 space-y-1">
                     {Object.entries(state.domainScore)
                       .filter(([, v]) => v < 55)
@@ -422,7 +436,7 @@ export default function Dashboard() {
                     {Object.values(state.domainScore).every((v) => v >= 55) && <li>Balanced for now.</li>}
                   </ul>
                   <Link to="/weak" className="btn mt-3 w-full text-center">
-                    Fix weak areas
+                    Open repair queue
                   </Link>
                 </div>
               </div>

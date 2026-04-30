@@ -12,7 +12,7 @@ import StatusBadge from "../components/StatusBadge";
 import { readinessTrack, weakestDomainHintFromScores } from "../utils/readinessBand";
 import PracticeExamDraftResume from "../components/PracticeExamDraftResume";
 import TrustReminderStrip from "../components/TrustReminderStrip";
-import { readPracticeExamDraft } from "../utils/practiceExamDraft";
+import { readPracticeExamDraft, listPracticeExamDraftExamIds } from "../utils/practiceExamDraft";
 import CoachLine from "../components/CoachLine";
 
 const EXAMS = [
@@ -51,23 +51,34 @@ export default function PracticeExamsPage() {
 
   return (
     <AppShell>
-      <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-6 items-start">
+      <div className="max-w-5xl lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-8 items-start">
         <div className="min-w-0 space-y-8 max-w-2xl">
           <PracticeExamDraftResume />
+          {listPracticeExamDraftExamIds().length === 0 && (
+            <p
+              className="text-ds-helper text-slate-500 leading-relaxed rounded-xl border border-slate-800/70 bg-slate-950/30 px-3 py-3 ds-soft-in"
+              role="status"
+            >
+              <span className="block text-slate-400">No practice exam draft in this tab yet — you have not left a timed run open.</span>
+              <span className="block mt-1.5 text-slate-500">Start Exam A, B, or C in Exam mode; if you pause, a resume link appears here automatically.</span>
+              <span className="block mt-1.5 text-slate-600">Empty is normal until your first in-progress exam this session.</span>
+            </p>
+          )}
+          <PageHeader
+            eyebrow="Diagnostic runs"
+            title="Practice exam hub"
+            purpose="Timed exams show where to study next — they don’t measure your worth. Study mode checks each answer; Exam mode saves grading for review."
+            badge={<StatusBadge tone="accent">A · B · C</StatusBadge>}
+          />
           <FlowPrimaryStrip>
             <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />
           </FlowPrimaryStrip>
-          <PageHeader
-            title="Practice exam hub"
-            purpose="Pick an exam below — Exam mode saves grading for the end; Study mode checks each question. A score only shows where to study next; it does not measure your worth as a student."
-            badge={<StatusBadge tone="accent">A · B · C</StatusBadge>}
-          />
           <CoachLine k="practiceExamWhen" />
           <TrustReminderStrip dense />
 
-          <details className="rounded-2xl border border-slate-700 bg-slate-900/35 group">
+          <details className="ds-details rounded-2xl border border-slate-700/90 bg-slate-900/35 group open:shadow-ds-soft transition-shadow duration-200">
             <summary className="cursor-pointer list-none px-4 py-3 text-sm font-bold text-slate-100 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
-              <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+              <span className="mr-2 text-slate-600 group-open:text-emerald-400 transition-transform duration-200 group-open:rotate-90 inline-block">▸</span>
               Exam vs study mode (read if unsure)
             </summary>
             <div className="px-4 pb-4 border-t border-slate-800 pt-3">
@@ -88,13 +99,13 @@ export default function PracticeExamsPage() {
             </div>
           </details>
 
-          <div className="card border-slate-700 space-y-2">
-            <p className="text-xs uppercase text-slate-500">Exam readiness (local)</p>
-            <p className="text-xs text-emerald-300/90 font-medium uppercase tracking-wide">You&apos;re on track</p>
-            <p className="text-lg font-semibold text-white">{track.headline}</p>
-            <p className="text-sm text-slate-400 leading-relaxed">{track.sub}</p>
-            <p className="text-2xl font-semibold text-white pt-1">{readiness.score}%</p>
-            <p className="text-sm text-slate-500 capitalize">{readiness.label.replace("_", " ")}</p>
+          <div className="card border-slate-800/90 space-y-2">
+            <p className="text-ds-micro uppercase text-slate-500">Exam readiness (local)</p>
+            <p className="text-ds-micro text-emerald-300/90 font-semibold uppercase tracking-wide">You&apos;re on track</p>
+            <p className="text-ds-section text-white">{track.headline}</p>
+            <p className="text-ds-body text-slate-400 leading-relaxed">{track.sub}</p>
+            <p className="text-2xl font-semibold text-white pt-1 tabular-nums">{readiness.score}%</p>
+            <p className="text-ds-helper text-slate-500 capitalize">{readiness.label.replace("_", " ")}</p>
           </div>
 
           <SectionCard title="Quick practice (5 questions)" subtitle="No need for a full exam today">
@@ -187,7 +198,7 @@ export default function PracticeExamsPage() {
             </ul>
           </div>
 
-          <details className="rounded-2xl border border-slate-700 bg-slate-900/35 group">
+          <details className="ds-details rounded-2xl border border-slate-700/90 bg-slate-900/35 group open:shadow-ds-soft transition-shadow duration-200">
             <summary className="cursor-pointer list-none px-4 py-3 text-sm text-slate-400 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
               <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
               After a miss · flashcards · playlist

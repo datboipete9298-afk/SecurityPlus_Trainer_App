@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import AppShell from "../components/AppShell";
 import PageHeader from "../components/PageHeader";
 import { markUsage } from "../utils/localUsageSignals";
+import { PRODUCT_PROMISE_LINE } from "../copy/productIdentity";
 
 /** Clear route when bookmarks or deeplinks don’t exist — avoids silent redirects. */
 export default function NotFoundPage() {
@@ -14,7 +15,11 @@ export default function NotFoundPage() {
       <div className="max-w-xl space-y-6">
         <PageHeader
           title="Page not found"
-          purpose='That URL isn’t mapped in this trainer. Pick Home or search for a lesson number — nothing here broke your saved progress.'
+          purpose={
+            <>
+              That URL isn&apos;t in this build of Security+ Trainer. {PRODUCT_PROMISE_LINE} Pick Home or Search — nothing here touched your saved progress in this browser.
+            </>
+          }
         />
         <div className="card border-slate-700 space-y-4">
           <p className="text-sm text-slate-400 leading-relaxed">

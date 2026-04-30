@@ -117,7 +117,7 @@ function computeNextStep(s: PersistedState): NextStep {
       nextAction: `Strengthen Domain ${weaks[0]}`,
       why: "That domain is below 50 — the composite exam will test it.",
       href: "/weak",
-      buttonLabel: "Open weak areas",
+      buttonLabel: "Open repair queue",
       steps: [
         `Run quizzes tied to **Domain ${weaks[0]}** (weak list).`,
         `Turn misses into cards and re-quiz the same pattern until it’s boring.`,
@@ -134,7 +134,7 @@ function computeNextStep(s: PersistedState): NextStep {
       nextAction: `Repair last miss (${missLessonTitle})`,
       why: "Your journal logged a wrong pattern — same stems come back on the exam.",
       href: `/quiz/${lastMiss.lessonId}`,
-      buttonLabel: "Retake quiz",
+      buttonLabel: "Re-quiz to repair miss",
       steps: [
         `Re-open the quiz for **${missLessonTitle}** (from the lesson page or quizzes list) and read every wrong-answer line.`,
         `Add the miss to Flashcards if prompted and say the rule once out loud.`,

@@ -1,11 +1,11 @@
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { lessons, getNextSectionId, ORDERED_LESSON_IDS } from "../data/lessons";
+import { lessons, getNextSectionId } from "../data/lessons";
 import { getSectionOrderEntry } from "../data/sectionOrder";
 import { lessonAnticipationLine } from "../utils/stickinessCopy";
 import { useProgress, getNotesTodayCount } from "../context/ProgressContext";
 import { usePdfLibrary } from "../context/PdfLibraryContext";
-import { isLessonUnlocked } from "../utils/adaptive";
+import { getLessonOrderNudge } from "../utils/adaptive";
 import { questionsByLesson } from "../data/quizzes";
 import { getLabsForLesson } from "../data/labs";
 import type { BrainNote } from "../types";
@@ -41,7 +41,11 @@ import { markUsage, markUsageOnce } from "../utils/localUsageSignals";
 import MultiTabHint from "../components/MultiTabHint";
 import ForeignWriteCue from "../components/ForeignWriteCue";
 import CoachLine from "../components/CoachLine";
-import { snippetsForLesson, suggestedSearchPhrase } from "../utils/lessonPdfMatch";
+import OrderPathNudge from "../components/OrderPathNudge";
+import LessonPdfSourceTabs from "../components/LessonPdfSourceTabs";
+import LessonMesserVideoList from "../components/LessonMesserVideoList";
+import LessonStudyContextBar from "../components/LessonStudyContextBar";
+import { snippetsForLesson, suggestedSearchPhrase, pdfMatchHeadline } from "../utils/lessonPdfMatch";
 import type { PdfNotePrefillRoot } from "../utils/pdfSearchNoteLine";
 import { noteUnderstandingOverlap } from "../utils/pdfSearchNoteLine";
 
@@ -68,7 +72,8 @@ function LessonPdfPlaceholderBody({
   const { state, addNote } = useProgress();
   const roadmap = getSectionOrderEntry(lessonId);
   const title = lessons[lessonId]?.title ?? roadmap?.label ?? `Section ${lessonId}`;
-  const snippets = useMemo(() => snippetsForLesson(lessonId, title, pdfs), [lessonId, title, pdfs]);
+  const dom = lessons[lessonId]?.domain ?? roadmap?.domain;
+  const snippets = useMemo(() => snippetsForLesson(lessonId, title, pdfs, 3, 400, 3500, dom), [lessonId, title, pdfs, dom]);
   const inputRef = useRef<HTMLInputElement>(null);
   const prefillApplied = useRef(false);
 
@@ -130,7 +135,7 @@ function LessonPdfPlaceholderBody({
     const ans = qcAns.trim();
     if (!ans) return;
     const ok = noteUnderstandingOverlap(ans, lockedLine, lockedSnippet);
-    setQcFeedback(ok ? "Good — that matches the idea." : "Look at your note once, then say it simpler.");
+    setQcFeedback(ok ? "Good — that matches the concept." : "Look at your note once, then say it simpler.");
     setSavedPhase("checked");
   };
 
@@ -152,7 +157,10 @@ function LessonPdfPlaceholderBody({
     <div className="space-y-6">
       <section className="rounded-2xl border border-emerald-900/45 bg-gradient-to-b from-emerald-950/25 via-slate-950/50 to-slate-950/90 shadow-lg shadow-black/20 overflow-hidden">
         <div className="px-3 sm:px-4 py-3 border-b border-emerald-900/35 bg-slate-950/70">
-          <h2 className="text-emerald-200 font-bold text-sm sm:text-base leading-snug mb-3">Use your PDF to learn this</h2>
+          <h2 className="text-emerald-200 font-bold text-sm sm:text-base leading-snug mb-2">Study this section your way</h2>
+          <p className="text-xs text-slate-400 leading-relaxed mb-3 px-0">
+            <strong className="text-emerald-200/95">Use your PDF to learn this.</strong> This lesson is ready to study with your PDFs, notes, and quick checks. Follow the steps in order: read a short excerpt, write one line, save to Brain Book, check yourself, then continue to the quiz when you are ready.
+          </p>
           <nav aria-label="PDF study path: Read, Write, Save, Check, then quiz">
             <ol className="flex flex-wrap sm:flex-nowrap items-stretch gap-1 sm:gap-0 justify-between list-none m-0 p-0">
               {pdfStepLabels.map((label, i) => {
@@ -219,7 +227,26 @@ function LessonPdfPlaceholderBody({
         {limitMsg ? <p className="text-amber-200/95 text-sm px-3 sm:px-4">{limitMsg}</p> : null}
         {loading && pdfs.length === 0 ? <p className="text-xs text-slate-500 px-3 sm:px-4">Loading your saved PDF text…</p> : null}
         {snippets.length === 0 && pdfs.length > 0 ? (
-          <p className="text-sm text-slate-400 px-3 sm:px-4 pb-3">No strong heading match for this roadmap row — expand a PDF below or use Search.</p>
+          <p className="text-sm text-slate-400 px-3 sm:px-4 pb-3" role="status">
+            No auto-match for this section title in your saved PDFs yet — that is normal. Try{" "}
+            <Link to="/search" className="text-emerald-400 underline">
+              Search
+            </Link>{" "}
+            with a word you see on the page, or add another imported PDF on{" "}
+            <Link to="/import#local-text-pdfs" className="text-emerald-400 underline">
+              Import
+            </Link>
+            .
+          </p>
+        ) : null}
+        {snippets.length === 0 && pdfs.length === 0 && !loading ? (
+          <p className="text-sm text-slate-400 px-3 sm:px-4 pb-3" role="status">
+            No PDF text on this device yet — add files on{" "}
+            <Link to="/import#local-text-pdfs" className="text-emerald-400 underline">
+              Import
+            </Link>
+            . Your lesson path and quizzes still work without them.
+          </p>
         ) : null}
 
         {snippets.length > 0 && top ?
@@ -244,7 +271,13 @@ function LessonPdfPlaceholderBody({
                           </span>
                         </div>
                         <div className="flex-1 min-w-0 rounded-xl border border-slate-800/90 bg-slate-950/50 overflow-hidden">
-                          <p className="text-xs font-semibold text-emerald-200/95 px-3 pt-3">From your PDF</p>
+                          <p className="text-[11px] text-slate-400 px-3 pb-1 leading-snug">
+                            {pdfMatchHeadline(s.matchStrength)}{" "}
+                            <span className="text-slate-500">({s.categoryLabel})</span>
+                          </p>
+                          <p className="text-[11px] text-slate-500 px-3 pb-1">
+                            {s.fileName} · p.{s.pageIndex} · {s.matchReason}
+                          </p>
                           <p className="text-[11px] text-slate-500 px-3 pb-2 leading-snug">Read this first — your Write step is right below.</p>
                           <details className="border-b border-slate-800/80">
                             <summary className="cursor-pointer px-3 py-2 text-xs text-slate-400 hover:text-slate-300 touch-manipulation list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-2">
@@ -256,7 +289,7 @@ function LessonPdfPlaceholderBody({
                               <span className="text-slate-300 shrink-0">Page {s.pageIndex}</span>
                             </div>
                           </details>
-                          <pre className="text-xs text-slate-200 whitespace-pre-wrap p-3 max-h-56 overflow-auto leading-relaxed">{s.excerpt}</pre>
+                          <pre className="text-xs text-slate-200 whitespace-pre-wrap p-3 max-h-[min(14rem,45dvh)] overflow-auto leading-relaxed">{s.excerpt}</pre>
                         </div>
                       </div>
 
@@ -282,7 +315,7 @@ function LessonPdfPlaceholderBody({
                           <label className="block text-sm text-slate-200">
                             <span className="sr-only">Your note</span>
                             <textarea
-                              className="mt-1 w-full min-h-[64px] rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-sm text-slate-100"
+                              className="mt-1 w-full min-h-[72px] rounded-lg bg-slate-900 border border-slate-600 px-3 py-3 text-base sm:text-sm text-slate-100 leading-relaxed"
                               placeholder="One line in your own words…"
                               aria-label="Write one line for your Brain Book"
                               value={oneLine}
@@ -328,7 +361,7 @@ function LessonPdfPlaceholderBody({
                               role="status"
                               aria-live="polite"
                             >
-                              Saved to Brain Book — you can review this later.
+                              Saved — you can review this later.
                             </p>
                           : null}
                         </div>
@@ -357,7 +390,7 @@ function LessonPdfPlaceholderBody({
                             <p className="text-sm text-slate-300">Now prove it in one sentence.</p>
                             <p className="text-sm text-slate-200">Say this idea in your own words.</p>
                             <textarea
-                              className="w-full min-h-[56px] rounded-lg bg-slate-900 border border-slate-600 px-3 py-2 text-sm text-slate-100"
+                              className="w-full min-h-[64px] rounded-lg bg-slate-900 border border-slate-600 px-3 py-3 text-base sm:text-sm text-slate-100 leading-relaxed"
                               placeholder="One sentence…"
                               aria-label="Restate your idea in one sentence for the confidence check"
                               value={qcAns}
@@ -432,7 +465,7 @@ function LessonPdfPlaceholderBody({
                   : (
                     <div className="sm:pl-2 py-3">
                       <p className="text-xs font-semibold text-slate-500 px-3">More from your PDF</p>
-                      <pre className="text-xs text-slate-300 whitespace-pre-wrap p-3 max-h-40 overflow-auto">{s.excerpt}</pre>
+                      <pre className="text-xs text-slate-300 whitespace-pre-wrap p-3 max-h-[min(10rem,38dvh)] overflow-auto">{s.excerpt}</pre>
                     </div>
                   )}
                 </li>
@@ -446,7 +479,13 @@ function LessonPdfPlaceholderBody({
         <h2 className="text-white font-semibold text-sm">Full extracted text (every page)</h2>
         <p className="text-xs text-slate-500">Each block uses the page separator exactly as stored.</p>
         {pdfs.length === 0 ? (
-          <p className="text-sm text-slate-400">Choose PDF files on the Import page to see full text here.</p>
+          <p className="text-sm text-slate-400" role="status">
+            No full PDF text on this device yet —{" "}
+            <Link to="/import#local-text-pdfs" className="text-emerald-400 underline">
+              Import PDFs here
+            </Link>
+            . Lessons and quizzes work without them; this is optional reference text.
+          </p>
         ) : (
           <div className="space-y-2">
             {pdfs.map((p) => (
@@ -454,7 +493,7 @@ function LessonPdfPlaceholderBody({
                 <summary className="cursor-pointer px-3 py-2 text-sm text-emerald-300 hover:bg-slate-800/50 rounded-lg">
                   {p.fileName} <span className="text-slate-500">({p.pages.length} pages)</span>
                 </summary>
-                <pre className="text-xs text-slate-200 whitespace-pre-wrap p-3 max-h-[55vh] overflow-auto border-t border-slate-800 leading-relaxed">
+                <pre className="text-xs text-slate-200 whitespace-pre-wrap p-3 max-h-[min(55vh,28rem,70dvh)] overflow-auto border-t border-slate-800 leading-relaxed">
                   {p.pages.map((pg) => `--- Page ${pg.pageIndex} ---\n${pg.text}`).join("\n\n")}
                 </pre>
               </details>
@@ -513,6 +552,7 @@ export default function LessonPage() {
   const t0 = useRef(Date.now());
   const L = id ? lessons[id] : null;
   const roadmap = id ? getSectionOrderEntry(id) : undefined;
+  const domForPdf = id ? lessons[id]?.domain ?? roadmap?.domain : undefined;
   const placeholderTitle = id ? L?.title ?? roadmap?.label ?? `Section ${id}` : "";
 
   useEffect(() => {
@@ -538,6 +578,26 @@ export default function LessonPage() {
   const [noteAiMsg, setNoteAiMsg] = useState<string | null>(null);
   /** Mirrors VideoStudyMode’s active pause so the sidebar tutor matches the on-page prompt. */
   const [fusionPauseCtx, setFusionPauseCtx] = useState<PauseContextPayload | null>(null);
+
+  const LESSON_FOCUS_KEY = "spt_lesson_focus_v1";
+  const [lessonFocusUi, setLessonFocusUi] = useState(() => {
+    try {
+      return typeof sessionStorage !== "undefined" && sessionStorage.getItem(LESSON_FOCUS_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleLessonFocusUi = useCallback(() => {
+    setLessonFocusUi((v) => {
+      const next = !v;
+      try {
+        sessionStorage.setItem(LESSON_FOCUS_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     t0.current = Date.now();
@@ -588,8 +648,8 @@ export default function LessonPage() {
   const lessonPdfSnippets = useMemo(() => {
     if (!id) return [];
     const titleForMatch = L?.hasFullContent ? L.title : (L?.title ?? placeholderTitle);
-    return snippetsForLesson(id, titleForMatch, pdfs);
-  }, [id, L, placeholderTitle, pdfs]);
+    return snippetsForLesson(id, titleForMatch, pdfs, 3, 400, 3500, domForPdf);
+  }, [id, L, placeholderTitle, pdfs, domForPdf]);
 
   const localPdfFollowAlong = useMemo(() => {
     const top = lessonPdfSnippets[0];
@@ -598,7 +658,7 @@ export default function LessonPage() {
       fileName: top.fileName,
       pageIndex: top.pageIndex,
       snippet: top.excerpt.slice(0, 260),
-      searchPhrase: suggestedSearchPhrase(id, L.title),
+      searchPhrase: suggestedSearchPhrase(id, L.title, L.domain),
       importHref: `/import?pdf=${encodeURIComponent(top.pdfId)}&page=${top.pageIndex}#local-text-pdfs`,
     };
   }, [lessonPdfSnippets, id, L]);
@@ -609,6 +669,10 @@ export default function LessonPage() {
         fileName: s.fileName,
         pageIndex: s.pageIndex,
         excerpt: s.excerpt.slice(0, 520),
+        pdfCategory: s.categoryLabel,
+        matchConfidence: s.confidence,
+        matchReason: s.matchReason,
+        matchStrength: s.matchStrength,
       })),
     [lessonPdfSnippets],
   );
@@ -632,6 +696,12 @@ export default function LessonPage() {
     [lessonPdfSnippets],
   );
 
+  const orderPathNudge = useMemo(() => (id ? getLessonOrderNudge(id, state) : null), [id, state]);
+
+  const hasMesserNotesPdf = !!state.pdfLibrary?.localFileMeta?.["messer-course-notes-v107"];
+  const messerPdfGuideHref = `/pdf-guides/messer-course-notes-v107/${id}`;
+  const studyGuidePdfHref = `/pdf-guides/sy0-701-study-guide/${id}`;
+
   if (!id) {
     return (
       <div className="card max-w-xl space-y-3">
@@ -654,8 +724,19 @@ export default function LessonPage() {
           <PageHeader
             eyebrow={domainLine ?? "Lesson path"}
             title={phTitle}
-            purpose="This roadmap row does not ship a full guided body in the app yet. Text you add from your own PDFs shows below — it stays on this device only."
+            purpose="This lesson is ready to study with your PDFs, notes, and quick checks. Everything below stays on this device."
           />
+          <div id="lesson-study-focus" className="scroll-mt-28 h-px w-full" tabIndex={-1} />
+          <OrderPathNudge nudge={orderPathNudge} />
+          {id ?
+            <LessonPdfSourceTabs
+              lessonId={id}
+              domain={String(domForPdf ?? roadmap?.domain ?? "1")}
+              messerGuideHref={messerPdfGuideHref}
+              studyGuideHref={studyGuidePdfHref}
+              hasMesserPdf={hasMesserNotesPdf}
+            />
+          : null}
           {lessonPdfSnippets[0] ?
             <CoachLine>Your PDF excerpt is below — pause after each idea and write one hook in your own words.</CoachLine>
           : null}
@@ -699,32 +780,6 @@ export default function LessonPage() {
           </div>
         </div>
       </AppShell>
-    );
-  }
-
-  if (!isLessonUnlocked(id, state)) {
-    const idx = ORDERED_LESSON_IDS.indexOf(id);
-    const prevId = idx > 0 ? ORDERED_LESSON_IDS[idx - 1]! : null;
-    const prevTitle = prevId ? lessons[prevId]?.title ?? prevId : null;
-    return (
-      <div className="card max-w-2xl space-y-4">
-        <h1 className="h1">Lesson locked</h1>
-        <p className="text-slate-300">
-          You need to complete the previous lesson in Messer order before this one opens.
-        </p>
-        {prevTitle && prevId && (
-          <div className="rounded-xl border border-amber-800/40 bg-amber-950/20 p-4">
-            <p className="text-xs uppercase text-amber-200/90 font-semibold">Complete first</p>
-            <p className="text-lg font-semibold text-white mt-1">{prevTitle}</p>
-            <Link to={`/lesson/${prevId}`} className="btn mt-4 inline-block text-center w-full sm:w-auto">
-              Go to previous lesson →
-            </Link>
-          </div>
-        )}
-        <Link to="/roadmap" className="btn-ghost inline-block">
-          Full lesson path
-        </Link>
-      </div>
     );
   }
 
@@ -802,14 +857,12 @@ export default function LessonPage() {
       const seed = `${id}:${b.id}`;
       const confidence = pickConfidenceLine(seed);
       const next = pickNextLine("after-note", seed);
-      setNoteAiMsg(`Saved — tight note. ${confidence} ${next}`);
+      setNoteAiMsg(`Saved — you can review this later. ${confidence} ${next}`);
     }
   };
 
   const nxt = getNextSectionId(id) ?? null;
   const vMeta = getVideoForLesson(id);
-  const hasMesserNotesPdf = !!state.pdfLibrary?.localFileMeta?.["messer-course-notes-v107"];
-  const messerPdfGuideHref = `/pdf-guides/messer-course-notes-v107/${id}`;
   const beg = getBeginnerContent(L);
   const examI = getExamIntelligence(L);
   const lp = state.lessonProgress[id] ?? {};
@@ -987,7 +1040,16 @@ export default function LessonPage() {
             <PageHeader
               eyebrow={`Domain ${L.domain}${L.sectionNumber ? ` · Section ${L.sectionNumber}` : ""}`}
               title={L.title}
-              purpose="Fusion watch: video → one pause → one note → quick check — then finish the actions and quiz below."
+              purpose="Fusion watch: video → one pause → one note → quick check — then finish the actions and quiz below. You can study any lesson now; the app still suggests Messer order on Home."
+            />
+            <div id="lesson-study-focus" className="scroll-mt-28 h-px w-full" tabIndex={-1} />
+            <OrderPathNudge nudge={orderPathNudge} />
+            <LessonPdfSourceTabs
+              lessonId={id}
+              domain={L.domain}
+              messerGuideHref={messerPdfGuideHref}
+              studyGuideHref={studyGuidePdfHref}
+              hasMesserPdf={hasMesserNotesPdf}
             />
             <section className="card border-cyan-800/35 space-y-4" id="lesson-simple-fusion">
               <h2 className="text-cyan-300 font-bold text-sm uppercase">Watch · pause · prove it</h2>
@@ -1039,7 +1101,7 @@ export default function LessonPage() {
             <section className="card border-slate-700 space-y-3">
               <h2 className="text-slate-200 font-bold text-sm uppercase">Optional: say it in one breath</h2>
               <textarea
-                className="w-full min-h-[72px] bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm"
+                className="w-full min-h-[80px] bg-slate-800 border border-slate-700 rounded-xl p-3 py-3 text-base sm:text-sm leading-relaxed"
                 placeholder="Optional — 12+ characters helps lock it in"
                 value={teach}
                 onChange={(e) => setTeach(e.target.value)}
@@ -1097,38 +1159,76 @@ export default function LessonPage() {
     <AppShell>
       <div className="lg:grid lg:grid-cols-[1fr_minmax(280px,340px)] gap-8 items-start">
         <div className="space-y-10 min-w-0">
+          <PageHeader
+            eyebrow={`Domain ${L.domain}${L.sectionNumber ? ` · Section ${L.sectionNumber}` : ""}`}
+            title={L.title}
+            purpose="You’re in the right lesson. Follow the green strip for the next tap — steps scroll below in order."
+          />
+
+          {id ? <LessonStudyContextBar lessonId={id} hasCourseNotesPdf={hasMesserNotesPdf} /> : null}
+
           <FlowPrimaryStrip>
             <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />
           </FlowPrimaryStrip>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800/70 bg-slate-900/30 px-3 py-2.5">
+            <p className="text-ds-helper text-slate-400 min-w-0">
+              <span className="text-amber-200/90 font-medium">Focus mode</span> — hides path nudges so you can stay in the lesson.
+            </p>
+            <button
+              type="button"
+              onClick={toggleLessonFocusUi}
+              className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium touch-manipulation min-h-[44px] border transition-colors duration-200 ease-ds-out ${
+                lessonFocusUi ?
+                  "border-emerald-500/60 bg-emerald-950/35 text-emerald-100"
+                : "border-slate-600 bg-slate-950/50 text-slate-200 hover:bg-slate-800"
+              }`}
+              aria-pressed={lessonFocusUi ? "true" : "false"}
+              aria-label={lessonFocusUi ? "Exit focus mode" : "Enter focus mode"}
+            >
+              {lessonFocusUi ? "Exit focus" : "Enter focus"}
+            </button>
+          </div>
+
           <section
-            className="rounded-2xl border border-emerald-800/55 bg-gradient-to-br from-emerald-950/50 to-slate-950/40 px-4 py-4 space-y-2 shadow-lg shadow-emerald-950/20"
+            className="rounded-2xl border-l-[3px] border-l-amber-400/55 border border-slate-800/80 bg-slate-900/40 px-4 py-4 space-y-2 shadow-sm"
             aria-labelledby="lesson-do-now-heading"
           >
-            <h2 id="lesson-do-now-heading" className="text-[11px] font-bold uppercase tracking-wider text-emerald-300/95">
-              Do this now
+            <h2 id="lesson-do-now-heading" className="text-ds-micro font-bold uppercase tracking-wider text-amber-200/90">
+              This step
             </h2>
-            <p className="text-lg font-semibold text-white leading-snug">{doNowHint.headline}</p>
-            <p className="text-sm text-slate-300 leading-relaxed">{doNowHint.detail}</p>
-            <p className="text-xs text-emerald-200/80 border-t border-emerald-900/40 pt-2">
-              <span className="text-emerald-300/95 font-semibold">Loop:</span> Watch → pause → write one note → answer 3 questions.
+            <p className="text-ds-section text-white leading-snug">{doNowHint.headline}</p>
+            <p className="text-ds-body text-slate-400 leading-relaxed">{doNowHint.detail}</p>
+            <p className="text-ds-helper text-slate-500 border-t border-slate-800/80 pt-2">
+              <span className="text-emerald-300/90 font-medium">Rhythm:</span> Watch → pause → one note → a few quiz questions. Mistakes here are normal.
             </p>
-            <p className="text-xs text-slate-500">{doNowHint.then}</p>
+            <p className="text-ds-helper text-slate-600">{doNowHint.then}</p>
           </section>
 
           <LessonStepIndicator currentStep={flowStep} strict={lessonOneStepUi || state.beginnerMode} />
 
-          <MultiTabHint />
-          <ForeignWriteCue />
+          {!lessonFocusUi ?
+            <>
+              <MultiTabHint />
+              <ForeignWriteCue />
+            </>
+          : null}
 
-          <PageHeader
-            eyebrow={`Domain ${L.domain}${L.sectionNumber ? ` · Section ${L.sectionNumber}` : ""}`}
-            title={L.title}
-            purpose="Follow the green Do this now line — the steps below scroll in order."
+          {!lessonFocusUi ? <OrderPathNudge nudge={orderPathNudge} /> : null}
+
+          <LessonPdfSourceTabs
+            lessonId={id}
+            domain={L.domain}
+            messerGuideHref={messerPdfGuideHref}
+            studyGuideHref={studyGuidePdfHref}
+            hasMesserPdf={hasMesserNotesPdf}
           />
 
-          <details className="rounded-xl border border-slate-700 bg-slate-900/30 group mb-8">
-            <summary className="cursor-pointer list-none px-4 py-3 text-sm text-slate-400 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
-              <span className="mr-2 text-slate-600 group-open:text-emerald-400">▸</span>
+          <div id="lesson-study-focus" className="scroll-mt-28 h-px w-full" tabIndex={-1} />
+
+          <details className="ds-details rounded-xl border border-slate-700/90 bg-slate-900/25 group mb-8 open:shadow-ds-soft transition-shadow duration-200">
+            <summary className="cursor-pointer list-none px-4 py-3 text-ds-helper text-slate-400 touch-manipulation min-h-[48px] flex items-center [&::-webkit-details-marker]:hidden">
+              <span className="mr-2 text-slate-600 group-open:text-emerald-400 transition-transform duration-200 group-open:rotate-90 inline-block">▸</span>
               Lesson reference &amp; settings <span className="ml-1 text-slate-600">(optional)</span>
             </summary>
             <div className="px-3 pb-3 pt-0 border-t border-slate-800 space-y-3">
@@ -1240,7 +1340,7 @@ export default function LessonPage() {
         <div className="flex flex-wrap items-start justify-between gap-2 mt-2">
           <p className="text-xs text-slate-500">Step 1 of 10</p>
           {vMeta.needsVideoUrl && (
-            <span className="text-xs font-semibold rounded-full bg-amber-900/50 text-amber-200 px-2 py-0.5 border border-amber-600/50">Video link needs verification</span>
+            <span className="text-xs font-semibold rounded-full bg-amber-900/50 text-amber-200 px-2 py-0.5 border border-amber-600/50">No exact video yet — open playlist</span>
           )}
         </div>
         {vMeta.estimatedWatchTimeMin != null && <p className="text-xs text-slate-500 mt-1">~{vMeta.estimatedWatchTimeMin} min (estimate)</p>}
@@ -1270,6 +1370,8 @@ export default function LessonPage() {
               : "Default path: jumps to the embed below. Add your Messer notes PDF in PDF setup to unlock the combined PDF + guide flow."}
           </p>
         </div>
+
+        <LessonMesserVideoList lessonId={id} />
 
         <div id="lesson-step1-video" className="scroll-mt-28 mt-4">
           <VideoStudyMode
@@ -1315,10 +1417,7 @@ export default function LessonPage() {
                 <Link to={messerPdfGuideHref} className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm">
                   Open PDF guide (Messer notes)
                 </Link>
-                <Link
-                  to={`/pdf-guides/sy0-701-study-guide/${id}`}
-                  className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm"
-                >
+                <Link to={studyGuidePdfHref} className="btn-ghost w-full text-center min-h-[44px] touch-manipulation justify-center text-sm">
                   Open PDF guide (Study guide)
                 </Link>
               </div>
@@ -1951,7 +2050,7 @@ export default function LessonPage() {
 
         <h3 className="text-sm font-semibold text-white mt-4">Teach-back</h3>
         <textarea
-          className="w-full min-h-[100px] bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm mt-1"
+          className="w-full min-h-[108px] bg-slate-800 border border-slate-700 rounded-xl p-3 py-3 text-base sm:text-sm mt-1 leading-relaxed"
           placeholder="20+ chars: one breath summary + an exam keyword + one confusion to avoid"
           value={teach}
           onChange={(e) => setTeach(e.target.value)}

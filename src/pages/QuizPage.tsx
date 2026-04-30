@@ -1,5 +1,5 @@
 import { useParams, Link, useSearchParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { questionsByLesson } from "../data/quizzes";
 import { lessons } from "../data/lessons";
 import { useProgress } from "../context/ProgressContext";
@@ -110,6 +110,9 @@ export default function QuizPage() {
   );
 
   const [draftLoaded, setDraftLoaded] = useState(false);
+  /** Brief cue after autosaving Messer exam position (session-only). */
+  const [examDraftSavedAck, setExamDraftSavedAck] = useState(false);
+  const examDraftAckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Tutor mode: confidence before advancing or finishing */
   const [confidenceGate, setConfidenceGate] = useState<UserConfidenceLevel | null>(null);
   const [quizWrapUp, setQuizWrapUp] = useState(false);
@@ -136,7 +139,19 @@ export default function QuizPage() {
     setTeachDraft("");
     setMissFlashcardCue(null);
     setQuizIdentityLine(null);
+    setExamDraftSavedAck(false);
+    if (examDraftAckTimerRef.current) {
+      clearTimeout(examDraftAckTimerRef.current);
+      examDraftAckTimerRef.current = null;
+    }
   }, [id, mode, wrongOnly]);
+
+  useEffect(
+    () => () => {
+      if (examDraftAckTimerRef.current) clearTimeout(examDraftAckTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -387,6 +402,12 @@ export default function QuizPage() {
           ]),
         ),
       });
+      if (examDraftAckTimerRef.current) clearTimeout(examDraftAckTimerRef.current);
+      setExamDraftSavedAck(true);
+      examDraftAckTimerRef.current = setTimeout(() => {
+        setExamDraftSavedAck(false);
+        examDraftAckTimerRef.current = null;
+      }, 2200);
       bumpStudyResume({ practiceExamId: id });
       return;
     }
@@ -637,7 +658,7 @@ export default function QuizPage() {
             onClick={submitMultiStudy}
             disabled={picked.length === 0}
           >
-            Check my answer
+            Lock answer
           </button>
         );
       }
@@ -648,7 +669,7 @@ export default function QuizPage() {
           onClick={confirmSingleAnswer}
           disabled={sel == null}
         >
-          Check my answer
+          Lock answer
         </button>
       );
     }
@@ -744,6 +765,15 @@ export default function QuizPage() {
         </p>
         {isMesser && mode === "exam" && examPhase === "taking" && (
           <p className="text-xs text-slate-500 mt-1">Pick an answer, then use <strong className="text-slate-300">Do this next</strong> above.</p>
+        )}
+        {isMesser && mode === "exam" && examPhase === "taking" && examDraftSavedAck && (
+          <p
+            className="text-xs text-emerald-200/90 mt-2 ds-soft-in rounded-lg border border-emerald-800/40 bg-emerald-950/20 px-3 py-2 leading-relaxed"
+            role="status"
+            aria-live="polite"
+          >
+            Draft saved in this tab — step away anytime; resume from the practice hub when you return.
+          </p>
         )}
       </div>
       <div className="card mt-2">
@@ -925,11 +955,12 @@ export default function QuizPage() {
           return (
             <div className="mt-6 space-y-3 border-t border-slate-800 pt-4">
               <div
-                className="rounded-xl border border-emerald-800/45 bg-emerald-950/25 px-4 py-3 space-y-1"
+                className="rounded-xl border border-emerald-800/45 bg-emerald-950/25 px-4 py-3 space-y-1 ds-soft-in"
                 role="status"
                 aria-live="polite"
               >
-                <p className="text-sm text-emerald-100 font-medium">Run finished — {correctCount} / {sessionLog.length} this session.</p>
+                <p className="text-sm text-emerald-100 font-medium">Set complete — {correctCount} of {sessionLog.length} this round.</p>
+                <p className="text-xs text-slate-400">This shows where to study next — steady data, not a verdict.</p>
                 <p className="text-sm text-slate-200">{pair.confidence}</p>
                 <p className="text-xs text-emerald-200/85">{pair.next}</p>
               </div>

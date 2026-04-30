@@ -1,5 +1,5 @@
 import { SECTION_ORDER } from "./sectionOrder";
-import { KNOWN_YT } from "./knownYoutubeIds";
+import { getPrimaryMesserVideoIdForLesson } from "./videoLessonGroups";
 import { PROFESSOR_MESSER_COURSE_INDEX, messerVideoPage, youtubeEmbed, youtubeWatch } from "./videoConstants";
 
 /**
@@ -14,7 +14,7 @@ export type VideoMapEntry = {
   estimatedWatchTimeMin?: number;
   /** Set when the official YouTube id is known */
   youtubeVideoId?: string;
-  /** If true, UI shows “Video link needs verification” — add `youtubeVideoId` in `knownYoutubeIds.ts` from the official playlist. */
+  /** If true, UI shows playlist fallback — no primary row in the 121-video grouping for this study lesson. */
   needsVideoUrl?: boolean;
   /** Direct page for this *topic* on Professor Messer (when known). */
   professorMesserPageUrl?: string;
@@ -114,7 +114,7 @@ function buildEntry(id: string, label: string): VideoMapEntry {
   const section = sectionMatch ? sectionMatch[1]! : id;
   const title = `${label.replace(/^\d+\.\d+\s+/, "")} - CompTIA Security+ SY0-701 - ${section}`;
   const slug = MESSER_SLUG[id];
-  const yt = (KNOWN_YT as Record<string, string | undefined>)[id];
+  const yt = getPrimaryMesserVideoIdForLesson(id) ?? undefined;
   const pm = slug ? messerVideoPage(slug) : PROFESSOR_MESSER_COURSE_INDEX;
   return {
     title,
@@ -131,11 +131,11 @@ for (const s of SECTION_ORDER) {
   raw[s.id] = buildEntry(s.id, s.label);
 }
 
-/** 1.0 + 2.0 are section intros — point at course index until you map a specific intro video id. */
+/** 1.0 uses playlist #1 (course intro) when grouped — title override only. */
 raw["1-0"] = {
   ...raw["1-0"]!,
   title: "General Security Concepts (start here) - SY0-701",
-  needsVideoUrl: !KNOWN_YT["1-0"],
+  needsVideoUrl: !getPrimaryMesserVideoIdForLesson("1-0"),
   professorMesserPageUrl: PROFESSOR_MESSER_COURSE_INDEX,
 };
 raw["2-0"] = {
@@ -150,9 +150,24 @@ raw["5-0"] = {
   needsVideoUrl: true,
   professorMesserPageUrl: PROFESSOR_MESSER_COURSE_INDEX,
 };
+raw["3-0"] = {
+  ...raw["3-0"]!,
+  needsVideoUrl: !getPrimaryMesserVideoIdForLesson("3-0"),
+  professorMesserPageUrl: PROFESSOR_MESSER_COURSE_INDEX,
+};
+raw["3-iot"] = {
+  ...raw["3-iot"]!,
+  needsVideoUrl: !getPrimaryMesserVideoIdForLesson("3-iot"),
+  professorMesserPageUrl: PROFESSOR_MESSER_COURSE_INDEX,
+};
+raw["4-0"] = {
+  ...raw["4-0"]!,
+  needsVideoUrl: !getPrimaryMesserVideoIdForLesson("4-0"),
+  professorMesserPageUrl: PROFESSOR_MESSER_COURSE_INDEX,
+};
 raw["5-grc"] = {
   ...raw["5-grc"]!,
-  needsVideoUrl: true,
+  needsVideoUrl: !getPrimaryMesserVideoIdForLesson("5-grc"),
   professorMesserPageUrl: PROFESSOR_MESSER_COURSE_INDEX,
 };
 

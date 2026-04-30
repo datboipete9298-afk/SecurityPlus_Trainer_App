@@ -2,8 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 html {
   -webkit-text-size-adjust: 100%;
+  /* Keep in-view anchors / inputs clear of sticky header + mobile bottom bar when keyboard or hash scroll */
+  scroll-padding-top: max(4.5rem, env(safe-area-inset-top, 0px));
+  scroll-padding-bottom: max(6rem, env(safe-area-inset-bottom, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Subtle motion: opacity + transform only, 150–220ms. Disabled for reduced-motion via keyframes living outside forced duration on hover-only rules. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes ds-route-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .ds-route-enter {
+    animation: ds-route-enter 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes ds-tab-panel-enter {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .ds-tab-panel-enter {
+    animation: ds-tab-panel-enter 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes ds-soft-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .ds-soft-in {
+    animation: ds-soft-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.2),
+      0 14px 36px rgba(0, 0, 0, 0.22);
+    border-color: rgb(51 65 85 / 0.92);
+  }
 }
 
 @layer base {
@@ -18,24 +87,34 @@ html {
     outline-offset: 2px;
     border-radius: 0.25rem;
   }
-}
 
+  body {
+    @apply text-ds-body text-slate-200;
+  }
+}
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5 shadow-lg backdrop-blur;
+    @apply rounded-2xl border border-slate-800/90 bg-slate-900/55 p-4 sm:p-6 shadow-ds-soft backdrop-blur-sm
+      transition-[box-shadow,transform,border-color] duration-200 ease-ds-out;
   }
   .btn {
-    @apply inline-flex items-center justify-center rounded-xl px-4 py-3 sm:py-2.5 text-base sm:text-sm font-medium transition touch-manipulation
-      bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 disabled:pointer-events-none
-      min-h-[48px] sm:min-h-0 w-full sm:w-auto;
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-3 sm:py-2.5 text-base sm:text-sm font-semibold touch-manipulation
+      bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] motion-reduce:active:scale-100 text-white disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100
+      min-h-[48px] sm:min-h-[44px] w-full sm:w-auto
+      shadow-sm hover:shadow-ds-glow transition-[background-color,box-shadow,transform,opacity] duration-200 ease-ds-out;
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center rounded-xl px-4 py-3 sm:py-2.5 text-base sm:text-sm font-medium touch-manipulation
-      border border-slate-600 text-slate-200 hover:bg-slate-800
-      min-h-[48px] sm:min-h-0 w-full sm:w-auto;
+      border border-slate-600/90 text-slate-200 hover:bg-slate-800/90 hover:border-slate-500 active:scale-[0.99] motion-reduce:active:scale-100
+      min-h-[48px] sm:min-h-[44px] w-full sm:w-auto
+      transition-[background-color,border-color,transform,color] duration-200 ease-ds-out;
   }
   .h1 {
-    @apply text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight;
+    @apply text-ds-display sm:text-[1.875rem] sm:leading-[2.25rem] text-white;
+  }
+
+  details.ds-details > summary {
+    @apply transition-colors duration-200 ease-ds-out;
   }
 }

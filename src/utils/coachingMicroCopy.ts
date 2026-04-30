@@ -31,7 +31,7 @@ export const COACH_COPY = {
   sessionPacing: "20–30 minutes a day beats two-hour cram days. End each session with one quiz, not one more video.",
 
   /** Boss hub — set posture for the "I'll lose first try" feeling */
-  bossPosture: "Bosses reveal weak spots fast. Losing the first run is normal — follow the lesson it points to, then retry.",
+  bossPosture: "Bosses surface weak patterns fast. Losing the first run is normal — follow the lesson it points to, then retry.",
 } as const;
 
 export type CoachCopyKey = keyof typeof COACH_COPY;

@@ -2,11 +2,11 @@ export default function VideoEmbed({ embedUrl, title }: { embedUrl: string; titl
   if (!embedUrl) {
     return (
       <div className="rounded-xl border border-amber-700/50 bg-amber-950/30 p-6 text-center text-amber-100/90 text-sm">
-        <p className="font-semibold">Video link needs verification</p>
+        <p className="font-semibold">No exact YouTube match for this slot yet</p>
         <p className="text-xs mt-2 text-amber-200/80">
-          No official YouTube id is mapped for this section yet (three curriculum slots are verification-only until linked). Add the id in{" "}
-          <code className="text-amber-100/90">src/data/knownYoutubeIds.ts</code> from the public Professor Messer playlist, or open the course index /
-          &quot;Open YouTube&quot; on the lesson page to watch there.
+          Use <strong className="text-amber-50">Open playlist</strong> on the lesson page, or the Messer course index. When an official 11-character id is
+          confirmed for this section, it is added in <code className="text-amber-100/90">src/data/knownYoutubeIds.ts</code> — the lesson stays usable with PDFs,
+          notes, and quick checks.
         </p>
       </div>
     );

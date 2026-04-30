@@ -3,6 +3,8 @@
  * Separate from `localPdfStore` (registry PDF blobs for opening files).
  */
 
+import { classifyImportedPdfCategory, importedPdfCategoryLabel } from "../utils/pdfCategory";
+
 const DB_NAME = "spt_pdf_text_library_v1";
 const STORE = "pdfs";
 const DB_VERSION = 1;
@@ -20,6 +22,8 @@ export type PdfSearchHit = {
   fileName: string;
   pageIndex: number;
   snippet: string;
+  /** Display label from `classifyImportedPdfCategory` (Import / Search). */
+  categoryLabel?: string;
 };
 
 function openDb(): Promise<IDBDatabase> {
@@ -94,6 +98,7 @@ export function searchPages(query: string, pdfs: StoredPdfTextRecord[], limit = 
           fileName: pdf.fileName,
           pageIndex: page.pageIndex,
           snippet,
+          categoryLabel: importedPdfCategoryLabel(classifyImportedPdfCategory(pdf.fileName)),
         });
         count++;
         from = idx + q.length;

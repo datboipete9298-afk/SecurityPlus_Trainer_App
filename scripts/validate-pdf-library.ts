@@ -36,7 +36,7 @@ function main() {
   mustContain("src/pages/LessonPage.tsx", [
     "Use your PDF to learn this",
     "Save to Brain Book",
-    "Saved to Brain Book — you can review this later.",
+    "Saved — you can review this later.",
     "Say this idea in your own words.",
     "Open quick quiz for this lesson",
     "Back to lesson path",
