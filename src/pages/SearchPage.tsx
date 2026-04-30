@@ -6,6 +6,8 @@ import { allQuestions } from "../data/quizzes";
 import { flashcards } from "../data/flashcards";
 import { labs } from "../data/labs";
 import { SECTION_ORDER } from "../data/sectionOrder";
+import { MESSER_COURSE_NOTES_TOC } from "../data/messerCourseNotesToc";
+import { EXAM_STUDY_GUIDE_TOC } from "../data/examStudyGuideToc";
 import { getVideoForLesson } from "../data/videoMap";
 import { searchPdfLibrary } from "../utils/lessonPdfMatch";
 import type { PdfSearchHit } from "../utils/lessonPdfMatch";
@@ -44,6 +46,8 @@ export default function SearchPage() {
         sec: [] as { id: string; label: string; domain: string }[],
         pdf: [] as ReturnType<typeof searchPdfLibrary>,
         lessonForPdf: new Map<string, PdfLessonMatchRow | null>(),
+        courseNotesHits: [] as typeof MESSER_COURSE_NOTES_TOC,
+        studyGuideHits: [] as typeof EXAM_STUDY_GUIDE_TOC,
       };
     const L = Object.values(lessons).filter(
       (l) =>
@@ -68,7 +72,13 @@ export default function SearchPage() {
       const rec = pdfs.find((p) => p.id === h.pdfId);
       lessonForPdf.set(h.pdfId, rec ? topLessonsForImportedPdf(rec, 1)[0] ?? null : null);
     }
-    return { lessons: L.map((l) => l.id), qu: Q, fc: F, lab: Lab, sec, pdf, lessonForPdf };
+    const courseNotesHits = MESSER_COURSE_NOTES_TOC.filter(
+      (r) => r.title.toLowerCase().includes(s) || r.objective.toLowerCase().includes(s),
+    ).slice(0, 24);
+    const studyGuideHits = EXAM_STUDY_GUIDE_TOC.filter(
+      (r) => r.title.toLowerCase().includes(s) || r.sectionPath.toLowerCase().includes(s),
+    ).slice(0, 24);
+    return { lessons: L.map((l) => l.id), qu: Q, fc: F, lab: Lab, sec, pdf, lessonForPdf, courseNotesHits, studyGuideHits };
   }, [q, pdfs]);
 
   const sendPdfHitToBrainBook = useCallback(
@@ -100,7 +110,9 @@ export default function SearchPage() {
       results.qu.length > 0 ||
       results.fc.length > 0 ||
       results.lab.length > 0 ||
-      results.pdf.length > 0);
+      results.pdf.length > 0 ||
+      results.courseNotesHits.length > 0 ||
+      results.studyGuideHits.length > 0);
 
   return (
     <AppShell>
@@ -162,6 +174,44 @@ export default function SearchPage() {
 
         {hasResults && (
           <div className="space-y-8 text-ds-body">
+            {results.courseNotesHits.length > 0 && (
+              <SectionCard title="Course Notes outline" subtitle="Expected PDF TOC — opens lesson with topic focus">
+                <ul className="space-y-3">
+                  {results.courseNotesHits.filter((r) => r.lessonId).map((r) => (
+                      <li key={r.tocId} className="rounded-xl border border-slate-800/85 bg-slate-950/35 px-3 py-3">
+                        <p className="text-ds-micro text-slate-500">
+                          {r.objective} · p.{r.pdfPage}
+                        </p>
+                        <Link
+                          to={`/lesson/${r.lessonId}?toc=${encodeURIComponent(r.tocId)}`}
+                          className="text-ds-section text-emerald-300 hover:text-emerald-200 font-medium"
+                        >
+                          {r.title}
+                        </Link>
+                      </li>
+                  ))}
+                </ul>
+              </SectionCard>
+            )}
+
+            {results.studyGuideHits.length > 0 && (
+              <SectionCard title="Exam Study Guide outline" subtitle="Separate book structure — deep link into lesson + PDF tab">
+                <ul className="space-y-3">
+                  {results.studyGuideHits.filter((r) => r.lessonId).map((r) => (
+                      <li key={r.tocId} className="rounded-xl border border-slate-800/85 bg-slate-950/35 px-3 py-3">
+                        <p className="text-ds-helper text-slate-500 line-clamp-2">{r.sectionPath}</p>
+                        <Link
+                          to={`/lesson/${r.lessonId}?sg=${encodeURIComponent(r.tocId)}`}
+                          className="text-ds-section text-emerald-300 hover:text-emerald-200 font-medium"
+                        >
+                          {r.title}
+                        </Link>
+                      </li>
+                  ))}
+                </ul>
+              </SectionCard>
+            )}
+
             {results.sec.length > 0 && (
               <SectionCard title="Lesson path" subtitle="Sections that match your search">
                 <ul className="space-y-3">

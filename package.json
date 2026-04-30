@@ -20,6 +20,7 @@
     "validate:full-curriculum": "tsx scripts/validate-full-curriculum.ts",
     "validate:messer-alignment": "tsx scripts/validate-professor-messer-alignment.ts",
     "validate:messer-121": "tsx scripts/validate-professor-messer-121-videos.ts",
+    "validate:no-missing-lessons": "tsx scripts/validate-no-missing-lessons.ts",
     "validate:ai": "node scripts/validate-ai-system.mjs",
     "validate:ai-integration": "node scripts/validate-ai-integration.mjs",
     "validate:video-notes": "tsx scripts/validate-video-note-system.ts",
@@ -27,7 +28,7 @@
     "validate:flow-smoke": "tsx scripts/validate-flow-smoke.ts",
     "validate:ai-quality": "tsx scripts/validate-ai-quality-stress.ts",
     "test:e2e": "playwright test --config=tests/e2e/playwright.config.ts",
-    "build": "npm run validate:data && npm run validate:feedback && npm run validate:training && npm run validate:elite-labs && npm run validate:videos && npm run validate:pdf-guides && npm run validate:pdf-upload && npm run validate:pdf-library && npm run validate:full-curriculum && npm run validate:messer-alignment && npm run validate:messer-121 && npm run validate:video-notes && npm run validate:production && npm run validate:ai-quality && tsc -b && vite build && npm run validate:flow-smoke",
+    "build": "npm run validate:data && npm run validate:feedback && npm run validate:training && npm run validate:elite-labs && npm run validate:videos && npm run validate:pdf-guides && npm run validate:pdf-upload && npm run validate:pdf-library && npm run validate:full-curriculum && npm run validate:messer-alignment && npm run validate:messer-121 && npm run validate:no-missing-lessons && npm run validate:video-notes && npm run validate:production && npm run validate:ai-quality && tsc -b && vite build && npm run validate:flow-smoke",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },

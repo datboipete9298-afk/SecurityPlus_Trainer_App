@@ -5,6 +5,7 @@ import { lessons } from "../data/lessons";
 import { useProgress } from "../context/ProgressContext";
 import { getLessonOrderNudge } from "../utils/adaptive";
 import { formatMesserRoadmapVideoLine } from "../data/videoLessonGroups";
+import { courseNotesTocRowsForLesson } from "../data/messerCourseNotesToc";
 import { nextLessonId } from "../utils/lessonOrder";
 import { examDomainShortTitle } from "../utils/identityPersonalization";
 import AppShell from "../components/AppShell";
@@ -63,6 +64,9 @@ export default function Roadmap() {
                     const orderNudge = getLessonOrderNudge(s.id, state);
                     const actionLabel = done ? "Review lesson" : youHere ? "Pick up here" : "Open lesson";
                     const pdfLine = L?.hasFullContent ? "Full lesson + quiz" : "PDF + quiz path";
+                    const cnRows = courseNotesTocRowsForLesson(s.id);
+                    const subtopicLine =
+                      cnRows.length > 1 ? `${cnRows.length} Course Notes topics on this card` : cnRows.length === 1 ? "1 Course Notes topic" : null;
                     return (
                       <li
                         key={s.id}
@@ -95,6 +99,11 @@ export default function Roadmap() {
                             <p className="text-ds-helper text-slate-400">
                               <span className="text-slate-500">PDF / app:</span> {pdfLine}
                             </p>
+                            {subtopicLine ?
+                              <p className="text-ds-helper text-slate-500">
+                                <span className="text-slate-500">Course Notes:</span> {subtopicLine}
+                              </p>
+                            : null}
                           </div>
                           {youHere && <p className="text-ds-helper text-emerald-300/90 font-medium">You are here in the suggested path.</p>}
                           {orderNudge && (

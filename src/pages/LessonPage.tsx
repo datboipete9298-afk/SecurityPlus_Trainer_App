@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { lessons, getNextSectionId } from "../data/lessons";
 import { getSectionOrderEntry } from "../data/sectionOrder";
@@ -45,6 +45,8 @@ import OrderPathNudge from "../components/OrderPathNudge";
 import LessonPdfSourceTabs from "../components/LessonPdfSourceTabs";
 import LessonMesserVideoList from "../components/LessonMesserVideoList";
 import LessonStudyContextBar from "../components/LessonStudyContextBar";
+import LessonCourseNotesSubtopicsPanel from "../components/LessonCourseNotesSubtopicsPanel";
+import LessonStudyGuideAnchorBanner from "../components/LessonStudyGuideAnchorBanner";
 import { snippetsForLesson, suggestedSearchPhrase, pdfMatchHeadline } from "../utils/lessonPdfMatch";
 import type { PdfNotePrefillRoot } from "../utils/pdfSearchNoteLine";
 import { noteUnderstandingOverlap } from "../utils/pdfSearchNoteLine";
@@ -530,6 +532,9 @@ export default function LessonPage() {
   const { id } = useParams();
   const nav = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const tocFocus = searchParams.get("toc");
+  const sgFocus = searchParams.get("sg");
   const pdfPrefillFromNav = (location.state as PdfNotePrefillRoot | null)?.sptPdfNotePrefill;
   const clearPdfPrefillNav = useCallback(() => nav(".", { replace: true, state: {} }), [nav]);
   const {
@@ -728,6 +733,10 @@ export default function LessonPage() {
           />
           <div id="lesson-study-focus" className="scroll-mt-28 h-px w-full" tabIndex={-1} />
           <OrderPathNudge nudge={orderPathNudge} />
+          {id ?
+            <LessonStudyGuideAnchorBanner lessonId={id} sgTocId={sgFocus} studyGuidePdfHref={studyGuidePdfHref} />
+          : null}
+          {id ? <LessonCourseNotesSubtopicsPanel lessonId={id} tocFocus={tocFocus} /> : null}
           {id ?
             <LessonPdfSourceTabs
               lessonId={id}
@@ -1044,6 +1053,8 @@ export default function LessonPage() {
             />
             <div id="lesson-study-focus" className="scroll-mt-28 h-px w-full" tabIndex={-1} />
             <OrderPathNudge nudge={orderPathNudge} />
+            <LessonStudyGuideAnchorBanner lessonId={id} sgTocId={sgFocus} studyGuidePdfHref={studyGuidePdfHref} />
+            <LessonCourseNotesSubtopicsPanel lessonId={id} tocFocus={tocFocus} />
             <LessonPdfSourceTabs
               lessonId={id}
               domain={L.domain}
@@ -1166,6 +1177,9 @@ export default function LessonPage() {
           />
 
           {id ? <LessonStudyContextBar lessonId={id} hasCourseNotesPdf={hasMesserNotesPdf} /> : null}
+
+          <LessonStudyGuideAnchorBanner lessonId={id} sgTocId={sgFocus} studyGuidePdfHref={studyGuidePdfHref} />
+          <LessonCourseNotesSubtopicsPanel lessonId={id} tocFocus={tocFocus} />
 
           <FlowPrimaryStrip>
             <ContinueButton step={nextStep} className="btn w-full text-center min-h-[48px] touch-manipulation" coachHint="" />

@@ -16,6 +16,7 @@ import { enrichMesserCourseNotesToc } from "../utils/messerTocVideoEnrichment";
 import { EXAM_STUDY_GUIDE_TOC } from "../data/examStudyGuideToc";
 import { PRACTICE_EXAMS_BOOK_TOC } from "../data/practiceExamsBookToc";
 import { lessons } from "../data/lessons";
+import { practiceExamsBookRowRoute } from "../data/securityPlus701CanonicalCoverage";
 
 const REGISTRY_KIND_LABEL: Record<string, string> = {
   notes: "Professor Messer Course Notes",
@@ -216,8 +217,14 @@ export default function PdfGuideHubPage() {
                       <span className="rounded-full border border-slate-700/90 px-2 py-0.5 text-ds-micro text-amber-200/90 capitalize">
                         {r.videoMatchStatus.replace(/_/g, " ")}
                       </span>
+                      <span className="rounded-full border border-slate-600/90 px-2 py-0.5 text-ds-micro text-slate-400 capitalize">
+                        {r.mapStatus.replace(/_/g, " ")}
+                      </span>
                       {r.lessonId ?
-                        <Link to={`/lesson/${r.lessonId}`} className="text-emerald-400 hover:text-emerald-300 underline-offset-2 min-h-[44px] inline-flex items-center touch-manipulation">
+                        <Link
+                          to={`/lesson/${r.lessonId}?toc=${encodeURIComponent(r.tocId)}`}
+                          className="text-emerald-400 hover:text-emerald-300 underline-offset-2 min-h-[44px] inline-flex items-center touch-manipulation"
+                        >
                           {lessons[r.lessonId]?.title ?? r.lessonId}
                         </Link>
                       : null}
@@ -266,11 +273,21 @@ export default function PdfGuideHubPage() {
                   <li key={r.tocId} className="px-4 py-3 hover:bg-slate-900/45 transition-colors">
                     <span className="text-ds-helper text-slate-500 block">{r.sectionPath}</span>
                     <span className="text-ds-body text-slate-100">{r.title}</span>
-                    {r.lessonId ?
-                      <Link to={`/lesson/${r.lessonId}`} className="mt-2 inline-flex min-h-[44px] items-center text-ds-helper text-emerald-400 hover:text-emerald-300 underline-offset-2 touch-manipulation">
-                        Open lesson · {lessons[r.lessonId]?.title ?? r.lessonId}
-                      </Link>
-                    : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-ds-helper">
+                      <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] uppercase text-slate-400">
+                        {r.mapStatus.replace(/_/g, " ")}
+                      </span>
+                      {r.lessonId ?
+                        <Link
+                          to={`/lesson/${r.lessonId}?sg=${encodeURIComponent(r.tocId)}`}
+                          className="inline-flex min-h-[44px] items-center text-emerald-400 hover:text-emerald-300 underline-offset-2 touch-manipulation"
+                        >
+                          Open lesson · {lessons[r.lessonId]?.title ?? r.lessonId}
+                        </Link>
+                      : (
+                        <span className="text-slate-500">Needs manual review — open PDF hub tabs to map.</span>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -338,8 +355,16 @@ export default function PdfGuideHubPage() {
               <ul className="divide-y divide-slate-800/80 text-ds-body text-slate-300">
                 {PRACTICE_EXAMS_BOOK_TOC.map((r) => (
                   <li key={r.tocId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-slate-900/40 transition-colors">
-                    <span className="text-slate-200">{r.title}</span>
-                    <span className="text-ds-helper text-slate-500 tabular-nums">p.{r.pdfPage}</span>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <span className="text-slate-200 block">{r.title}</span>
+                      <span className="text-ds-helper text-slate-500 tabular-nums">Book p.{r.pdfPage}</span>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-full border border-slate-700 px-2 py-0.5 text-slate-400 uppercase">{r.mapStatus.replace(/_/g, " ")}</span>
+                        <Link to={practiceExamsBookRowRoute(r)} className="text-emerald-400 underline min-h-[44px] inline-flex items-center">
+                          Open in app
+                        </Link>
+                      </div>
+                    </div>
                   </li>
                 ))}
               </ul>
